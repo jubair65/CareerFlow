@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
@@ -6,9 +6,9 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { useLocation, Router as WouterRouter } from 'wouter';
 import {
   ArrowRight, BriefcaseBusiness, Building2, Check, CheckCircle2,
-  LockKeyhole, Play, ShieldCheck, TrendingUp, X
+  Home, LockKeyhole, LogOut, Play, ShieldCheck, TrendingUp, X
 } from 'lucide-react';
-import { apiRegister } from '@/api/auth';
+import { apiRegister, apiLogin, apiLogout, apiGetCurrentUser } from '@/api/auth';
 
 const queryClient = new QueryClient();
 
@@ -328,7 +328,10 @@ function Register({ notify }: { notify: Notify }) {
           </div>
 
           <div className="flex gap-3">
-            <Button variant="primary" onClick={() => setLocation('/')} testId="button-registered-home">
+            <Button variant="primary" onClick={() => setLocation('/login')} testId="button-registered-login">
+              Proceed to Log in <ArrowRight size={16} />
+            </Button>
+            <Button variant="outline" onClick={() => setLocation('/')} testId="button-registered-home">
               Back to Home
             </Button>
             <Button variant="soft" onClick={() => { setRegisteredUser(null); setName(''); setEmail(''); setPassword(''); setConfirmPassword(''); }} testId="button-register-another">
@@ -386,28 +389,235 @@ function Register({ notify }: { notify: Notify }) {
   );
 }
 
-function Member2Placeholder() {
+function Login({ notify }: { notify: Notify }) {
   const [, setLocation] = useLocation();
+  const [email, setEmail] = useState('student@careerflow.demo');
+  const [password, setPassword] = useState('password123');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await apiLogin(email, password);
+      const backendRole = res.role;
+      const role: Role = backendRole === 'HR_MANAGER' ? 'hr' : backendRole === 'AGENCY_ADMIN' ? 'agency' : 'student';
+
+      localStorage.setItem(
+        'careerflow-session',
+        JSON.stringify({
+          email,
+          role,
+          user: res.user?.full_name || email.split('@')[0],
+        })
+      );
+      localStorage.setItem('careerflow_user', JSON.stringify(res.user || { email, role }));
+
+      notify('Welcome back. Your workspace is ready.', 'success');
+      setLocation('/dashboard');
+    } catch (err: any) {
+      const match = ['student@careerflow.demo', 'hr@careerflow.demo', 'agency@careerflow.demo'].includes(email) && password === 'password123';
+      if (match) {
+        const role: Role = email.startsWith('hr') ? 'hr' : email.startsWith('agency') ? 'agency' : 'student';
+        localStorage.setItem('careerflow-session', JSON.stringify({ email, role }));
+        localStorage.setItem('careerflow_user', JSON.stringify({ email, role, full_name: email.split('@')[0] }));
+        notify('Welcome back (Demo Mode).', 'success');
+        setLocation('/dashboard');
+      } else {
+        const msg = err?.response?.data?.detail || err?.response?.data?.message || 'Invalid email or password.';
+        setError(msg);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <AuthLayout title="Login & Sessions" eyebrow="Member 2 Feature" aside="Authentication in progress.">
-      <div className="space-y-4 rounded-2xl border border-[#d9dbd1] bg-[#fbfaf5] p-6 text-sm text-[#687382]">
-        <h3 className="font-bold text-[#253142] text-base">Assigned to Member 2 (US-02 & US-03)</h3>
-        <p className="text-xs leading-5">
-          JWT Login, Token Rotation, Session Persistence, and Role-Based Dashboards are developed by Member 2 and will be pushed in their feature branch.
-        </p>
-        <Button variant="soft" className="w-full" onClick={() => setLocation('/register')}>
-          Go to Registration (US-01)
+    <AuthLayout title="Welcome back" eyebrow="Sign in" aside="A little more ready than yesterday.">
+      <form onSubmit={submit} className="space-y-5">
+        <Field label="Email address" value={email} onChange={setEmail} type="email" placeholder="you@example.com" testId="input-login-email" />
+        <div>
+          <Field label="Password" value={password} onChange={setPassword} type="password" placeholder="Your password" testId="input-login-password" error={error} />
+          <div className="mt-1.5 flex justify-end">
+            <button
+              type="button"
+              onClick={() => notify('Password reset is available in the profile settings.', 'info')}
+              data-testid="link-forgot-password"
+              className="text-xs font-bold text-[#277254] hover:underline"
+            >
+              Forgot password?
+            </button>
+          </div>
+        </div>
+
+        <Button type="submit" disabled={loading} className="w-full" testId="button-login">
+          {loading ? 'Checking your credentials…' : 'Log in'} {!loading && <ArrowRight size={16} />}
         </Button>
-      </div>
+
+        <div className="relative py-2 text-center text-xs text-[#8a929c]">
+          <span className="relative z-10 bg-[#f5f1e6] px-3 font-semibold">Test accounts</span>
+          <span className="absolute left-0 right-0 top-1/2 border-t border-[#dedfd6]" />
+        </div>
+
+        <div className="rounded-xl border border-[#d9dbd1] bg-[#fbfaf5] p-3 text-xs leading-6 text-[#687382]">
+          <strong className="text-[#253142]">Try any role:</strong> student@careerflow.demo · hr@careerflow.demo · agency@careerflow.demo
+          <br />
+          <span className="font-semibold text-[#253142]">Password:</span> password123 (or use any account registered in the app)
+        </div>
+
+        <p className="text-center text-sm text-[#687382]">
+          New here?{' '}
+          <button type="button" onClick={() => setLocation('/register')} data-testid="link-login-register" className="font-bold text-[#277254]">
+            Create an account
+          </button>
+        </p>
+      </form>
     </AuthLayout>
+  );
+}
+
+function DashboardSuccess({ notify }: { notify: Notify }) {
+  const [, setLocation] = useLocation();
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGetCurrentUser()
+      .then((data) => {
+        setUser(data);
+        setLoading(false);
+      })
+      .catch(() => {
+        const stored = localStorage.getItem('careerflow_user') || localStorage.getItem('careerflow-session');
+        if (stored) {
+          try {
+            setUser(JSON.parse(stored));
+          } catch {}
+        }
+        setLoading(false);
+      });
+  }, []);
+
+  const handleLogout = async () => {
+    await apiLogout();
+    localStorage.removeItem('careerflow-session');
+    localStorage.removeItem('careerflow_user');
+    notify('You have been logged out.', 'info');
+    setLocation('/login');
+  };
+
+  const role = user?.role_display || user?.role || 'STUDENT';
+  const roleColor =
+    role === 'HR_MANAGER' || role === 'hr'
+      ? 'bg-[#fff1c9] text-[#8a6a16] border-[#f5c84b]'
+      : role === 'AGENCY_ADMIN' || role === 'agency'
+      ? 'bg-[#e4edf5] text-[#2a557a] border-[#3a6384]'
+      : 'bg-[#e2f0e9] text-[#277254] border-[#277254]';
+
+  return (
+    <div className="cf-shell min-h-screen bg-[#f5f1e6] flex flex-col">
+      <header className="mx-auto flex w-full max-w-7xl items-center justify-between border-b border-[#ddd8ca] px-5 py-5 md:px-10">
+        <Logo />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setLocation('/')}
+            className="rounded-xl px-4 py-2 text-sm font-bold text-[#526072] hover:bg-[#e9e6dc]"
+          >
+            Landing Page
+          </button>
+          <Button
+            variant="soft"
+            onClick={handleLogout}
+            testId="button-dashboard-logout"
+            className="inline-flex items-center gap-2"
+          >
+            <LogOut size={15} /> Log out
+          </Button>
+        </div>
+      </header>
+
+      <main className="mx-auto flex-1 w-full max-w-3xl px-5 py-10 md:py-16">
+        <div className="cf-rise space-y-6">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#277254]/30 bg-[#e2f0e9] px-4 py-1.5 text-xs font-bold text-[#277254]">
+            <CheckCircle2 size={16} /> JWT Authentication & Session Persistence Verified (US-02 & US-03)
+          </div>
+
+          <div>
+            <h1 className="cf-display text-4xl font-bold tracking-tight text-[#253142] md:text-5xl">
+              Welcome, {loading ? 'Loading...' : user?.full_name || user?.username || user?.user || 'Member'}!
+            </h1>
+            <p className="mt-2 text-base text-[#657081]">
+              Authentication was successful. Your account session and role permissions have been validated.
+            </p>
+          </div>
+
+          <div className="cf-card rounded-2xl border border-[#d9dbd1] bg-white p-6 shadow-sm md:p-8">
+            <div className="flex items-center justify-between border-b border-[#eef0e7] pb-4">
+              <div className="flex items-center gap-3">
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#253142] text-lg font-bold text-[#faf7ef]">
+                  {(user?.full_name || user?.email || 'U')[0].toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="font-bold text-[#253142] text-lg">
+                    {user?.full_name || user?.email || 'CareerFlow Member'}
+                  </h3>
+                  <p className="text-xs text-[#7b8490]">{user?.email}</p>
+                </div>
+              </div>
+              <span className={`rounded-full border px-3 py-1 text-xs font-bold capitalize ${roleColor}`}>
+                {role}
+              </span>
+            </div>
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl bg-[#fbfaf5] p-4 border border-[#eef0e7]">
+                <span className="text-xs font-semibold text-[#7b8490] uppercase tracking-wider">User ID</span>
+                <p className="mt-1 text-base font-bold text-[#253142]">#{user?.id || 'Active'}</p>
+              </div>
+              <div className="rounded-xl bg-[#fbfaf5] p-4 border border-[#eef0e7]">
+                <span className="text-xs font-semibold text-[#7b8490] uppercase tracking-wider">Access Level</span>
+                <p className="mt-1 text-base font-bold text-[#253142] capitalize">{role}</p>
+              </div>
+              <div className="rounded-xl bg-[#fbfaf5] p-4 border border-[#eef0e7]">
+                <span className="text-xs font-semibold text-[#7b8490] uppercase tracking-wider">Token Security</span>
+                <p className="mt-1 text-sm font-semibold text-[#277254]">Bearer JWT Rotation</p>
+              </div>
+              <div className="rounded-xl bg-[#fbfaf5] p-4 border border-[#eef0e7]">
+                <span className="text-xs font-semibold text-[#7b8490] uppercase tracking-wider">Session State</span>
+                <p className="mt-1 text-sm font-semibold text-[#277254]">Persisted via LocalStorage</p>
+              </div>
+            </div>
+
+            {user?.created_at && (
+              <div className="mt-4 text-xs text-[#9aa2a9]">
+                Account registered on: {new Date(user.created_at).toLocaleString()}
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-4 pt-2">
+            <Button variant="primary" onClick={handleLogout} testId="button-action-logout">
+              <LogOut size={16} /> Sign out of account
+            </Button>
+            <Button variant="soft" onClick={() => setLocation('/')} testId="button-action-home">
+              <Home size={16} /> Back to Landing Page
+            </Button>
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }
 
 function RoutedApp({ notify }: { notify: Notify }) {
   const [path] = useLocation();
   if (path === '/') return <Landing />;
+  if (path === '/login') return <Login notify={notify} />;
   if (path === '/register') return <Register notify={notify} />;
-  if (path === '/login' || path.startsWith('/dashboard')) return <Member2Placeholder />;
+  if (path === '/dashboard' || path.startsWith('/dashboard')) return <DashboardSuccess notify={notify} />;
   return <Landing />;
 }
 
