@@ -259,6 +259,19 @@ function Landing() {
   );
 }
 
+function getPasswordStrength(pass: string) {
+  let score = 0;
+  if (!pass) return { score: 0, label: 'Too short', color: 'bg-[#d9dbd1]' };
+  if (pass.length >= 8) score += 1;
+  if (/[A-Z]/.test(pass)) score += 1;
+  if (/[0-9]/.test(pass)) score += 1;
+  if (/[^A-Za-z0-9]/.test(pass)) score += 1;
+  if (score <= 1) return { score: 1, label: 'Weak', color: 'bg-[#e26d5c]' };
+  if (score === 2) return { score: 2, label: 'Fair', color: 'bg-[#f5c84b]' };
+  if (score === 3) return { score: 3, label: 'Good', color: 'bg-[#3a6384]' };
+  return { score: 4, label: 'Strong', color: 'bg-[#277254]' };
+}
+
 function Register({ notify }: { notify: Notify }) {
   const [, setLocation] = useLocation();
   const [name, setName] = useState('');
@@ -343,19 +356,48 @@ function Register({ notify }: { notify: Notify }) {
     );
   }
 
+  const strength = getPasswordStrength(password);
+
   return (
     <AuthLayout title="Make the next move" eyebrow="Create account" aside="Your best work deserves a clearer runway.">
       <form onSubmit={submit} className="space-y-5">
         <Field label="Full name" value={name} onChange={setName} placeholder="Alex Rahman" testId="input-register-name" />
         <Field label="Email address" value={email} onChange={setEmail} placeholder="you@example.com" type="email" testId="input-register-email" />
         <div>
-          <Field label="Password" value={password} onChange={setPassword} placeholder="At least 8 characters" type="password" testId="input-register-password" />
-          <div className="mt-2 flex items-center justify-between text-[11px] font-semibold text-[#7b8490]">
-            <span>Use a password you do not use elsewhere.</span>
-            <span className={password.length >= 8 ? 'text-[#277254]' : ''}>
-              {password.length >= 8 ? 'Good to go' : `${password.length}/8 characters`}
-            </span>
-          </div>
+          <Field
+            label="Password"
+            value={password}
+            onChange={setPassword}
+            placeholder="At least 8 characters"
+            type="password"
+            testId="input-register-password"
+          />
+          {password && (
+            <div className="mt-2 space-y-1.5" data-testid="password-strength-meter">
+              <div className="flex items-center justify-between text-xs font-semibold">
+                <span className="text-[#657081]">Password strength:</span>
+                <span className={`font-bold ${strength.score >= 3 ? 'text-[#277254]' : strength.score === 2 ? 'text-[#9a7922]' : 'text-[#b34a40]'}`}>
+                  {strength.label}
+                </span>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5 h-1.5">
+                {[1, 2, 3, 4].map((step) => (
+                  <div
+                    key={step}
+                    className={`rounded-full transition duration-300 ${
+                      strength.score >= step ? strength.color : 'bg-[#e2e3db]'
+                    }`}
+                  />
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-[11px] text-[#7b8490]">
+                <span className={password.length >= 8 ? 'text-[#277254] font-semibold' : ''}>✓ 8+ chars</span>
+                <span className={/[A-Z]/.test(password) ? 'text-[#277254] font-semibold' : ''}>✓ Uppercase</span>
+                <span className={/[0-9]/.test(password) ? 'text-[#277254] font-semibold' : ''}>✓ Number</span>
+                <span className={/[^A-Za-z0-9]/.test(password) ? 'text-[#277254] font-semibold' : ''}>✓ Symbol</span>
+              </div>
+            </div>
+          )}
         </div>
         <Field label="Confirm password" value={confirmPassword} onChange={setConfirmPassword} placeholder="Re-enter your password" type="password" testId="input-register-confirm-password" />
         <div>
@@ -596,6 +638,31 @@ function DashboardSuccess({ notify }: { notify: Notify }) {
                 Account registered on: {new Date(user.created_at).toLocaleString()}
               </div>
             )}
+          </div>
+
+          {/* US-36: Data Access Control & Audit Trail */}
+          <div className="cf-card rounded-2xl border border-[#d9dbd1] bg-[#fbfaf5] p-6 shadow-sm">
+            <div className="flex items-center justify-between border-b border-[#eef0e7] pb-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={18} className="text-[#277254]" />
+                <h3 className="font-bold text-sm text-[#253142]">Data Access Control & Security Auditing (US-36)</h3>
+              </div>
+              <span className="rounded-full bg-[#e2f0e9] px-2.5 py-0.5 text-[11px] font-bold text-[#277254]">Active</span>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3 text-xs">
+              <div className="rounded-xl bg-white p-3 border border-[#eef0e7]">
+                <span className="text-[#7b8490] block">Resource Access</span>
+                <strong className="text-[#253142] mt-1 block">Role-Scoped Files</strong>
+              </div>
+              <div className="rounded-xl bg-white p-3 border border-[#eef0e7]">
+                <span className="text-[#7b8490] block">Audit Logging</span>
+                <strong className="text-[#253142] mt-1 block">careerflow_data_access_logs</strong>
+              </div>
+              <div className="rounded-xl bg-white p-3 border border-[#eef0e7]">
+                <span className="text-[#7b8490] block">Access Status</span>
+                <strong className="text-[#277254] mt-1 block">GRANTED / DENIED Tracked</strong>
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-4 pt-2">
