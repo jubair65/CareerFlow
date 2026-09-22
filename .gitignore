@@ -22,7 +22,6 @@ pnpm-debug.log*
 
 # Selenium / Pytest
 .pytest_cache/
-tests/reports/
 tests/screenshots/
 geckodriver.log
 chromedriver.log
