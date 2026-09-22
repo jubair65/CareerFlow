@@ -1,3 +1,6 @@
+import logging
+from django.conf import settings
+from django.core.mail import send_mail
 from rest_framework import status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -5,6 +8,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
 from .serializers import RegisterSerializer, LoginSerializer, UserSerializer
+
+logger = logging.getLogger(__name__)
 
 
 class RegisterView(APIView):
@@ -14,6 +19,27 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
+
+            # Trigger welcome / confirmation email (outputs to terminal via console backend)
+            try:
+                role_label = user.get_role_display()
+                send_mail(
+                    subject="Welcome to CareerFlow - Confirm Your Account",
+                    message=(
+                        f"Hello {user.full_name or user.username},\n\n"
+                        f"Welcome to CareerFlow! Your account has been registered successfully as a {role_label}.\n\n"
+                        f"You can log in to your dashboard here:\n"
+                        f"http://localhost:5173/login\n\n"
+                        f"Best regards,\n"
+                        f"The CareerFlow Team"
+                    ),
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    fail_silently=True,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to send welcome confirmation email: {e}")
+
             refresh = RefreshToken.for_user(user)
             refresh['role'] = user.role
             refresh['email'] = user.email

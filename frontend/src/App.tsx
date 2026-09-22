@@ -8,7 +8,11 @@ import {
   ArrowRight, BriefcaseBusiness, Building2, Check, CheckCircle2,
   Home, LockKeyhole, LogOut, Play, ShieldCheck, TrendingUp, X
 } from 'lucide-react';
-import { apiRegister, apiLogin, apiLogout, apiGetCurrentUser } from '@/api/auth';
+import { apiRegister, apiLogin, apiLogout, apiGetCurrentUser, getStoredUser } from '@/api/auth';
+import { StudentDashboard } from './pages/StudentDashboard';
+import { HrDashboard } from './pages/HrDashboard';
+import { AgencyDashboard } from './pages/AgencyDashboard';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 const queryClient = new QueryClient();
 
@@ -459,7 +463,7 @@ function Login({ notify }: { notify: Notify }) {
       localStorage.setItem('careerflow_user', JSON.stringify(res.user || { email, role }));
 
       notify('Welcome back. Your workspace is ready.', 'success');
-      setLocation('/dashboard');
+      setLocation(`/${role}/dashboard`);
     } catch (err: any) {
       const match = ['student@careerflow.demo', 'hr@careerflow.demo', 'agency@careerflow.demo'].includes(email) && password === 'password123';
       if (match) {
@@ -467,7 +471,7 @@ function Login({ notify }: { notify: Notify }) {
         localStorage.setItem('careerflow-session', JSON.stringify({ email, role }));
         localStorage.setItem('careerflow_user', JSON.stringify({ email, role, full_name: email.split('@')[0] }));
         notify('Welcome back (Demo Mode).', 'success');
-        setLocation('/dashboard');
+        setLocation(`/${role}/dashboard`);
       } else {
         const msg = err?.response?.data?.detail || err?.response?.data?.message || 'Invalid email or password.';
         setError(msg);
@@ -521,167 +525,41 @@ function Login({ notify }: { notify: Notify }) {
   );
 }
 
-function DashboardSuccess({ notify }: { notify: Notify }) {
+function DashboardRedirect({ notify }: { notify: Notify }) {
   const [, setLocation] = useLocation();
-  const [user, setUser] = useState<any>(() => {
-    try {
-      const stored = localStorage.getItem('careerflow_user') || localStorage.getItem('careerflow-session');
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
-  });
-  const [loading, setLoading] = useState(!user);
 
   useEffect(() => {
-    apiGetCurrentUser()
-      .then((data) => {
-        setUser(data);
-        setLoading(false);
-      })
-      .catch(() => {
-        const stored = localStorage.getItem('careerflow_user') || localStorage.getItem('careerflow-session');
-        if (stored) {
-          try {
-            setUser(JSON.parse(stored));
-          } catch {}
-        }
-        setLoading(false);
-      });
-  }, []);
+    const user = getStoredUser();
+    const sessionStr = localStorage.getItem('careerflow-session');
+    let session = null;
+    try {
+      session = sessionStr ? JSON.parse(sessionStr) : null;
+    } catch {}
 
-  const handleLogout = async () => {
-    await apiLogout();
-    localStorage.removeItem('careerflow-session');
-    localStorage.removeItem('careerflow_user');
-    notify('You have been logged out.', 'info');
-    setLocation('/login');
-  };
+    const rawRole = user?.role || session?.role;
 
-  const role = user?.role_display || user?.role || 'STUDENT';
-  const roleColor =
-    role === 'HR_MANAGER' || role === 'hr'
-      ? 'bg-[#fff1c9] text-[#8a6a16] border-[#f5c84b]'
-      : role === 'AGENCY_ADMIN' || role === 'agency'
-      ? 'bg-[#e4edf5] text-[#2a557a] border-[#3a6384]'
-      : 'bg-[#e2f0e9] text-[#277254] border-[#277254]';
+    if (!rawRole) {
+      notify('Please log in to view your dashboard.', 'info');
+      setLocation('/login');
+      return;
+    }
+
+    const role: Role =
+      rawRole === 'HR_MANAGER' || rawRole === 'hr'
+        ? 'hr'
+        : rawRole === 'AGENCY_ADMIN' || rawRole === 'agency'
+        ? 'agency'
+        : 'student';
+
+    setLocation(`/${role}/dashboard`);
+  }, [setLocation, notify]);
 
   return (
-    <div className="cf-shell min-h-screen bg-[#f5f1e6] flex flex-col">
-      <header className="mx-auto flex w-full max-w-7xl items-center justify-between border-b border-[#ddd8ca] px-5 py-5 md:px-10">
-        <Logo />
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setLocation('/')}
-            className="rounded-xl px-4 py-2 text-sm font-bold text-[#526072] hover:bg-[#e9e6dc]"
-          >
-            Landing Page
-          </button>
-          <Button
-            variant="soft"
-            onClick={handleLogout}
-            testId="button-dashboard-logout"
-            className="inline-flex items-center gap-2"
-          >
-            <LogOut size={15} /> Log out
-          </Button>
-        </div>
-      </header>
-
-      <main className="mx-auto flex-1 w-full max-w-3xl px-5 py-10 md:py-16">
-        <div className="cf-rise space-y-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#277254]/30 bg-[#e2f0e9] px-4 py-1.5 text-xs font-bold text-[#277254]">
-            <CheckCircle2 size={16} /> JWT Authentication & Session Persistence Verified (US-02 & US-03)
-          </div>
-
-          <div>
-            <h1 className="cf-display text-4xl font-bold tracking-tight text-[#253142] md:text-5xl">
-              Welcome, {loading ? 'Loading...' : user?.full_name || user?.username || user?.user || 'Member'}!
-            </h1>
-            <p className="mt-2 text-base text-[#657081]">
-              Authentication was successful. Your account session and role permissions have been validated.
-            </p>
-          </div>
-
-          <div className="cf-card rounded-2xl border border-[#d9dbd1] bg-white p-6 shadow-sm md:p-8">
-            <div className="flex items-center justify-between border-b border-[#eef0e7] pb-4">
-              <div className="flex items-center gap-3">
-                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#253142] text-lg font-bold text-[#faf7ef]">
-                  {(user?.full_name || user?.email || 'U')[0].toUpperCase()}
-                </div>
-                <div>
-                  <h3 className="font-bold text-[#253142] text-lg">
-                    {user?.full_name || user?.email || 'CareerFlow Member'}
-                  </h3>
-                  <p className="text-xs text-[#7b8490]">{user?.email}</p>
-                </div>
-              </div>
-              <span data-testid="user-role-badge" className={`rounded-full border px-3 py-1 text-xs font-bold capitalize ${roleColor}`}>
-                {role}
-              </span>
-            </div>
-
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-xl bg-[#fbfaf5] p-4 border border-[#eef0e7]">
-                <span className="text-xs font-semibold text-[#7b8490] uppercase tracking-wider">User ID</span>
-                <p className="mt-1 text-base font-bold text-[#253142]">#{user?.id || 'Active'}</p>
-              </div>
-              <div className="rounded-xl bg-[#fbfaf5] p-4 border border-[#eef0e7]">
-                <span className="text-xs font-semibold text-[#7b8490] uppercase tracking-wider">Access Level</span>
-                <p className="mt-1 text-base font-bold text-[#253142] capitalize">{role}</p>
-              </div>
-              <div className="rounded-xl bg-[#fbfaf5] p-4 border border-[#eef0e7]">
-                <span className="text-xs font-semibold text-[#7b8490] uppercase tracking-wider">Token Security</span>
-                <p className="mt-1 text-sm font-semibold text-[#277254]">Bearer JWT Rotation</p>
-              </div>
-              <div className="rounded-xl bg-[#fbfaf5] p-4 border border-[#eef0e7]">
-                <span className="text-xs font-semibold text-[#7b8490] uppercase tracking-wider">Session State</span>
-                <p className="mt-1 text-sm font-semibold text-[#277254]">Persisted via LocalStorage</p>
-              </div>
-            </div>
-
-            {user?.created_at && (
-              <div className="mt-4 text-xs text-[#9aa2a9]">
-                Account registered on: {new Date(user.created_at).toLocaleString()}
-              </div>
-            )}
-          </div>
-
-          {/* US-36: Data Access Control & Audit Trail */}
-          <div className="cf-card rounded-2xl border border-[#d9dbd1] bg-[#fbfaf5] p-6 shadow-sm">
-            <div className="flex items-center justify-between border-b border-[#eef0e7] pb-3">
-              <div className="flex items-center gap-2">
-                <ShieldCheck size={18} className="text-[#277254]" />
-                <h3 className="font-bold text-sm text-[#253142]">Data Access Control & Security Auditing (US-36)</h3>
-              </div>
-              <span className="rounded-full bg-[#e2f0e9] px-2.5 py-0.5 text-[11px] font-bold text-[#277254]">Active</span>
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3 text-xs">
-              <div className="rounded-xl bg-white p-3 border border-[#eef0e7]">
-                <span className="text-[#7b8490] block">Resource Access</span>
-                <strong className="text-[#253142] mt-1 block">Role-Scoped Files</strong>
-              </div>
-              <div className="rounded-xl bg-white p-3 border border-[#eef0e7]">
-                <span className="text-[#7b8490] block">Audit Logging</span>
-                <strong className="text-[#253142] mt-1 block">careerflow_data_access_logs</strong>
-              </div>
-              <div className="rounded-xl bg-white p-3 border border-[#eef0e7]">
-                <span className="text-[#7b8490] block">Access Status</span>
-                <strong className="text-[#277254] mt-1 block">GRANTED / DENIED Tracked</strong>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-4 pt-2">
-            <Button variant="primary" onClick={handleLogout} testId="button-action-logout">
-              <LogOut size={16} /> Sign out of account
-            </Button>
-            <Button variant="soft" onClick={() => setLocation('/')} testId="button-action-home">
-              <Home size={16} /> Back to Landing Page
-            </Button>
-          </div>
-        </div>
-      </main>
+    <div className="grid min-h-screen place-items-center bg-[#f5f1e6]">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#277254] border-t-transparent" />
+        <p className="text-sm font-semibold text-[#526072]">Opening your workspace dashboard...</p>
+      </div>
     </div>
   );
 }
@@ -691,7 +569,35 @@ function RoutedApp({ notify }: { notify: Notify }) {
   if (path === '/') return <Landing />;
   if (path === '/login') return <Login notify={notify} />;
   if (path === '/register') return <Register notify={notify} />;
-  if (path === '/dashboard' || path.startsWith('/dashboard')) return <DashboardSuccess notify={notify} />;
+
+  if (path === '/student/dashboard') {
+    return (
+      <ProtectedRoute allowedRoles={['student']} notify={notify}>
+        <StudentDashboard notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (path === '/hr/dashboard') {
+    return (
+      <ProtectedRoute allowedRoles={['hr']} notify={notify}>
+        <HrDashboard notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (path === '/agency/dashboard') {
+    return (
+      <ProtectedRoute allowedRoles={['agency']} notify={notify}>
+        <AgencyDashboard notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (path === '/dashboard' || path.startsWith('/dashboard')) {
+    return <DashboardRedirect notify={notify} />;
+  }
+
   return <Landing />;
 }
 
