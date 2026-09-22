@@ -523,8 +523,15 @@ function Login({ notify }: { notify: Notify }) {
 
 function DashboardSuccess({ notify }: { notify: Notify }) {
   const [, setLocation] = useLocation();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(() => {
+    try {
+      const stored = localStorage.getItem('careerflow_user') || localStorage.getItem('careerflow-session');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [loading, setLoading] = useState(!user);
 
   useEffect(() => {
     apiGetCurrentUser()
@@ -609,7 +616,7 @@ function DashboardSuccess({ notify }: { notify: Notify }) {
                   <p className="text-xs text-[#7b8490]">{user?.email}</p>
                 </div>
               </div>
-              <span className={`rounded-full border px-3 py-1 text-xs font-bold capitalize ${roleColor}`}>
+              <span data-testid="user-role-badge" className={`rounded-full border px-3 py-1 text-xs font-bold capitalize ${roleColor}`}>
                 {role}
               </span>
             </div>
