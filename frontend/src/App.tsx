@@ -12,6 +12,7 @@ import { apiRegister, apiLogin, apiLogout, apiGetCurrentUser, getStoredUser } fr
 import { StudentDashboard } from './pages/StudentDashboard';
 import { HrDashboard } from './pages/HrDashboard';
 import { AgencyDashboard } from './pages/AgencyDashboard';
+import { CvStudio } from './pages/CvStudio';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 const queryClient = new QueryClient();
@@ -574,6 +575,14 @@ function RoutedApp({ notify }: { notify: Notify }) {
     return (
       <ProtectedRoute allowedRoles={['student']} notify={notify}>
         <StudentDashboard notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (path === '/student/cv') {
+    return (
+      <ProtectedRoute allowedRoles={['student']} notify={notify}>
+        <CvStudio notify={notify} />
       </ProtectedRoute>
     );
   }

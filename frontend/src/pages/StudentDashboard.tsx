@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useLocation } from 'wouter';
 import {
   Presentation,
   FileText,
@@ -21,6 +22,7 @@ import {
 import { getStoredUser } from '../api/auth';
 
 export function StudentDashboard({ notify }: { notify: Notify }) {
+  const [, setLocation] = useLocation();
   const user = useMemo(() => {
     try {
       return getStoredUser() || JSON.parse(localStorage.getItem('careerflow-session') || '{}');
@@ -167,7 +169,7 @@ export function StudentDashboard({ notify }: { notify: Notify }) {
 
             <button
               type="button"
-              onClick={() => handleAction('Review CV suggestions')}
+              onClick={() => setLocation('/student/cv')}
               data-testid="action-review-cv"
               className="flex w-full items-center gap-3 rounded-xl bg-[#fbfaf5] border border-[#eef0e7] p-3.5 text-left hover:bg-[#e2f0e9] transition"
             >
