@@ -4,6 +4,7 @@ from .skill_extractor import SkillExtractor, extract_skills, get_skill_extractor
 from .entity_extractor import EntityExtractor, extract_education, extract_experience, extract_entities, get_entity_extractor
 from .pipeline import CVExtractionPipeline, extract_cv_data
 from .extractor import CVExtractor
+from .scorer import CVScorer, default_scorer, generate_cv_feedback
 
 __all__ = [
     'EducationItem',
@@ -24,4 +25,8 @@ __all__ = [
     'CVExtractionPipeline',
     'CVExtractor',
     'extract_cv_data',
+    'CVScorer',
+    'default_scorer',
+    'generate_cv_feedback',
 ]
+

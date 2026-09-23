@@ -1,6 +1,9 @@
 import os
 from rest_framework import serializers
-from .models import CandidateCV, ParsedCV
+from .models import CandidateCV, ParsedCV, CVFeedback
+
+
+
 
 MAX_CV_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 ALLOWED_CV_EXTENSIONS = ['.pdf', '.docx']
@@ -101,4 +104,60 @@ class ParsedCVSerializer(serializers.ModelSerializer):
             'parsed_at',
         ]
         read_only_fields = ['id', 'parsed_at', 'candidate_email', 'original_filename', 'skills_count']
+
+
+class CVFeedbackSerializer(serializers.ModelSerializer):
+    """
+    Serializer for automated CV feedback, scoring, and actionable edits (US-08).
+    """
+    original_filename = serializers.CharField(source='cv.original_filename', read_only=True)
+    candidate_email = serializers.EmailField(source='cv.user.email', read_only=True)
+    extracted_skills = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CVFeedback
+        fields = [
+            'id',
+            'cv',
+            'candidate_email',
+            'original_filename',
+            'overall_score',
+            'formatting_score',
+            'clarity_score',
+            'keyword_strength_score',
+            'experience_score',
+            'education_score',
+            'suggestions',
+            'signal_breakdown',
+            'extracted_skills',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'id',
+            'cv',
+            'candidate_email',
+            'original_filename',
+            'overall_score',
+            'formatting_score',
+            'clarity_score',
+            'keyword_strength_score',
+            'experience_score',
+            'education_score',
+            'suggestions',
+            'signal_breakdown',
+            'extracted_skills',
+            'created_at',
+            'updated_at',
+        ]
+
+    def get_extracted_skills(self, obj):
+        try:
+            parsed = getattr(obj.cv, 'parsed_data', None)
+            if parsed and parsed.skills:
+                return parsed.skills
+        except Exception:
+            pass
+        return []
+
 

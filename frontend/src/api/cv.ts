@@ -60,3 +60,96 @@ export async function apiGetCVHistory(): Promise<CandidateCV[]> {
   const response = await apiClient.get<CandidateCV[]>('/cv/history/');
   return response.data;
 }
+
+export interface SignalFormatting {
+  score: number;
+  weight: string;
+  word_count: number;
+  detected_sections: string[];
+  missing_sections: string[];
+  has_dense_paragraphs: boolean;
+}
+
+export interface SignalKeyword {
+  score: number;
+  weight: string;
+  skills_count: number;
+  action_verbs_count: number;
+  action_verbs_found: string[];
+}
+
+export interface SignalClarity {
+  score: number;
+  weight: string;
+  metrics_count: number;
+  metric_samples: string[];
+  bullet_count: number;
+}
+
+export interface SignalRecord {
+  score: number;
+  weight: string;
+  records_count: number;
+}
+
+export interface SignalBreakdown {
+  formatting?: SignalFormatting;
+  keyword_strength?: SignalKeyword;
+  clarity_impact?: SignalClarity;
+  experience?: SignalRecord;
+  education?: SignalRecord;
+}
+
+export interface CVFeedback {
+  id: number;
+  cv: number;
+  candidate_email: string;
+  original_filename: string;
+  overall_score: number;
+  formatting_score: number;
+  clarity_score: number;
+  keyword_strength_score: number;
+  experience_score: number;
+  education_score: number;
+  suggestions: string[];
+  signal_breakdown: SignalBreakdown;
+  extracted_skills: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CurrentCVFeedbackResponse {
+  cv_id?: number;
+  feedback: CVFeedback | null;
+  message?: string;
+}
+
+export interface GenerateFeedbackResponse {
+  message: string;
+  feedback: CVFeedback;
+}
+
+/**
+ * Fetch automated CV feedback for current active CV of the logged in student (US-08).
+ */
+export async function apiGetCurrentCVFeedback(): Promise<CVFeedback | null> {
+  const response = await apiClient.get<CurrentCVFeedbackResponse>('/cv/current/feedback/');
+  return response.data.feedback;
+}
+
+/**
+ * Fetch automated CV feedback by specific CV ID.
+ */
+export async function apiGetCVFeedback(cvId: number): Promise<CVFeedback> {
+  const response = await apiClient.get<CVFeedback>(`/cv/${cvId}/feedback/`);
+  return response.data;
+}
+
+/**
+ * Trigger CV feedback generation or recalculation for a specific CV ID.
+ */
+export async function apiGenerateCVFeedback(cvId: number): Promise<CVFeedback> {
+  const response = await apiClient.post<GenerateFeedbackResponse>(`/cv/${cvId}/generate-feedback/`);
+  return response.data.feedback;
+}
+

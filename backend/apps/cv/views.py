@@ -5,9 +5,10 @@ from rest_framework import status, permissions, parsers
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from .models import CandidateCV, ParsedCV
-from .serializers import CandidateCVSerializer, ParsedCVSerializer
+from .models import CandidateCV, ParsedCV, CVFeedback
+from .serializers import CandidateCVSerializer, ParsedCVSerializer, CVFeedbackSerializer
 from .services.pipeline import CVExtractionPipeline
+from .services.scorer import generate_cv_feedback
 from apps.authentication.permissions import IsStudent
 from apps.core.models import DataAccessLog
 
@@ -67,7 +68,7 @@ class CVUploadView(APIView):
                 user_agent=request.META.get('HTTP_USER_AGENT', '')
             )
 
-            # 4. Auto-trigger extraction pipeline (US-07)
+            # 4. Auto-trigger extraction pipeline (US-07) and feedback scoring (US-08)
             try:
                 pipeline = CVExtractionPipeline()
                 result = pipeline.process_candidate_cv(cv)
@@ -81,6 +82,11 @@ class CVUploadView(APIView):
                             'experience': result.experience,
                         }
                     )
+                    # 5. Auto-trigger feedback scoring (US-08)
+                    try:
+                        generate_cv_feedback(cv)
+                    except Exception as fb_err:
+                        logger.warning(f"Auto-feedback scoring after upload skipped: {fb_err}")
             except Exception as parse_err:
                 logger.warning(f"Auto-extraction after upload skipped: {parse_err}")
 
@@ -183,6 +189,12 @@ class CVParseView(APIView):
                 user_agent=request.META.get('HTTP_USER_AGENT', '')
             )
 
+            # Auto-update CV feedback upon parsing
+            try:
+                generate_cv_feedback(cv)
+            except Exception as fb_err:
+                logger.warning(f"Auto-feedback update after parse skipped: {fb_err}")
+
         serializer = ParsedCVSerializer(parsed_cv)
         return Response(
             {
@@ -226,4 +238,151 @@ class ParsedCVDetailView(APIView):
 
         serializer = ParsedCVSerializer(parsed_cv)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CVFeedbackGenerateView(APIView):
+    """
+    POST /api/cv/<cv_id>/generate-feedback/
+    Generates or recalculates automated CV feedback, rubric scoring, and actionable recommendations (US-08).
+    Logs data access for audit security (US-36).
+    """
+    permission_classes = [permissions.IsAuthenticated, IsStudent]
+
+    def get_client_ip(self, request):
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            return x_forwarded_for.split(',')[0].strip()
+        return request.META.get('REMOTE_ADDR')
+
+    def post(self, request, cv_id):
+        cv = CandidateCV.objects.filter(id=cv_id).first()
+        if not cv:
+            return Response(
+                {'error': f'CV with id {cv_id} not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if cv.user != request.user and not request.user.is_staff:
+            return Response(
+                {'error': 'You do not have permission to evaluate this CV document.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            feedback = generate_cv_feedback(cv)
+
+            DataAccessLog.objects.create(
+                user=request.user,
+                resource_path=cv.file.name,
+                action=DataAccessLog.Action.VIEW,
+                status=DataAccessLog.Status.GRANTED,
+                ip_address=self.get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
+
+            serializer = CVFeedbackSerializer(feedback)
+            return Response(
+                {
+                    'message': 'CV feedback generated successfully.',
+                    'feedback': serializer.data,
+                },
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            logger.error(f"Error generating CV feedback for CV {cv_id}: {str(e)}", exc_info=True)
+            return Response(
+                {
+                    'error': 'Failed to generate CV feedback.',
+                    'details': str(e),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class CurrentCVFeedbackView(APIView):
+    """
+    GET /api/cv/current/feedback/
+    Retrieve automated CV feedback for the currently active CV of the logged-in candidate.
+    If feedback does not exist yet, it is calculated automatically.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsStudent]
+
+    def get(self, request):
+        cv = CandidateCV.objects.filter(user=request.user, is_active=True).first()
+        if not cv:
+            return Response(
+                {
+                    'feedback': None,
+                    'message': 'No active CV uploaded yet. Please upload a CV to view feedback.'
+                },
+                status=status.HTTP_200_OK
+            )
+
+        feedback = getattr(cv, 'feedback', None)
+        if not feedback:
+            try:
+                feedback = CVFeedback.objects.filter(cv=cv).first()
+            except Exception:
+                feedback = None
+
+        if not feedback:
+            try:
+                feedback = generate_cv_feedback(cv)
+            except Exception as e:
+                logger.error(f"Error auto-generating feedback for active CV: {str(e)}", exc_info=True)
+                return Response(
+                    {'error': 'Failed to calculate feedback for current CV.', 'details': str(e)},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        serializer = CVFeedbackSerializer(feedback)
+        return Response(
+            {
+                'cv_id': cv.id,
+                'feedback': serializer.data,
+            },
+            status=status.HTTP_200_OK
+        )
+
+
+class CVFeedbackDetailView(APIView):
+    """
+    GET /api/cv/<cv_id>/feedback/
+    Retrieve automated CV feedback for a specific CV version.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsStudent]
+
+    def get(self, request, cv_id):
+        cv = CandidateCV.objects.filter(id=cv_id).first()
+        if not cv:
+            return Response(
+                {'error': f'CV with id {cv_id} not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if cv.user != request.user and not request.user.is_staff:
+            return Response(
+                {'error': 'You do not have permission to view feedback for this CV.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        feedback = getattr(cv, 'feedback', None)
+        if not feedback:
+            try:
+                feedback = CVFeedback.objects.filter(cv=cv).first()
+            except Exception:
+                feedback = None
+
+        if not feedback:
+            try:
+                feedback = generate_cv_feedback(cv)
+            except Exception as e:
+                return Response(
+                    {'error': 'Feedback not generated yet for this CV.', 'details': str(e)},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        serializer = CVFeedbackSerializer(feedback)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 

@@ -90,3 +90,55 @@ class ParsedCV(models.Model):
     def skills_count(self) -> int:
         return len(self.skills) if isinstance(self.skills, list) else 0
 
+
+class CVFeedback(models.Model):
+    """
+    Automated CV feedback, rubric scoring, and actionable recommendations (US-08).
+    Evaluates formatting, clarity, keyword strength, experience, and education completeness.
+    """
+    cv = models.OneToOneField(
+        CandidateCV,
+        on_delete=models.CASCADE,
+        related_name='feedback',
+        help_text="Candidate CV document associated with this feedback"
+    )
+    overall_score = models.PositiveIntegerField(help_text="Calculated score 0-100")
+    formatting_score = models.PositiveIntegerField(
+        default=80,
+        help_text="Formatting and completeness score (0-100)"
+    )
+    clarity_score = models.PositiveIntegerField(
+        default=80,
+        help_text="Clarity and impact score (0-100)"
+    )
+    keyword_strength_score = models.PositiveIntegerField(
+        default=80,
+        help_text="Keyword and action verb strength score (0-100)"
+    )
+    experience_score = models.PositiveIntegerField(
+        default=80,
+        help_text="Experience fit and details score (0-100)"
+    )
+    education_score = models.PositiveIntegerField(
+        default=80,
+        help_text="Education fit score (0-100)"
+    )
+    suggestions = models.JSONField(
+        default=list,
+        help_text="3 actionable edits e.g. ['Quantify checkout result', ...]"
+    )
+    signal_breakdown = models.JSONField(
+        default=dict,
+        help_text="Granular score breakdown and extracted signal metrics"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'careerflow_cv_feedback'
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"CVFeedback for {self.cv.original_filename} (Score: {self.overall_score}/100)"
+
+
