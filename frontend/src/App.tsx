@@ -14,7 +14,9 @@ import { HrDashboard } from './pages/HrDashboard';
 import { AgencyDashboard } from './pages/AgencyDashboard';
 import { CvStudio } from './pages/CvStudio';
 import { CvResults } from './pages/CvResults';
+import { JobMatch } from './pages/JobMatch';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+
 
 const queryClient = new QueryClient();
 
@@ -595,6 +597,15 @@ function RoutedApp({ notify }: { notify: Notify }) {
       </ProtectedRoute>
     );
   }
+
+  if (path === '/student/cv/match') {
+    return (
+      <ProtectedRoute allowedRoles={['student']} notify={notify}>
+        <JobMatch notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
 
   if (path === '/hr/dashboard') {
     return (

@@ -5,14 +5,19 @@ from rest_framework import status, permissions, parsers
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from .models import CandidateCV, ParsedCV, CVFeedback
-from .serializers import CandidateCVSerializer, ParsedCVSerializer, CVFeedbackSerializer
+from .models import CandidateCV, ParsedCV, CVFeedback, JobRequirement, CVJobMatch
+from .serializers import (
+    CandidateCVSerializer, ParsedCVSerializer, CVFeedbackSerializer,
+    JobRequirementSerializer, CVJobMatchSerializer, JobMatchRequestSerializer
+)
 from .services.pipeline import CVExtractionPipeline
 from .services.scorer import generate_cv_feedback
-from apps.authentication.permissions import IsStudent
+from .services.semantic_matcher import match_cv_to_job
+from apps.authentication.permissions import IsStudent, IsHRManager
 from apps.core.models import DataAccessLog
 
 logger = logging.getLogger(__name__)
+
 
 
 class CVUploadView(APIView):
@@ -384,5 +389,120 @@ class CVFeedbackDetailView(APIView):
 
         serializer = CVFeedbackSerializer(feedback)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CVJobMatchComputeView(APIView):
+    """
+    POST /api/cv/match/
+    Compute semantic similarity score between candidate's active CV and target job brief (US-09).
+    Accepts job_title, job_description, required_skills, or job_id.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsStudent]
+
+    def get_client_ip(self, request):
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            return x_forwarded_for.split(',')[0].strip()
+        return request.META.get('REMOTE_ADDR')
+
+    def post(self, request):
+        serializer = JobMatchRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        cv = CandidateCV.objects.filter(user=request.user, is_active=True).first()
+        if not cv:
+            return Response(
+                {'error': 'No active CV uploaded yet. Please upload a CV first in Candidate Studio.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        job_instance = None
+        if data.get('job_id'):
+            job_instance = JobRequirement.objects.filter(id=data['job_id']).first()
+
+        job_title = data.get('job_title') or (job_instance.title if job_instance else 'Product Designer')
+        job_description = data.get('job_description') or (job_instance.description if job_instance else '')
+        required_skills = data.get('required_skills') or (job_instance.required_skills if job_instance else [])
+
+        try:
+            match_record = match_cv_to_job(
+                cv=cv,
+                job_title=job_title,
+                job_description=job_description,
+                required_skills=required_skills,
+                job_instance=job_instance
+            )
+
+            # Audit log (US-36)
+            DataAccessLog.objects.create(
+                user=request.user,
+                resource_path=f"cv_match/{cv.id}/{job_title[:30]}",
+                action=DataAccessLog.Action.VIEW,
+                status=DataAccessLog.Status.GRANTED,
+                ip_address=self.get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
+
+            response_serializer = CVJobMatchSerializer(match_record)
+            return Response(
+                {
+                    'message': 'CV semantic match score evaluated successfully.',
+                    'match': response_serializer.data,
+                },
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            logger.error(f"Error computing CV-job semantic match: {str(e)}", exc_info=True)
+            return Response(
+                {'error': 'Failed to calculate CV-job match.', 'details': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class CurrentCVJobMatchView(APIView):
+    """
+    GET /api/cv/match/current/
+    Fetch candidate's active CV latest job match result (US-09).
+    If none exists, automatically computes match against standard role requirements.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsStudent]
+
+    def get(self, request):
+        cv = CandidateCV.objects.filter(user=request.user, is_active=True).first()
+        if not cv:
+            return Response({'match': None, 'message': 'No active CV found.'}, status=status.HTTP_200_OK)
+
+        match_record = CVJobMatch.objects.filter(cv=cv).order_by('-updated_at').first()
+        if not match_record:
+            # Generate default initial match evaluation
+            try:
+                match_record = match_cv_to_job(
+                    cv=cv,
+                    job_title='Product Designer',
+                    job_description='Looking for a product designer with Figma, product strategy, accessibility, and user research skills.',
+                    required_skills=['Figma', 'Product Strategy', 'User Research', 'Accessibility', 'Systems Thinking']
+                )
+            except Exception as e:
+                logger.error(f"Error generating initial match: {str(e)}")
+                return Response({'match': None}, status=status.HTTP_200_OK)
+
+        serializer = CVJobMatchSerializer(match_record)
+        return Response({'match': serializer.data}, status=status.HTTP_200_OK)
+
+
+class HRApplicantMatchesView(APIView):
+    """
+    GET /api/cv/hr/matches/
+    Retrieve candidate CV match scores across applicants for HR manager view (US-09-T6).
+    """
+    permission_classes = [permissions.IsAuthenticated, IsHRManager]
+
+    def get(self, request):
+        # Fetch active CV matches
+        matches = CVJobMatch.objects.select_related('cv', 'cv__user').order_by('-match_score')
+        serializer = CVJobMatchSerializer(matches, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 

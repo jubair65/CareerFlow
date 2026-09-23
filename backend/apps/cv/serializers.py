@@ -1,8 +1,6 @@
 import os
 from rest_framework import serializers
-from .models import CandidateCV, ParsedCV, CVFeedback
-
-
+from .models import CandidateCV, ParsedCV, CVFeedback, JobRequirement, CVJobMatch
 
 
 MAX_CV_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
@@ -159,5 +157,67 @@ class CVFeedbackSerializer(serializers.ModelSerializer):
         except Exception:
             pass
         return []
+
+
+class JobRequirementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = JobRequirement
+        fields = [
+            'id',
+            'title',
+            'company',
+            'role_type',
+            'description',
+            'required_skills',
+            'threshold_score',
+            'created_by',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
+
+
+class CVJobMatchSerializer(serializers.ModelSerializer):
+    candidate_name = serializers.CharField(source='cv.user.full_name', read_only=True)
+    candidate_email = serializers.CharField(source='cv.user.email', read_only=True)
+    original_filename = serializers.CharField(source='cv.original_filename', read_only=True)
+
+    class Meta:
+        model = CVJobMatch
+        fields = [
+            'id',
+            'cv',
+            'job',
+            'candidate_name',
+            'candidate_email',
+            'original_filename',
+            'job_title',
+            'company',
+            'job_description',
+            'match_score',
+            'keyword_coverage',
+            'category_scores',
+            'skills_matched',
+            'skills_missing',
+            'strengths',
+            'gaps',
+            'recommendations',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class JobMatchRequestSerializer(serializers.Serializer):
+    job_title = serializers.CharField(max_length=255, required=False, default='Product Designer')
+    company = serializers.CharField(max_length=255, required=False, default='CareerFlow Client')
+    job_description = serializers.CharField(required=False, allow_blank=True, default='')
+    required_skills = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        default=list
+    )
+    job_id = serializers.IntegerField(required=False, allow_null=True, default=None)
+
 
 

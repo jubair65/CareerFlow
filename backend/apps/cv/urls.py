@@ -8,6 +8,9 @@ from .views import (
     CVFeedbackGenerateView,
     CurrentCVFeedbackView,
     CVFeedbackDetailView,
+    CVJobMatchComputeView,
+    CurrentCVJobMatchView,
+    HRApplicantMatchesView,
 )
 
 app_name = 'cv'
@@ -21,5 +24,9 @@ urlpatterns = [
     path('<int:cv_id>/parsed/', ParsedCVDetailView.as_view(), name='cv_parsed_detail'),
     path('<int:cv_id>/generate-feedback/', CVFeedbackGenerateView.as_view(), name='cv_generate_feedback'),
     path('<int:cv_id>/feedback/', CVFeedbackDetailView.as_view(), name='cv_feedback_detail'),
+    path('match/', CVJobMatchComputeView.as_view(), name='cv_match_compute'),
+    path('match/current/', CurrentCVJobMatchView.as_view(), name='cv_current_match'),
+    path('hr/matches/', HRApplicantMatchesView.as_view(), name='cv_hr_matches'),
 ]
+
 

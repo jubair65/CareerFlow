@@ -165,3 +165,75 @@ export function getAuthenticatedFileUrl(fileUrl?: string | null): string {
   return `${fileUrl}${separator}token=${encodeURIComponent(access)}`;
 }
 
+export interface CategoryScores {
+  domain_craft?: number;
+  collaboration?: number;
+  leadership?: number;
+  accessibility?: number;
+  [key: string]: number | undefined;
+}
+
+export interface CVJobMatch {
+  id: number;
+  cv: number;
+  candidate_name?: string;
+  candidate_email?: string;
+  original_filename?: string;
+  job_title: string;
+  company: string;
+  job_description: string;
+  match_score: number;
+  keyword_coverage: number;
+  category_scores: CategoryScores;
+  skills_matched: string[];
+  skills_missing: string[];
+  strengths: string[];
+  gaps: string[];
+  recommendations: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface JobMatchRequest {
+  job_title?: string;
+  company?: string;
+  job_description?: string;
+  required_skills?: string[];
+  job_id?: number | null;
+}
+
+export interface MatchComputeResponse {
+  message: string;
+  match: CVJobMatch;
+}
+
+export interface CurrentMatchResponse {
+  match: CVJobMatch | null;
+  message?: string;
+}
+
+/**
+ * Compute semantic similarity score between candidate's active CV and target job brief (US-09).
+ */
+export async function apiMatchCVWithJob(data: JobMatchRequest): Promise<CVJobMatch> {
+  const response = await apiClient.post<MatchComputeResponse>('/cv/match/', data);
+  return response.data.match;
+}
+
+/**
+ * Fetch candidate's active CV latest job match result (US-09).
+ */
+export async function apiGetCurrentCVJobMatch(): Promise<CVJobMatch | null> {
+  const response = await apiClient.get<CurrentMatchResponse>('/cv/match/current/');
+  return response.data.match;
+}
+
+/**
+ * Retrieve candidate CV match scores across applicants for HR manager view (US-09-T6).
+ */
+export async function apiGetHRMatches(): Promise<CVJobMatch[]> {
+  const response = await apiClient.get<CVJobMatch[]>('/cv/hr/matches/');
+  return response.data;
+}
+
+

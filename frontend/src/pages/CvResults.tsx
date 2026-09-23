@@ -220,10 +220,31 @@ Produced by CareerFlow Talent Intelligence Platform
       </div>
 
       <PageHeading
-        eyebrow="Candidate Studio • US-08 Evaluation"
-        title="CV Feedback & Scoring"
-        description="Comprehensive analysis of your CV document against professional recruiter rubrics, ATS readability standards, and keyword density."
+        eyebrow="Candidate Studio • US-08 Evaluation & US-09 Match"
+        title="CV Feedback & Job Match"
+        description="Comprehensive analysis of your CV document against professional recruiter rubrics, ATS readability standards, and role semantic matching."
       />
+
+      {/* Tab Navigation matching CareerFlow-Recruitment-Coach design */}
+      <div className="mb-6 flex items-center border-b border-[#d9dbd1]">
+        <button
+          type="button"
+          onClick={() => setLocation('/student/cv/results')}
+          data-testid="tab-cv-review"
+          className="border-b-2 border-[#253142] px-4 py-2.5 text-xs font-bold text-[#253142]"
+        >
+          Review & suggestions
+        </button>
+        <button
+          type="button"
+          onClick={() => setLocation('/student/cv/match')}
+          data-testid="tab-job-match"
+          className="border-b-2 border-transparent px-4 py-2.5 text-xs font-semibold text-[#687382] hover:text-[#253142] hover:border-[#ccd0c6]"
+        >
+          Job match (US-09)
+        </button>
+      </div>
+
 
       {loading ? (
         <div className="py-20 text-center">

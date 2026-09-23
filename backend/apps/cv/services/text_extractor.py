@@ -1,8 +1,16 @@
 import os
 import re
 from typing import Optional
-import pdfplumber
-import docx
+try:
+    import pdfplumber
+except ImportError:
+    pdfplumber = None
+
+try:
+    import docx
+except ImportError:
+    docx = None
+
 
 
 def clean_extracted_text(text: Optional[str]) -> str:

@@ -142,3 +142,80 @@ class CVFeedback(models.Model):
         return f"CVFeedback for {self.cv.original_filename} (Score: {self.overall_score}/100)"
 
 
+class JobRequirement(models.Model):
+    """
+    Target Job Description & Role Requirements (US-09).
+    """
+    title = models.CharField(max_length=255, help_text="Job role title e.g. Senior Frontend Engineer")
+    company = models.CharField(max_length=255, default='CareerFlow Client', help_text="Target hiring company")
+    role_type = models.CharField(max_length=255, blank=True, default='', help_text="Role category/seniority")
+    description = models.TextField(help_text="Detailed job description and responsibilities")
+    required_skills = models.JSONField(default=list, help_text="List of mandatory/preferred skills e.g. ['React', 'Python']")
+    threshold_score = models.PositiveIntegerField(default=75, help_text="Minimum score threshold for shortlisting (0-100)")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_jobs',
+        help_text="HR manager who posted or created this job brief"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'careerflow_job_requirements'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.title} ({self.company})"
+
+
+class CVJobMatch(models.Model):
+    """
+    Semantic similarity scoring and skill gap evaluation between a CV and job requirements (US-09).
+    """
+    cv = models.ForeignKey(
+        CandidateCV,
+        on_delete=models.CASCADE,
+        related_name='job_matches',
+        help_text="Candidate CV evaluated"
+    )
+    job = models.ForeignKey(
+        JobRequirement,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='matches',
+        help_text="Associated job requirement brief if matching against a predefined job"
+    )
+    job_title = models.CharField(max_length=255, help_text="Job title evaluated against")
+    company = models.CharField(max_length=255, default='CareerFlow Client', help_text="Company name")
+    job_description = models.TextField(blank=True, default='', help_text="Job description text evaluated")
+    match_score = models.PositiveIntegerField(help_text="Overall semantic similarity score (0-100)")
+    keyword_coverage = models.PositiveIntegerField(default=0, help_text="Percentage of required skills & keywords covered (0-100)")
+    category_scores = models.JSONField(
+        default=dict,
+        help_text="Sub-signal category breakdown e.g. {'domain_craft': 91, 'collaboration': 86, 'leadership': 74, 'accessibility': 62}"
+    )
+    skills_matched = models.JSONField(default=list, help_text="List of skills present in both CV and Job")
+    skills_missing = models.JSONField(default=list, help_text="List of required job skills missing from CV")
+    strengths = models.JSONField(default=list, help_text="Key matching strengths identified")
+    gaps = models.JSONField(default=list, help_text="Areas needing enhancement for this role")
+    recommendations = models.JSONField(default=list, help_text="Actionable suggestions to improve role match score")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'careerflow_cv_job_matches'
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['cv', '-updated_at']),
+            models.Index(fields=['match_score']),
+        ]
+
+    def __str__(self):
+        return f"Match: {self.cv.original_filename} vs {self.job_title} ({self.match_score}/100)"
+
+
+
