@@ -1,4 +1,4 @@
-﻿from dataclasses import dataclass, field
+from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
 
 
@@ -45,6 +45,7 @@ class ExtractionResult:
     word_count: int = 0
     success: bool = True
     error_message: Optional[str] = None
+    is_scanned: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -55,4 +56,5 @@ class ExtractionResult:
             'word_count': self.word_count,
             'success': self.success,
             'error_message': self.error_message,
+            'is_scanned': self.is_scanned,
         }

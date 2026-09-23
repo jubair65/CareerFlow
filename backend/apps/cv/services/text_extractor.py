@@ -1,4 +1,4 @@
-﻿import os
+import os
 import re
 from typing import Optional
 import pdfplumber
@@ -45,16 +45,26 @@ def extract_text_from_pdf(file_path: str) -> str:
     """
     Extract text from a PDF file using pdfplumber.
     Iterates through all pages, preserving natural reading order.
+    Handles corrupt, encrypted, and malformed files gracefully.
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"PDF file not found at: {file_path}")
 
     extracted_pages = []
-    with pdfplumber.open(file_path) as pdf:
-        for page in pdf.pages:
-            page_text = page.extract_text(layout=False)
-            if page_text:
-                extracted_pages.append(page_text)
+    try:
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                try:
+                    page_text = page.extract_text(layout=False)
+                    if page_text:
+                        extracted_pages.append(page_text)
+                except Exception:
+                    continue
+    except Exception as e:
+        err_msg = str(e).lower()
+        if 'password' in err_msg or 'encrypt' in err_msg:
+            raise ValueError(f"PDF is encrypted or password-protected: {str(e)}") from e
+        raise ValueError(f"Invalid or corrupted PDF document: {str(e)}") from e
 
     full_text = '\n\n'.join(extracted_pages)
     return clean_extracted_text(full_text)
@@ -64,11 +74,16 @@ def extract_text_from_docx(file_path: str) -> str:
     """
     Extract text from a DOCX document using python-docx.
     Extracts text from both body paragraphs and table cells.
+    Handles corrupt and invalid archives gracefully.
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"DOCX file not found at: {file_path}")
 
-    doc = docx.Document(file_path)
+    try:
+        doc = docx.Document(file_path)
+    except Exception as e:
+        raise ValueError(f"Invalid or corrupted DOCX document: {str(e)}") from e
+
     text_blocks = []
 
     # 1. Extract paragraph contents
