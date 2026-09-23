@@ -264,19 +264,20 @@ export function CvStudio({ notify }: { notify: Notify }) {
 
           <div className="mt-6 pt-4 border-t border-[#eef0e7] flex items-center justify-between">
             <span className="text-xs text-[#7b8490]">
-              {currentCv ? 'Ready for AI scoring (Sprint 2 US-07/08)' : 'Step 1 of 4 in profile completion'}
+              {currentCv ? 'Ready for AI scoring & feedback' : 'Step 1 of 4 in profile completion'}
             </span>
             <button
               type="button"
-              onClick={() => notify('Sprint 2 feature: Skills parsing & scoring coming in next user stories!', 'info')}
+              onClick={() => setLocation('/student/cv/results')}
               data-testid="button-view-cv-suggestions"
               disabled={!currentCv}
               className="inline-flex items-center gap-2 rounded-xl bg-[#253142] px-4 py-2.5 text-xs font-bold text-[#faf7ef] hover:bg-[#33435a] transition disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Analyze CV <Sparkles size={14} className="text-[#f5c84b]" />
+              Analyze CV & View Score <Sparkles size={14} className="text-[#f5c84b]" />
             </button>
           </div>
         </section>
+
 
         {/* Right Column: Upload / Re-upload Dropzone */}
         <section className="rounded-2xl bg-[#253142] p-6 text-[#faf7ef] shadow-sm flex flex-col justify-between">

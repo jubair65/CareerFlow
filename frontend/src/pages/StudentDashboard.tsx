@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import {
   Presentation,
@@ -20,9 +20,12 @@ import {
   type Notify,
 } from '../components/dashboard/DashboardShared';
 import { getStoredUser } from '../api/auth';
+import { apiGetCurrentCVFeedback, type CVFeedback } from '../api/cv';
 
 export function StudentDashboard({ notify }: { notify: Notify }) {
   const [, setLocation] = useLocation();
+  const [cvFeedback, setCvFeedback] = useState<CVFeedback | null>(null);
+
   const user = useMemo(() => {
     try {
       return getStoredUser() || JSON.parse(localStorage.getItem('careerflow-session') || '{}');
@@ -31,11 +34,26 @@ export function StudentDashboard({ notify }: { notify: Notify }) {
     }
   }, []);
 
+  useEffect(() => {
+    apiGetCurrentCVFeedback()
+      .then((fb) => setCvFeedback(fb))
+      .catch(() => {});
+  }, []);
+
   const userName = user?.full_name?.split(' ')[0] || user?.user?.split(' ')[0] || 'Alex';
 
   const handleAction = (label: string) => {
     notify(`Sprint 2 feature: "${label}" workflow will be enabled in next sprint!`, 'info');
   };
+
+  const cvScoreValue = cvFeedback ? String(cvFeedback.overall_score) : '87';
+  const cvScoreDetail = cvFeedback
+    ? cvFeedback.overall_score >= 85
+      ? 'Strong role alignment'
+      : cvFeedback.overall_score >= 70
+      ? 'Good potential'
+      : 'Needs revision'
+    : 'Click to view signals';
 
   return (
     <AppShell role="student" notify={notify}>
@@ -64,13 +82,20 @@ export function StudentDashboard({ notify }: { notify: Notify }) {
           icon={Presentation}
           accent="yellow"
         />
-        <StatCard
-          label="CV score"
-          value="87"
-          detail="Strong role alignment"
-          icon={FileText}
-          accent="green"
-        />
+        <div
+          onClick={() => setLocation('/student/cv/results')}
+          className="cursor-pointer transition hover:scale-[1.01]"
+          title="Click to view CV Feedback & Scoring"
+        >
+          <StatCard
+            label="CV score"
+            value={cvScoreValue}
+            detail={cvScoreDetail}
+            icon={FileText}
+            accent="green"
+          />
+        </div>
+
         <StatCard
           label="Practice attempts"
           value="12"
