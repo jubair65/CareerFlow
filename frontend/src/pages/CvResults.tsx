@@ -21,7 +21,6 @@ import { AppShell } from '../components/layout/AppShell';
 import {
   PageHeading,
   Badge,
-  DataAccessCard,
   type Notify,
 } from '../components/dashboard/DashboardShared';
 import {
@@ -596,7 +595,6 @@ Produced by CareerFlow Talent Intelligence Platform
         </div>
       )}
 
-      <DataAccessCard />
     </AppShell>
   );
 }

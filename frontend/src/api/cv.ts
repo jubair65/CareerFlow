@@ -1,4 +1,4 @@
-import { apiClient } from './auth';
+import { apiClient, getStoredTokens } from './auth';
 
 export interface CandidateCV {
   id: number;
@@ -151,5 +151,17 @@ export async function apiGetCVFeedback(cvId: number): Promise<CVFeedback> {
 export async function apiGenerateCVFeedback(cvId: number): Promise<CVFeedback> {
   const response = await apiClient.post<GenerateFeedbackResponse>(`/cv/${cvId}/generate-feedback/`);
   return response.data.feedback;
+}
+
+/**
+ * Returns a file URL with authentication token attached as query param,
+ * enabling direct browser viewing and downloading (e.g. in new tabs).
+ */
+export function getAuthenticatedFileUrl(fileUrl?: string | null): string {
+  if (!fileUrl) return '';
+  const { access } = getStoredTokens();
+  if (!access) return fileUrl;
+  const separator = fileUrl.includes('?') ? '&' : '?';
+  return `${fileUrl}${separator}token=${encodeURIComponent(access)}`;
 }
 

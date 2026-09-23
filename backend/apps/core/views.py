@@ -1,13 +1,39 @@
 import os
+import mimetypes
 from pathlib import Path
 from django.conf import settings
 from django.http import FileResponse, Http404
 from rest_framework import status, permissions, serializers
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from .models import DataAccessLog
 from apps.authentication.models import User
 from apps.authentication.permissions import IsHRManager, IsAgencyAdmin
+
+
+class QueryParamJWTAuthentication(JWTAuthentication):
+    """
+    Allows JWT authentication via 'token' query parameter in addition to the
+    standard 'Authorization: Bearer <token>' header. This is essential for browser
+    direct links (e.g., <a target="_blank"> or window.open) for viewing/downloading files.
+    """
+    def authenticate(self, request):
+        # 1. Try standard Authorization header first
+        header = self.get_header(request)
+        if header is not None:
+            raw_token = self.get_raw_token(header)
+            if raw_token is not None:
+                validated_token = self.get_validated_token(raw_token)
+                return self.get_user(validated_token), validated_token
+
+        # 2. Try query parameter 'token' (handles both HttpRequest and DRF Request)
+        query_token = request.GET.get('token') or getattr(request, 'query_params', {}).get('token')
+        if query_token:
+            validated_token = self.get_validated_token(query_token)
+            return self.get_user(validated_token), validated_token
+
+        return None
 
 
 class DataAccessLogSerializer(serializers.ModelSerializer):
@@ -20,6 +46,7 @@ class DataAccessLogSerializer(serializers.ModelSerializer):
 
 
 class SecureFileServeView(APIView):
+    authentication_classes = [QueryParamJWTAuthentication, JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get_client_ip(self, request):
@@ -64,7 +91,13 @@ class SecureFileServeView(APIView):
         if not target_path.exists() or not target_path.is_file():
             return Response({'error': 'File not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        return FileResponse(open(target_path, 'rb'))
+        content_type, _ = mimetypes.guess_type(str(target_path))
+        response = FileResponse(open(target_path, 'rb'), content_type=content_type or 'application/octet-stream')
+        if target_path.suffix.lower() == '.pdf':
+            response['Content-Disposition'] = f'inline; filename="{target_path.name}"'
+        else:
+            response['Content-Disposition'] = f'attachment; filename="{target_path.name}"'
+        return response
 
 
 class AuditLogListView(APIView):

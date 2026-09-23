@@ -18,13 +18,13 @@ import { AppShell } from '../components/layout/AppShell';
 import {
   PageHeading,
   Badge,
-  DataAccessCard,
   type Notify,
 } from '../components/dashboard/DashboardShared';
 import {
   apiGetCurrentCV,
   apiUploadCV,
   apiGetCVHistory,
+  getAuthenticatedFileUrl,
   type CandidateCV,
 } from '../api/cv';
 
@@ -162,7 +162,10 @@ export function CvStudio({ notify }: { notify: Notify }) {
     } catch (err: any) {
       const msg =
         err?.response?.data?.file?.[0] ||
+        err?.response?.data?.detail ||
         err?.response?.data?.error ||
+        err?.response?.data?.non_field_errors?.[0] ||
+        err?.message ||
         'Failed to upload CV. Please try again.';
       setValidationError(msg);
       notify(msg, 'error');
@@ -230,7 +233,7 @@ export function CvStudio({ notify }: { notify: Notify }) {
                     </div>
                     {currentCv.file_url && (
                       <a
-                        href={currentCv.file_url}
+                        href={getAuthenticatedFileUrl(currentCv.file_url)}
                         target="_blank"
                         rel="noreferrer"
                         data-testid="link-download-cv"
@@ -240,13 +243,6 @@ export function CvStudio({ notify }: { notify: Notify }) {
                       </a>
                     )}
                   </div>
-                </div>
-
-                <div className="rounded-xl border border-[#d8d7cc] bg-[#f5f1e6]/60 p-4 text-xs text-[#526072] leading-5">
-                  <span className="font-bold text-[#253142]">Storage & Security (US-36):</span>
-                  <p className="mt-1">
-                    Document isolated in <code className="rounded bg-[#e8e5d8] px-1.5 py-0.5 font-mono text-[11px]">media/students/{"{id}"}/cv/</code> with encrypted permission checks and access audit logging.
-                  </p>
                 </div>
               </div>
             ) : (
@@ -438,7 +434,7 @@ export function CvStudio({ notify }: { notify: Notify }) {
                     <td className="py-3 text-right">
                       {item.file_url && (
                         <a
-                          href={item.file_url}
+                          href={getAuthenticatedFileUrl(item.file_url)}
                           target="_blank"
                           rel="noreferrer"
                           className="font-bold text-[#277254] hover:underline"
@@ -455,7 +451,6 @@ export function CvStudio({ notify }: { notify: Notify }) {
         </section>
       )}
 
-      <DataAccessCard />
     </AppShell>
   );
 }
