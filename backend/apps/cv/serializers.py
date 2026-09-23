@@ -1,6 +1,6 @@
 import os
 from rest_framework import serializers
-from .models import CandidateCV
+from .models import CandidateCV, ParsedCV
 
 MAX_CV_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 ALLOWED_CV_EXTENSIONS = ['.pdf', '.docx']
@@ -76,3 +76,29 @@ class CandidateCVSerializer(serializers.ModelSerializer):
             )
 
         return value
+
+
+class ParsedCVSerializer(serializers.ModelSerializer):
+    """
+    Serializer for structured parsed CV data (US-07-T5).
+    """
+    skills_count = serializers.IntegerField(read_only=True)
+    original_filename = serializers.CharField(source='cv.original_filename', read_only=True)
+    candidate_email = serializers.EmailField(source='cv.user.email', read_only=True)
+
+    class Meta:
+        model = ParsedCV
+        fields = [
+            'id',
+            'cv',
+            'candidate_email',
+            'original_filename',
+            'raw_text',
+            'skills',
+            'skills_count',
+            'education',
+            'experience',
+            'parsed_at',
+        ]
+        read_only_fields = ['id', 'parsed_at', 'candidate_email', 'original_filename', 'skills_count']
+

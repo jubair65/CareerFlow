@@ -1,9 +1,10 @@
-﻿import os
+import os
 import logging
 from typing import Optional, Callable, Dict, Any, List
 from .contracts import ExtractionResult
 from .text_extractor import extract_text
 from .skill_extractor import get_skill_extractor, SkillExtractor
+from .entity_extractor import extract_entities
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,8 @@ class CVExtractionPipeline:
     Coordinates:
     - Text extraction from PDF/DOCX (US-07-T2)
     - Technical and professional skills identification (US-07-T3)
-    - Pluggable education and experience extraction (US-07-T4, implemented by Person 2)
+    - Education and experience extraction (US-07-T4)
+    - Graceful error handling and edge cases (US-07-T6)
     """
 
     def __init__(
@@ -23,8 +25,8 @@ class CVExtractionPipeline:
         entity_extractor: Optional[Callable[[str], Dict[str, Any]]] = None,
     ):
         self.skill_extractor = skill_extractor or get_skill_extractor()
-        # Pluggable hook for Person 2's entity extractor (Education & Experience)
-        self.entity_extractor = entity_extractor
+        # Default to Person 2's entity extractor (Education & Experience)
+        self.entity_extractor = entity_extractor if entity_extractor is not None else extract_entities
 
     def process_file(self, file_path: str, file_type: Optional[str] = None) -> ExtractionResult:
         """
@@ -46,6 +48,7 @@ class CVExtractionPipeline:
                     raw_text="",
                     word_count=0,
                     success=True,
+                    is_scanned=True,
                     error_message="Document appears to be empty or contains scanned images without extractable text."
                 )
 
@@ -55,7 +58,7 @@ class CVExtractionPipeline:
             # 2. US-07-T3: Skills extraction
             skills = self.skill_extractor.extract_skills(raw_text)
 
-            # 3. US-07-T4 (Teammate hook): Education & Experience extraction
+            # 3. US-07-T4: Education & Experience extraction
             education: List[Dict[str, Any]] = []
             experience: List[Dict[str, Any]] = []
 
@@ -74,10 +77,11 @@ class CVExtractionPipeline:
                 experience=experience,
                 word_count=word_count,
                 success=True,
+                is_scanned=False,
             )
 
         except Exception as e:
-            logger.error(f"Error in CV extraction pipeline: {str(e)}", exc_info=True)
+            logger.warning(f"Handled error in CV extraction pipeline: {str(e)}")
             return ExtractionResult(
                 raw_text="",
                 success=False,
@@ -86,11 +90,25 @@ class CVExtractionPipeline:
 
     def process_candidate_cv(self, candidate_cv) -> ExtractionResult:
         """
-        Process a CandidateCV Django model instance.
+        Process a CandidateCV Django model instance safely.
         """
-        file_path = candidate_cv.file.path
-        file_type = getattr(candidate_cv, 'file_type', None)
-        return self.process_file(file_path, file_type=file_type)
+        try:
+            if not candidate_cv or not candidate_cv.file:
+                return ExtractionResult(
+                    raw_text="",
+                    success=False,
+                    error_message="CandidateCV has no associated file."
+                )
+            file_path = candidate_cv.file.path
+            file_type = getattr(candidate_cv, 'file_type', None)
+            return self.process_file(file_path, file_type=file_type)
+        except Exception as e:
+            logger.error(f"Error processing candidate CV instance: {str(e)}", exc_info=True)
+            return ExtractionResult(
+                raw_text="",
+                success=False,
+                error_message=str(e),
+            )
 
 
 # Default pipeline instance

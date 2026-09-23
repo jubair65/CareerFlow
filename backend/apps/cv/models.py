@@ -60,3 +60,33 @@ class CandidateCV(models.Model):
     def __str__(self):
         status = 'active' if self.is_active else 'archived'
         return f"{self.user.email} - {self.original_filename} ({status})"
+
+
+class ParsedCV(models.Model):
+    """
+    Extracted structured data from candidate CV (US-07).
+    Contains raw text, identified skills, education history, and experience records.
+    """
+    cv = models.OneToOneField(
+        CandidateCV,
+        on_delete=models.CASCADE,
+        related_name='parsed_data',
+        help_text="Candidate CV document associated with this parsed data"
+    )
+    raw_text = models.TextField(help_text="Extracted text from the CV document")
+    skills = models.JSONField(default=list, help_text="List of extracted skills [React, Python, ...]")
+    education = models.JSONField(default=list, help_text="[{degree, institution, year}]")
+    experience = models.JSONField(default=list, help_text="[{title, company, duration_years}]")
+    parsed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'careerflow_parsed_cvs'
+        ordering = ['-parsed_at']
+
+    def __str__(self):
+        return f"ParsedCV for {self.cv.original_filename} ({len(self.skills)} skills)"
+
+    @property
+    def skills_count(self) -> int:
+        return len(self.skills) if isinstance(self.skills, list) else 0
+
