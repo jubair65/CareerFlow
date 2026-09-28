@@ -23,8 +23,10 @@ from django.conf import settings
 FRONTEND_URL = "http://localhost:5173"
 BACKEND_URL = "http://127.0.0.1:8000"
 REPORTS_DIR = Path(__file__).resolve().parent / "reports"
+SCREENSHOTS_DIR = REPORTS_DIR / "screenshots"
 
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def get_chrome_options():
@@ -155,3 +157,35 @@ def setup_test_media_files():
     media_root = Path(settings.MEDIA_ROOT).resolve()
     media_root.mkdir(parents=True, exist_ok=True)
     return media_root
+
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    # execute all other hooks to obtain the report object
+    outcome = yield
+    rep = outcome.get_result()
+
+    # set a report attribute for each phase of a call, which can
+    # be "setup", "call", "teardown"
+    setattr(item, "rep_" + rep.when, rep)
+
+
+@pytest.fixture(autouse=True)
+def take_screenshot_on_failure(request, driver):
+    """Automatically capture a screenshot if a test fails."""
+    yield
+    # Check if the test failed during the 'call' phase
+    if hasattr(request.node, 'rep_call') and request.node.rep_call.failed:
+        test_name = request.node.name
+        # Sanitize test name
+        safe_name = "".join([c for c in test_name if c.isalpha() or c.isdigit() or c == '_']).rstrip()
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        screenshot_filename = f"{safe_name}_{timestamp}.png"
+        screenshot_path = SCREENSHOTS_DIR / screenshot_filename
+        
+        try:
+            driver.save_screenshot(str(screenshot_path))
+            print(f"\\n[Screenshot saved]: {screenshot_path}")
+        except Exception as e:
+            print(f"\\n[Screenshot failed]: {e}")
