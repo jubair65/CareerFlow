@@ -1,0 +1,38 @@
+%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj
+4 0 obj << /Length 650 >> stream
+BT
+/F1 18 Tf 50 720 Td (Alex Rahman) Tj
+/F1 11 Tf 0 -22 Td (Email: alex.rahman@example.com | Phone: +880 1711-000000 | Location: Dhaka, Bangladesh) Tj
+/F1 14 Tf 0 -35 Td (Professional Summary) Tj
+/F1 10 Tf 0 -18 Td (Motivated Full Stack Software Engineer with 2+ years of experience building modern web apps.) Tj
+/F1 10 Tf 0 -14 Td (Proficient in React, TypeScript, Python, and Django REST framework with measurable impact.) Tj
+/F1 14 Tf 0 -30 Td (Technical Skills) Tj
+/F1 10 Tf 0 -18 Td (Languages: Python, TypeScript, JavaScript, SQL, HTML5, CSS3) Tj
+/F1 10 Tf 0 -14 Td (Frameworks & Libraries: Django, React, FastAPI, Node.js, TailwindCSS) Tj
+/F1 10 Tf 0 -14 Td (Databases & Tools: PostgreSQL, MySQL, Redis, Git, Docker, Jest) Tj
+/F1 14 Tf 0 -30 Td (Work Experience) Tj
+/F1 11 Tf 0 -18 Td (Software Engineer - TechNova Solutions (2024 - Present, 2 years)) Tj
+/F1 10 Tf 0 -14 Td (- Engineered modular React frontend components reducing page load time by 35%.) Tj
+/F1 10 Tf 0 -14 Td (- Built scalable Django REST APIs serving 15000+ daily active users.) Tj
+/F1 14 Tf 0 -30 Td (Education) Tj
+/F1 11 Tf 0 -18 Td (BSc in Computer Science & Engineering - BRAC University (Graduated 2023)) Tj
+/F1 10 Tf 0 -14 Td (CGPA: 3.82 / 4.00 - Thesis on NLP and Semantic Search) Tj
+ET
+endstream
+endobj
+5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
+xref
+0 6
+0000000000 65535 f 
+0000000010 00000 n 
+0000000060 00000 n 
+0000000117 00000 n 
+0000000247 00000 n 
+0000000950 00000 n 
+trailer << /Size 6 /Root 1 0 R >>
+startxref
+1020
+%%EOF
