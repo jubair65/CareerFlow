@@ -39,13 +39,37 @@ def get_chrome_options():
     return options
 
 
-from webdriver_manager.chrome import ChromeDriverManager
+def get_edge_options():
+    from selenium.webdriver.edge.options import Options as EdgeOptions
+    options = EdgeOptions()
+    options.add_argument('--headless=new')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--window-size=1920,1080')
+    options.add_argument('--log-level=3')
+    return options
+
+
+def get_firefox_options():
+    from selenium.webdriver.firefox.options import Options as FirefoxOptions
+    options = FirefoxOptions()
+    options.add_argument('--headless')
+    options.add_argument('--width=1920')
+    options.add_argument('--height=1080')
+    return options
+
+
+try:
+    from webdriver_manager.chrome import ChromeDriverManager
+except ImportError:
+    ChromeDriverManager = None
 
 CHROMEDRIVER_PATH = None
 
 def get_chromedriver_service():
     global CHROMEDRIVER_PATH
-    if not CHROMEDRIVER_PATH:
+    if not CHROMEDRIVER_PATH and ChromeDriverManager is not None:
         try:
             CHROMEDRIVER_PATH = ChromeDriverManager().install()
         except Exception:
@@ -61,6 +85,36 @@ def driver(request):
     options = get_chrome_options()
     service = get_chromedriver_service()
     driver_instance = webdriver.Chrome(service=service, options=options)
+    driver_instance.implicitly_wait(10)
+
+    yield driver_instance
+
+    try:
+        driver_instance.quit()
+    except Exception:
+        pass
+
+
+@pytest.fixture(scope="function")
+def edge_driver(request):
+    """Provides a clean headless Edge WebDriver instance for cross-browser testing."""
+    options = get_edge_options()
+    driver_instance = webdriver.Edge(options=options)
+    driver_instance.implicitly_wait(10)
+
+    yield driver_instance
+
+    try:
+        driver_instance.quit()
+    except Exception:
+        pass
+
+
+@pytest.fixture(scope="function")
+def firefox_driver(request):
+    """Provides a clean headless Firefox WebDriver instance for cross-browser testing."""
+    options = get_firefox_options()
+    driver_instance = webdriver.Firefox(options=options)
     driver_instance.implicitly_wait(10)
 
     yield driver_instance
