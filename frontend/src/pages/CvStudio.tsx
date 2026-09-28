@@ -68,6 +68,7 @@ export function CvStudio({ notify }: { notify: Notify }) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [extractionError, setExtractionError] = useState<{ message: string; advice: string } | null>(null);
 
   // Fetch current CV and history
   const loadCvData = async () => {
@@ -92,6 +93,7 @@ export function CvStudio({ notify }: { notify: Notify }) {
 
   const validateAndSetFile = (file: File) => {
     setValidationError(null);
+    setExtractionError(null);
 
     const ext = '.' + file.name.split('.').pop()?.toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
@@ -146,6 +148,7 @@ export function CvStudio({ notify }: { notify: Notify }) {
     try {
       setUploading(true);
       setUploadProgress(0);
+      setExtractionError(null);
 
       const res = await apiUploadCV(selectedFile, (pct) => {
         setUploadProgress(pct);
@@ -160,15 +163,33 @@ export function CvStudio({ notify }: { notify: Notify }) {
       // Refresh history
       apiGetCVHistory().then((h) => setCvHistory(h)).catch(() => {});
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.file?.[0] ||
-        err?.response?.data?.detail ||
-        err?.response?.data?.error ||
-        err?.response?.data?.non_field_errors?.[0] ||
-        err?.message ||
-        'Failed to upload CV. Please try again.';
-      setValidationError(msg);
-      notify(msg, 'error');
+      const status = err?.response?.status;
+      const data = err?.response?.data;
+      const errorText = data?.error || data?.detail || data?.file?.[0] || err?.message || '';
+
+      if (
+        status === 422 ||
+        status === 500 ||
+        errorText.toLowerCase().includes('extract') ||
+        errorText.toLowerCase().includes('corrupt')
+      ) {
+        setExtractionError({
+          message: data?.error || 'Unable to extract text from document',
+          advice:
+            data?.detail ||
+            'Ensure document is not password-protected or scanned as raw image.',
+        });
+      } else {
+        const msg =
+          data?.file?.[0] ||
+          data?.detail ||
+          data?.error ||
+          data?.non_field_errors?.[0] ||
+          err?.message ||
+          'Failed to upload CV. Please try again.';
+        setValidationError(msg);
+        notify(msg, 'error');
+      }
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -349,6 +370,57 @@ export function CvStudio({ notify }: { notify: Notify }) {
               >
                 <AlertCircle size={16} className="shrink-0" />
                 <span>{validationError}</span>
+              </div>
+            )}
+
+            {/* Extraction Error Alert Card */}
+            {extractionError && (
+              <div
+                data-testid="extraction-error-card"
+                className="mt-4 rounded-xl border border-[#e5a098] bg-[#fdf2f0] p-4 text-[#a33d35]"
+              >
+                <div className="flex items-start gap-3">
+                  <AlertCircle size={20} className="mt-0.5 shrink-0 text-[#b34a40]" />
+                  <div className="flex-1">
+                    <h3
+                      className="text-sm font-bold text-[#912d26]"
+                      data-testid="extraction-error-title"
+                    >
+                      {extractionError.message}
+                    </h3>
+                    <p
+                      className="mt-1 text-xs text-[#a33d35]"
+                      data-testid="extraction-error-advice"
+                    >
+                      {extractionError.advice}
+                    </p>
+                    <div className="mt-3 flex items-center gap-2">
+                      <button
+                        type="button"
+                        data-testid="button-try-another-file"
+                        onClick={() => {
+                          setExtractionError(null);
+                          setSelectedFile(null);
+                          if (fileInputRef.current) {
+                            fileInputRef.current.value = '';
+                            fileInputRef.current.click();
+                          }
+                        }}
+                        className="rounded-lg bg-[#b34a40] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#912d26] transition"
+                      >
+                        Try another file
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="button-retry-extraction"
+                        onClick={handleUpload}
+                        className="rounded-lg border border-[#e5a098] bg-white px-3 py-1.5 text-xs font-bold text-[#b34a40] hover:bg-[#fbf4f3] transition"
+                      >
+                        Retry extraction
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

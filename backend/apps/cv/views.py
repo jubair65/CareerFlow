@@ -77,7 +77,18 @@ class CVUploadView(APIView):
             try:
                 pipeline = CVExtractionPipeline()
                 result = pipeline.process_candidate_cv(cv)
-                if result.success and result.raw_text:
+                if not result.success:
+                    logger.warning(f"CV extraction failed for CV ID {cv.id}: {result.error_message}")
+                    return Response(
+                        {
+                            'error': 'Unable to extract text from document',
+                            'detail': 'Ensure document is not password-protected or scanned as raw image.',
+                            'technical_details': result.error_message,
+                            'cv': CandidateCVSerializer(cv).data,
+                        },
+                        status=status.HTTP_422_UNPROCESSABLE_ENTITY
+                    )
+                if result.raw_text:
                     ParsedCV.objects.update_or_create(
                         cv=cv,
                         defaults={
@@ -297,10 +308,11 @@ class CVFeedbackGenerateView(APIView):
             logger.error(f"Error generating CV feedback for CV {cv_id}: {str(e)}", exc_info=True)
             return Response(
                 {
-                    'error': 'Failed to generate CV feedback.',
+                    'error': 'Unable to extract text from document',
+                    'detail': 'Ensure document is not password-protected or scanned as raw image.',
                     'details': str(e),
                 },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY
             )
 
 
@@ -336,8 +348,12 @@ class CurrentCVFeedbackView(APIView):
             except Exception as e:
                 logger.error(f"Error auto-generating feedback for active CV: {str(e)}", exc_info=True)
                 return Response(
-                    {'error': 'Failed to calculate feedback for current CV.', 'details': str(e)},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    {
+                        'error': 'Unable to extract text from document',
+                        'detail': 'Ensure document is not password-protected or scanned as raw image.',
+                        'details': str(e)
+                    },
+                    status=status.HTTP_422_UNPROCESSABLE_ENTITY
                 )
 
         serializer = CVFeedbackSerializer(feedback)

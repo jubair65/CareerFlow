@@ -576,6 +576,10 @@ def generate_cv_feedback(candidate_cv: CandidateCV) -> CVFeedback:
         # Trigger parsing pipeline automatically (US-07 integration)
         logger.info(f"Auto-triggering extraction pipeline for CV ID {candidate_cv.id}")
         result = default_pipeline.process_candidate_cv(candidate_cv)
+        if not result.success:
+            raise ValueError(f"Unable to extract text from document: {result.error_message}")
+        if not result.raw_text or not result.raw_text.strip():
+            raise ValueError("Unable to extract text from document. Ensure document is not password-protected or scanned as raw image.")
         parsed_cv, _ = ParsedCV.objects.update_or_create(
             cv=candidate_cv,
             defaults={
@@ -585,6 +589,8 @@ def generate_cv_feedback(candidate_cv: CandidateCV) -> CVFeedback:
                 'experience': result.experience,
             }
         )
+    elif not parsed_cv.raw_text or not parsed_cv.raw_text.strip():
+        raise ValueError("Unable to extract text from document. Ensure document is not password-protected or scanned as raw image.")
 
     # 2. Score parsed CV
     scoring_result = default_scorer.score(

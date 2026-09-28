@@ -89,17 +89,39 @@ export function CvResults({ notify }: { notify: Notify }) {
   const [feedback, setFeedback] = useState<CVFeedback | null>(null);
   const [loading, setLoading] = useState(true);
   const [reanalyzing, setReanalyzing] = useState(false);
+  const [extractionError, setExtractionError] = useState<{ message: string; advice: string } | null>(null);
 
   const loadFeedbackData = async () => {
     try {
       setLoading(true);
+      setExtractionError(null);
       const [cv, fb] = await Promise.all([
         apiGetCurrentCV().catch(() => null),
-        apiGetCurrentCVFeedback().catch(() => null),
+        apiGetCurrentCVFeedback().catch((err) => {
+          const status = err?.response?.status;
+          const data = err?.response?.data;
+          const msg = data?.error || data?.detail || data?.details || '';
+          if (
+            status === 500 ||
+            status === 422 ||
+            msg.toLowerCase().includes('extract') ||
+            msg.toLowerCase().includes('unable to extract')
+          ) {
+            setExtractionError({
+              message: 'Unable to extract text from document',
+              advice: 'Ensure document is not password-protected or scanned as raw image.',
+            });
+          }
+          return null;
+        }),
       ]);
       setCurrentCv(cv);
       setFeedback(fb);
     } catch (err: any) {
+      setExtractionError({
+        message: 'Unable to extract text from document',
+        advice: 'Ensure document is not password-protected or scanned as raw image.',
+      });
       notify('Failed to load CV feedback results.', 'error');
     } finally {
       setLoading(false);
@@ -117,11 +139,27 @@ export function CvResults({ notify }: { notify: Notify }) {
     }
     try {
       setReanalyzing(true);
+      setExtractionError(null);
       const updated = await apiGenerateCVFeedback(currentCv.id);
       setFeedback(updated);
       notify('CV analysis and score recalculated successfully.', 'success');
     } catch (err: any) {
-      notify('Failed to recalculate CV feedback. Please try again.', 'error');
+      const status = err?.response?.status;
+      const data = err?.response?.data;
+      const msg = data?.error || data?.detail || data?.details || '';
+      if (
+        status === 500 ||
+        status === 422 ||
+        msg.toLowerCase().includes('extract') ||
+        msg.toLowerCase().includes('unable to extract')
+      ) {
+        setExtractionError({
+          message: 'Unable to extract text from document',
+          advice: 'Ensure document is not password-protected or scanned as raw image.',
+        });
+      } else {
+        notify('Failed to recalculate CV feedback. Please try again.', 'error');
+      }
     } finally {
       setReanalyzing(false);
     }
@@ -210,7 +248,7 @@ Produced by CareerFlow Talent Intelligence Platform
           {feedback && (
             <button
               onClick={handleDownloadReport}
-              data-testid="button-download-report"
+              data-testid="button-download-cv-report"
               className="inline-flex items-center gap-1.5 rounded-xl bg-[#253142] px-3.5 py-2 text-xs font-bold text-[#faf7ef] hover:bg-[#33435a] transition"
             >
               <Download size={13} /> Download Report
@@ -252,6 +290,45 @@ Produced by CareerFlow Talent Intelligence Platform
           <p className="mt-4 text-sm font-semibold text-[#526072]">
             Analyzing CV document & calculating feedback signals...
           </p>
+        </div>
+      ) : extractionError ? (
+        <div
+          data-testid="extraction-error-card"
+          className="py-12 px-6 text-center cf-card rounded-2xl bg-white p-8 border border-[#e5a098] max-w-xl mx-auto shadow-sm"
+        >
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#fdf2f0] text-[#b34a40]">
+            <AlertTriangle size={28} />
+          </div>
+          <h2
+            className="mt-4 text-lg font-bold text-[#912d26]"
+            data-testid="extraction-error-title"
+          >
+            {extractionError.message}
+          </h2>
+          <p
+            className="mx-auto mt-2 max-w-md text-xs leading-5 text-[#a33d35]"
+            data-testid="extraction-error-advice"
+          >
+            {extractionError.advice}
+          </p>
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <button
+              onClick={handleReanalyze}
+              disabled={reanalyzing}
+              data-testid="button-retry-extraction"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#253142] px-4 py-2.5 text-xs font-bold text-[#faf7ef] hover:bg-[#33435a] transition"
+            >
+              <RotateCw size={13} className={reanalyzing ? 'animate-spin' : ''} />
+              Retry extraction
+            </button>
+            <button
+              onClick={() => setLocation('/student/cv')}
+              data-testid="button-try-another-file"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#ccd0c6] bg-white px-4 py-2.5 text-xs font-bold text-[#253142] hover:bg-[#fffaf0] transition"
+            >
+              Try another file
+            </button>
+          </div>
         </div>
       ) : !currentCv ? (
         <div className="py-16 text-center cf-card rounded-2xl bg-white p-8 border border-[#d9dbd1]">
@@ -304,7 +381,7 @@ Produced by CareerFlow Talent Intelligence Platform
                   </span>
                   <div
                     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${tier?.bgColor} ${tier?.textColor}`}
-                    data-testid="badge-alignment-tier"
+                    data-testid="score-tier-badge"
                   >
                     <CheckCircle2 size={13} /> {tier?.label}
                   </div>
@@ -315,7 +392,7 @@ Produced by CareerFlow Talent Intelligence Platform
                     <div className="flex items-baseline gap-2">
                       <span
                         className="cf-display text-7xl font-bold leading-none text-[#f5c84b]"
-                        data-testid="text-overall-score"
+                        data-testid="cv-overall-score"
                       >
                         {feedback.overall_score}
                       </span>
@@ -447,7 +524,7 @@ Produced by CareerFlow Talent Intelligence Platform
 
           {/* Signal Breakdown Section */}
           <section
-            data-testid="card-signal-breakdown"
+            data-testid="signal-breakdown"
             className="cf-card rounded-2xl bg-white p-6 border border-[#d9dbd1] shadow-sm"
           >
             <div className="flex items-center gap-2 pb-4 border-b border-[#eef0e7]">
@@ -596,11 +673,12 @@ Produced by CareerFlow Talent Intelligence Platform
               </span>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2" data-testid="container-skills-badges">
+            <div className="mt-4 flex flex-wrap gap-2" data-testid="extracted-skills-list">
               {feedback.extracted_skills && feedback.extracted_skills.length > 0 ? (
                 feedback.extracted_skills.map((skill, index) => (
                   <span
                     key={index}
+                    data-testid="skill-badge"
                     className="inline-flex items-center rounded-xl border border-[#d8d7cc] bg-[#fbfaf5] px-3 py-1.5 text-xs font-bold text-[#253142] shadow-2xs hover:border-[#253142] transition"
                   >
                     {skill}
