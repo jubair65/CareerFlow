@@ -39,16 +39,36 @@ def get_chrome_options():
     return options
 
 
+from webdriver_manager.chrome import ChromeDriverManager
+
+CHROMEDRIVER_PATH = None
+
+def get_chromedriver_service():
+    global CHROMEDRIVER_PATH
+    if not CHROMEDRIVER_PATH:
+        try:
+            CHROMEDRIVER_PATH = ChromeDriverManager().install()
+        except Exception:
+            CHROMEDRIVER_PATH = None
+    if CHROMEDRIVER_PATH:
+        return Service(CHROMEDRIVER_PATH)
+    return Service()
+
+
 @pytest.fixture(scope="function")
 def driver(request):
     """Provides a clean headless Chrome WebDriver instance for each test."""
     options = get_chrome_options()
-    driver_instance = webdriver.Chrome(options=options)
+    service = get_chromedriver_service()
+    driver_instance = webdriver.Chrome(service=service, options=options)
     driver_instance.implicitly_wait(10)
 
     yield driver_instance
 
-    driver_instance.quit()
+    try:
+        driver_instance.quit()
+    except Exception:
+        pass
 
 
 @pytest.fixture(autouse=True)
