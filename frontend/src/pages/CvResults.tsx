@@ -30,6 +30,7 @@ import {
   type CandidateCV,
   type CVFeedback,
 } from '../api/cv';
+import { CvProcessingView } from '../components/cv/CvProcessingView';
 
 function formatDate(dateStr: string) {
   try {
@@ -89,6 +90,7 @@ export function CvResults({ notify }: { notify: Notify }) {
   const [feedback, setFeedback] = useState<CVFeedback | null>(null);
   const [loading, setLoading] = useState(true);
   const [reanalyzing, setReanalyzing] = useState(false);
+  const [reanalyzeProgress, setReanalyzeProgress] = useState(0);
   const [extractionError, setExtractionError] = useState<{ message: string; advice: string } | null>(null);
 
   const loadFeedbackData = async () => {
@@ -137,13 +139,42 @@ export function CvResults({ notify }: { notify: Notify }) {
       notify('No active CV found to re-analyze.', 'error');
       return;
     }
+
+    setReanalyzing(true);
+    setReanalyzeProgress(10);
+    setExtractionError(null);
+    notify('CV uploaded. Analysis started.', 'success');
+
+    let currentPct = 10;
+    const progressTimer = setInterval(() => {
+      if (currentPct < 25) {
+        currentPct += 2.5;
+      } else if (currentPct < 40) {
+        currentPct += 1.8;
+      } else if (currentPct < 70) {
+        currentPct += 1.2;
+      } else if (currentPct < 90) {
+        currentPct += 0.6;
+      }
+      setReanalyzeProgress(Math.min(92, Math.round(currentPct)));
+    }, 120);
+
     try {
-      setReanalyzing(true);
-      setExtractionError(null);
       const updated = await apiGenerateCVFeedback(currentCv.id);
-      setFeedback(updated);
-      notify('CV analysis and score recalculated successfully.', 'success');
+      clearInterval(progressTimer);
+      setReanalyzeProgress(100);
+
+      setTimeout(() => {
+        setFeedback(updated);
+        setReanalyzing(false);
+        setReanalyzeProgress(0);
+        notify('CV analysis and score recalculated successfully.', 'success');
+      }, 700);
     } catch (err: any) {
+      clearInterval(progressTimer);
+      setReanalyzing(false);
+      setReanalyzeProgress(0);
+
       const status = err?.response?.status;
       const data = err?.response?.data;
       const msg = data?.error || data?.detail || data?.details || '';
@@ -160,8 +191,6 @@ export function CvResults({ notify }: { notify: Notify }) {
       } else {
         notify('Failed to recalculate CV feedback. Please try again.', 'error');
       }
-    } finally {
-      setReanalyzing(false);
     }
   };
 
@@ -221,6 +250,14 @@ Produced by CareerFlow Talent Intelligence Platform
   };
 
   const tier = feedback ? getScoreTier(feedback.overall_score) : null;
+
+  if (reanalyzing) {
+    return (
+      <AppShell role="student" notify={notify}>
+        <CvProcessingView progress={reanalyzeProgress} />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell role="student" notify={notify}>

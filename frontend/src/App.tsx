@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
@@ -14,8 +14,10 @@ import { HrDashboard } from './pages/HrDashboard';
 import { AgencyDashboard } from './pages/AgencyDashboard';
 import { CvStudio } from './pages/CvStudio';
 import { CvResults } from './pages/CvResults';
+import { CvProcessingPage } from './components/cv/CvProcessingView';
 import { JobMatch } from './pages/JobMatch';
 import { PresentationStudio } from './pages/PresentationStudio';
+import { VideoHistory } from './pages/VideoHistory';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 
@@ -591,6 +593,14 @@ function RoutedApp({ notify }: { notify: Notify }) {
     );
   }
 
+  if (path === '/student/cv/processing') {
+    return (
+      <ProtectedRoute allowedRoles={['student']} notify={notify}>
+        <CvProcessingPage notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
   if (path === '/student/cv/results' || path === '/student/cv/feedback') {
     return (
       <ProtectedRoute allowedRoles={['student']} notify={notify}>
@@ -607,10 +617,18 @@ function RoutedApp({ notify }: { notify: Notify }) {
     );
   }
 
-  if (path === '/student/presentation' || path === '/student/practice' || path === '/student/videos') {
+  if (path === '/student/presentation' || path === '/student/practice') {
     return (
       <ProtectedRoute allowedRoles={['student']} notify={notify}>
         <PresentationStudio notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (path === '/student/videos') {
+    return (
+      <ProtectedRoute allowedRoles={['student']} notify={notify}>
+        <VideoHistory notify={notify} />
       </ProtectedRoute>
     );
   }
@@ -641,10 +659,10 @@ function RoutedApp({ notify }: { notify: Notify }) {
 
 function App() {
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'info' | 'error' } | null>(null);
-  const notify: Notify = (message, tone = 'success') => {
+  const notify: Notify = useCallback((message, tone = 'success') => {
     setToast({ message, tone });
-    window.setTimeout(() => setToast(null), 2800);
-  };
+    window.setTimeout(() => setToast(null), 4000);
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -14,8 +14,11 @@ import {
   ShieldCheck,
   Pause,
   Loader2,
-  HardDrive
+  HardDrive,
+  FlipHorizontal
 } from 'lucide-react';
+import fixWebmDuration from 'fix-webm-duration';
+import { WebcamPlaybackPlayer } from './WebcamPlaybackPlayer';
 import { apiUploadPresentationVideo, type PresentationVideo } from '../../api/presentation';
 
 interface VideoRecorderProps {
@@ -49,9 +52,13 @@ export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [recordedPreviewUrl, setRecordedPreviewUrl] = useState<string | null>(null);
+  const [isMirrored, setIsMirrored] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const timerIntervalRef = useRef<number | null>(null);
+  const recordingStartTimeRef = useRef<number>(0);
+  const totalRecordedMsRef = useRef<number>(0);
+  const lastResumeTimeRef = useRef<number>(0);
 
   // Stop camera stream cleanly
   const stopCameraStream = useCallback(() => {
@@ -184,6 +191,9 @@ export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
     if (recordedPreviewUrl) URL.revokeObjectURL(recordedPreviewUrl);
     setRecordedPreviewUrl(null);
     setElapsedSeconds(0);
+    recordingStartTimeRef.current = Date.now();
+    lastResumeTimeRef.current = Date.now();
+    totalRecordedMsRef.current = 0;
 
     // Pick best supported MIME type
     let mimeType = 'video/webm;codecs=vp8,opus';
@@ -204,10 +214,23 @@ export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
         }
       };
 
-      recorder.onstop = () => {
-        const fullBlob = new Blob(recordedChunksRef.current, { type: mimeType });
-        setRecordedBlob(fullBlob);
-        const url = URL.createObjectURL(fullBlob);
+      recorder.onstop = async () => {
+        const rawBlob = new Blob(recordedChunksRef.current, { type: mimeType });
+        let finalBlob = rawBlob;
+
+        // Accurate duration in milliseconds for WebM metadata patching
+        const recordedMs = Math.max(1000, totalRecordedMsRef.current || (elapsedSeconds * 1000) || 1000);
+
+        if (mimeType.includes('webm')) {
+          try {
+            finalBlob = await fixWebmDuration(rawBlob, recordedMs, { logger: false });
+          } catch (e) {
+            console.warn('Could not patch WebM duration header:', e);
+          }
+        }
+
+        setRecordedBlob(finalBlob);
+        const url = URL.createObjectURL(finalBlob);
         setRecordedPreviewUrl(url);
         stopCameraStream();
         setRecordingState('stopped');
@@ -236,6 +259,7 @@ export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
   const pauseRecording = () => {
     if (mediaRecorderRef.current && recordingState === 'recording') {
       mediaRecorderRef.current.pause();
+      totalRecordedMsRef.current += Date.now() - lastResumeTimeRef.current;
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       setRecordingState('paused');
     }
@@ -244,6 +268,7 @@ export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
   const resumeRecording = () => {
     if (mediaRecorderRef.current && recordingState === 'paused') {
       mediaRecorderRef.current.resume();
+      lastResumeTimeRef.current = Date.now();
       setRecordingState('recording');
       timerIntervalRef.current = window.setInterval(() => {
         setElapsedSeconds((prev) => {
@@ -262,6 +287,9 @@ export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
+    if (recordingState === 'recording') {
+      totalRecordedMsRef.current += Date.now() - lastResumeTimeRef.current;
+    }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
@@ -272,6 +300,7 @@ export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
     setRecordedBlob(null);
     setRecordedPreviewUrl(null);
     setElapsedSeconds(0);
+    totalRecordedMsRef.current = 0;
     setRecordingState('idle');
     startCamera();
   };
@@ -423,28 +452,49 @@ export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
           <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-[#1a2330] shadow-inner">
             {/* Live Camera Stream */}
             {!recordedPreviewUrl && (
-              <video
-                ref={videoPreviewRef}
-                autoPlay
-                playsInline
-                muted
-                data-testid="webcam-live-preview"
-                className="h-full w-full object-cover mirror"
-              />
+              <div className="relative h-full w-full">
+                <video
+                  ref={videoPreviewRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  data-testid="webcam-live-preview"
+                  style={{
+                    transform: isMirrored ? 'scaleX(-1)' : 'none',
+                    WebkitTransform: isMirrored ? 'scaleX(-1)' : 'none',
+                  }}
+                  className="h-full w-full object-cover transition-transform duration-300"
+                />
+
+                {/* Mirror Toggle Button during Live Camera */}
+                <div className="absolute top-4 right-4 z-10">
+                  <button
+                    type="button"
+                    onClick={() => setIsMirrored((prev) => !prev)}
+                    title={isMirrored ? 'Switch to Normal View' : 'Switch to Mirrored View'}
+                    data-testid="button-toggle-mirror-live"
+                    className="flex items-center gap-1.5 rounded-full bg-black/60 border border-white/20 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md hover:bg-black/80 transition shadow-sm cursor-pointer"
+                  >
+                    <FlipHorizontal size={14} className={isMirrored ? 'text-[#f5c84b]' : 'text-white/70'} />
+                    <span>{isMirrored ? 'Mirrored' : 'Normal'}</span>
+                  </button>
+                </div>
+              </div>
             )}
 
-            {/* Recorded Video Playback Preview */}
+            {/* Recorded Video Playback Preview with Fixed Time Bar and Mirror Mode */}
             {recordedPreviewUrl && (
-              <video
+              <WebcamPlaybackPlayer
                 src={recordedPreviewUrl}
-                controls
-                data-testid="webcam-recorded-preview"
-                className="h-full w-full object-cover"
+                durationSeconds={totalRecordedMsRef.current ? Math.round(totalRecordedMsRef.current / 1000) : elapsedSeconds}
+                isMirrored={isMirrored}
+                onToggleMirror={() => setIsMirrored((prev) => !prev)}
+                testId="webcam-recorded-preview"
               />
             )}
 
-            {/* Timer Overlay */}
-            {recordingState === 'recording' && (
+            {/* Timer Overlay (Only shown during active recording) */}
+            {!recordedPreviewUrl && recordingState === 'recording' && (
               <div className="absolute top-4 left-4 flex items-center gap-2 rounded-full bg-black/60 px-3.5 py-1.5 text-xs font-bold text-white backdrop-blur-md">
                 <span className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse" />
                 <span>REC</span>
@@ -453,15 +503,15 @@ export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
               </div>
             )}
 
-            {recordingState === 'paused' && (
+            {!recordedPreviewUrl && recordingState === 'paused' && (
               <div className="absolute top-4 left-4 flex items-center gap-2 rounded-full bg-yellow-500/80 px-3 py-1 text-xs font-bold text-[#253142] backdrop-blur-md">
                 <Pause size={12} /> PAUSED ({formatTimer(elapsedSeconds)})
               </div>
             )}
 
             {/* Countdown warning when approaching 3 mins */}
-            {recordingState === 'recording' && elapsedSeconds >= 150 && (
-              <div className="absolute top-4 right-4 rounded-lg bg-red-600/90 px-2.5 py-1 text-xs font-bold text-white animate-bounce">
+            {!recordedPreviewUrl && recordingState === 'recording' && elapsedSeconds >= 150 && (
+              <div className="absolute top-14 left-4 rounded-lg bg-red-600/90 px-2.5 py-1 text-xs font-bold text-white animate-bounce">
                 {MAX_DURATION_SECONDS - elapsedSeconds}s remaining
               </div>
             )}

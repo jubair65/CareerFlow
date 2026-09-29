@@ -411,3 +411,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
     inset: -1px;
   }
 }
+
+@utility mirror {
+  transform: scaleX(-1);
+}
+
+.mirror {
+  transform: scaleX(-1) !important;
+}

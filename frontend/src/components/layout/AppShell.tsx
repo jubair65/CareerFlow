@@ -166,7 +166,10 @@ export function AppShell({
 
           <nav className="space-y-1">
             {nav.map(({ icon: Icon, label, path: itemPath, active }) => {
-              const isCurrent = path === itemPath || (active && path.startsWith(itemPath));
+              const isCurrent =
+                path === itemPath ||
+                (active && path.startsWith(itemPath)) ||
+                (itemPath === '/student/cv' && path.startsWith('/student/cv'));
               return (
                 <button
                   key={itemPath}

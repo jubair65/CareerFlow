@@ -24,9 +24,11 @@ import {
   apiGetCurrentCV,
   apiUploadCV,
   apiGetCVHistory,
+  apiGenerateCVFeedback,
   getAuthenticatedFileUrl,
   type CandidateCV,
 } from '../api/cv';
+import { CvProcessingView } from '../components/cv/CvProcessingView';
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_EXTENSIONS = ['.pdf', '.docx'];
@@ -69,6 +71,8 @@ export function CvStudio({ notify }: { notify: Notify }) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [extractionError, setExtractionError] = useState<{ message: string; advice: string } | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzeProgress, setAnalyzeProgress] = useState(0);
 
   // Fetch current CV and history
   const loadCvData = async () => {
@@ -139,62 +143,111 @@ export function CvStudio({ notify }: { notify: Notify }) {
     }
   };
 
-  const handleUpload = async () => {
+  const startAnalysisFlow = async (cvIdToAnalyze?: number, fileToUpload?: File) => {
+    setIsAnalyzing(true);
+    setAnalyzeProgress(5);
+    setValidationError(null);
+    setExtractionError(null);
+    notify('CV uploaded. Analysis started.', 'success');
+
+    let apiDone = false;
+    let apiError: any = null;
+
+    const runApiWork = async () => {
+      try {
+        let targetCvId = cvIdToAnalyze;
+        if (fileToUpload) {
+          const res = await apiUploadCV(fileToUpload);
+          targetCvId = res.cv.id;
+          setCurrentCv(res.cv);
+          setSelectedFile(null);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+          apiGetCVHistory().then((h) => setCvHistory(h)).catch(() => {});
+        }
+
+        if (targetCvId) {
+          await apiGenerateCVFeedback(targetCvId);
+        } else {
+          const current = await apiGetCurrentCV();
+          if (current) {
+            await apiGenerateCVFeedback(current.id);
+          }
+        }
+        apiDone = true;
+      } catch (err: any) {
+        apiError = err;
+      }
+    };
+
+    runApiWork();
+
+    let currentPct = 5;
+    const progressInterval = setInterval(() => {
+      if (apiError) {
+        clearInterval(progressInterval);
+        setIsAnalyzing(false);
+        setAnalyzeProgress(0);
+
+        const status = apiError?.response?.status;
+        const data = apiError?.response?.data;
+        const errorText = data?.error || data?.detail || data?.file?.[0] || apiError?.message || '';
+
+        if (
+          status === 422 ||
+          status === 500 ||
+          errorText.toLowerCase().includes('extract') ||
+          errorText.toLowerCase().includes('corrupt')
+        ) {
+          setExtractionError({
+            message: data?.error || 'Unable to extract text from document',
+            advice:
+              data?.detail ||
+              'Ensure document is not password-protected or scanned as raw image.',
+          });
+        } else {
+          const msg =
+            data?.file?.[0] ||
+            data?.detail ||
+            data?.error ||
+            data?.non_field_errors?.[0] ||
+            apiError?.message ||
+            'Failed to upload and analyze CV. Please try again.';
+          setValidationError(msg);
+          notify(msg, 'error');
+        }
+        return;
+      }
+
+      if (currentPct < 92) {
+        currentPct += 1.5;
+        setAnalyzeProgress(Math.round(currentPct));
+      } else if (apiDone) {
+        clearInterval(progressInterval);
+        setAnalyzeProgress(100);
+        setTimeout(() => {
+          setLocation('/student/cv/results');
+        }, 700);
+      }
+    }, 50);
+  };
+
+  const handleUpload = () => {
     if (!selectedFile) {
       notify('Please select a PDF or DOCX file to upload.', 'error');
       return;
     }
-
-    try {
-      setUploading(true);
-      setUploadProgress(0);
-      setExtractionError(null);
-
-      const res = await apiUploadCV(selectedFile, (pct) => {
-        setUploadProgress(pct);
-      });
-
-      notify('CV uploaded successfully.', 'success');
-      setCurrentCv(res.cv);
-      setSelectedFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-      // Refresh history
-      apiGetCVHistory().then((h) => setCvHistory(h)).catch(() => {});
-    } catch (err: any) {
-      const status = err?.response?.status;
-      const data = err?.response?.data;
-      const errorText = data?.error || data?.detail || data?.file?.[0] || err?.message || '';
-
-      if (
-        status === 422 ||
-        status === 500 ||
-        errorText.toLowerCase().includes('extract') ||
-        errorText.toLowerCase().includes('corrupt')
-      ) {
-        setExtractionError({
-          message: data?.error || 'Unable to extract text from document',
-          advice:
-            data?.detail ||
-            'Ensure document is not password-protected or scanned as raw image.',
-        });
-      } else {
-        const msg =
-          data?.file?.[0] ||
-          data?.detail ||
-          data?.error ||
-          data?.non_field_errors?.[0] ||
-          err?.message ||
-          'Failed to upload CV. Please try again.';
-        setValidationError(msg);
-        notify(msg, 'error');
-      }
-    } finally {
-      setUploading(false);
-      setUploadProgress(0);
-    }
+    startAnalysisFlow(undefined, selectedFile);
   };
+
+  if (isAnalyzing) {
+    return (
+      <AppShell role="student" notify={notify}>
+        <CvProcessingView progress={analyzeProgress} />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell role="student" notify={notify}>
@@ -285,7 +338,7 @@ export function CvStudio({ notify }: { notify: Notify }) {
             </span>
             <button
               type="button"
-              onClick={() => setLocation('/student/cv/results')}
+              onClick={() => currentCv && startAnalysisFlow(currentCv.id)}
               data-testid="button-view-cv-suggestions"
               disabled={!currentCv}
               className="inline-flex items-center gap-2 rounded-xl bg-[#253142] px-4 py-2.5 text-xs font-bold text-[#faf7ef] hover:bg-[#33435a] transition disabled:opacity-40 disabled:cursor-not-allowed"

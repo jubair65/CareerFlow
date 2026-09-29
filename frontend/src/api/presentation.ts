@@ -23,6 +23,28 @@ export interface PresentationVideo {
     | 'COMPLETED'
     | 'FAILED';
   uploaded_at: string;
+  speech_analysis?: SpeechAnalysisData | null;
+  behavioral_analysis?: BehavioralAnalysisData | null;
+}
+
+export interface SpeechAnalysisData {
+  id: number;
+  transcript: string;
+  words_per_minute: number;
+  filler_word_count: number;
+  filler_words_breakdown: Record<string, number>;
+  clarity_score: number;
+  duration_seconds: number;
+  processed_at: string;
+}
+
+export interface BehavioralAnalysisData {
+  id: number;
+  eye_contact_score: number;
+  posture_score: number;
+  engagement_score: number;
+  frame_metrics: any;
+  processed_at: string;
 }
 
 export interface VideoUploadResponse {
@@ -89,4 +111,46 @@ export async function apiGetPresentationVideoHistory(): Promise<PresentationVide
  */
 export async function apiDeletePresentationVideo(id: number): Promise<void> {
   await apiClient.delete(`/presentation/${id}/`);
+}
+
+/**
+ * Get speech analysis for a video.
+ */
+export async function apiGetSpeechAnalysis(videoId: number): Promise<SpeechAnalysisData | null> {
+  try {
+    const response = await apiClient.get<SpeechAnalysisData>(`/presentation/${videoId}/speech/`);
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.status === 404) return null;
+    throw error;
+  }
+}
+
+/**
+ * Trigger speech analysis on a video.
+ */
+export async function apiTriggerSpeechAnalysis(videoId: number): Promise<SpeechAnalysisData> {
+  const response = await apiClient.post<SpeechAnalysisData>(`/presentation/${videoId}/speech/`);
+  return response.data;
+}
+
+/**
+ * Get behavioral analysis for a video.
+ */
+export async function apiGetBehavioralAnalysis(videoId: number): Promise<BehavioralAnalysisData | null> {
+  try {
+    const response = await apiClient.get<BehavioralAnalysisData>(`/presentation/${videoId}/behavioral/`);
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.status === 404) return null;
+    throw error;
+  }
+}
+
+/**
+ * Trigger behavioral analysis on a video.
+ */
+export async function apiTriggerBehavioralAnalysis(videoId: number): Promise<BehavioralAnalysisData> {
+  const response = await apiClient.post<BehavioralAnalysisData>(`/presentation/${videoId}/behavioral/`);
+  return response.data;
 }
