@@ -98,3 +98,40 @@ class SpeechAnalysis(models.Model):
 
     def __str__(self):
         return f"SpeechAnalysis ({self.video.original_filename}) - {self.words_per_minute} WPM"
+
+
+class BehavioralAnalysis(models.Model):
+    video = models.OneToOneField(
+        PresentationVideo,
+        on_delete=models.CASCADE,
+        related_name='behavioral_analysis'
+    )
+    eye_contact_score = models.PositiveIntegerField(
+        default=75,
+        help_text="Eye contact score 0-100 (% frames looking at camera)"
+    )
+    posture_score = models.PositiveIntegerField(
+        default=80,
+        help_text="Posture alignment score 0-100 (upright vs slouched/tilted)"
+    )
+    engagement_score = models.PositiveIntegerField(
+        default=75,
+        help_text="Facial engagement score 0-100 (attentiveness & positivity)"
+    )
+    frame_metrics = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Sampled metrics across frames (eye contact, posture, engagement signals)"
+    )
+    processed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Behavioral Analysis'
+        verbose_name_plural = 'Behavioral Analyses'
+        ordering = ['-processed_at']
+
+    def __str__(self):
+        return (
+            f"BehavioralAnalysis ({self.video.original_filename}) - "
+            f"Eye: {self.eye_contact_score}%, Posture: {self.posture_score}%, Engagement: {self.engagement_score}%"
+        )

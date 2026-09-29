@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import PresentationVideo, SpeechAnalysis
+from .models import PresentationVideo, SpeechAnalysis, BehavioralAnalysis
 from .validators import validate_video_file, MAX_UPLOAD_SIZE
 
 
@@ -30,12 +30,36 @@ class SpeechAnalysisSerializer(serializers.ModelSerializer):
         ]
 
 
+class BehavioralAnalysisSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BehavioralAnalysis
+        fields = [
+            'id',
+            'video',
+            'eye_contact_score',
+            'posture_score',
+            'engagement_score',
+            'frame_metrics',
+            'processed_at',
+        ]
+        read_only_fields = [
+            'id',
+            'video',
+            'eye_contact_score',
+            'posture_score',
+            'engagement_score',
+            'frame_metrics',
+            'processed_at',
+        ]
+
+
 class PresentationVideoSerializer(serializers.ModelSerializer):
     formatted_raw_size = serializers.ReadOnlyField()
     formatted_compressed_size = serializers.ReadOnlyField()
     compression_savings_percent = serializers.ReadOnlyField()
     file_url = serializers.SerializerMethodField()
     speech_analysis = SpeechAnalysisSerializer(read_only=True)
+    behavioral_analysis = BehavioralAnalysisSerializer(read_only=True)
 
     class Meta:
         model = PresentationVideo
@@ -55,6 +79,7 @@ class PresentationVideoSerializer(serializers.ModelSerializer):
             'status',
             'uploaded_at',
             'speech_analysis',
+            'behavioral_analysis',
         ]
         read_only_fields = [
             'id',
@@ -66,6 +91,7 @@ class PresentationVideoSerializer(serializers.ModelSerializer):
             'status',
             'uploaded_at',
             'speech_analysis',
+            'behavioral_analysis',
         ]
 
     def get_file_url(self, obj) -> str:

@@ -3,6 +3,14 @@ from .audio_extractor import extract_audio, cleanup_audio_file
 from .transcription_service import BaseTranscriptionService, FasterWhisperTranscriptionService
 from .speech_metrics import calculate_wpm, detect_filler_words, calculate_clarity_score, count_words
 from .speech_analyzer import SpeechAnalyzer, analyze_speech
+from .behavioral_metrics import (
+    calculate_eye_contact_score,
+    calculate_shoulder_tilt_angle,
+    calculate_posture_score,
+    calculate_engagement_score,
+)
+from .vision_pipeline import VisionPipeline
+from .behavioral_analyzer import BehavioralAnalyzer, analyze_behavior
 
 __all__ = [
     'compress_video',
@@ -17,4 +25,11 @@ __all__ = [
     'count_words',
     'SpeechAnalyzer',
     'analyze_speech',
+    'calculate_eye_contact_score',
+    'calculate_shoulder_tilt_angle',
+    'calculate_posture_score',
+    'calculate_engagement_score',
+    'VisionPipeline',
+    'BehavioralAnalyzer',
+    'analyze_behavior',
 ]
