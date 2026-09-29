@@ -64,7 +64,7 @@ export function StudentDashboard({ notify }: { notify: Notify }) {
         action={
           <button
             type="button"
-            onClick={() => handleAction('Practice Now')}
+            onClick={() => setLocation('/student/presentation')}
             data-testid="button-dashboard-practice"
             className="inline-flex items-center gap-2 rounded-xl bg-[#e2f0e9] px-4 py-2.5 text-sm font-bold text-[#277254] hover:bg-[#d2e7dc] transition"
           >
@@ -75,13 +75,19 @@ export function StudentDashboard({ notify }: { notify: Notify }) {
 
       {/* 4 Metric Cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Presentation score"
-          value="82"
-          detail="+8 points this month"
-          icon={Presentation}
-          accent="yellow"
-        />
+        <div
+          onClick={() => setLocation('/student/presentation')}
+          className="cursor-pointer transition hover:scale-[1.01]"
+          title="Click to view Presentation Studio"
+        >
+          <StatCard
+            label="Presentation score"
+            value="82"
+            detail="+8 points this month"
+            icon={Presentation}
+            accent="yellow"
+          />
+        </div>
         <div
           onClick={() => setLocation('/student/cv/results')}
           className="cursor-pointer transition hover:scale-[1.01]"

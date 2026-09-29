@@ -129,7 +129,13 @@ export function AppShell({
 
   const handleNavClick = (targetPath: string, isOverview?: boolean) => {
     setMobileOpen(false);
-    if (isOverview || targetPath === '/student/cv') {
+    if (
+      isOverview ||
+      targetPath === '/student/cv' ||
+      targetPath === '/student/practice' ||
+      targetPath === '/student/videos' ||
+      targetPath === '/student/presentation'
+    ) {
       setLocation(targetPath);
     } else {
       notify('Sprint 2 feature: Full interactive workflow coming in next sprint!', 'info');

@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'apps.authentication.apps.AuthenticationConfig',
     'apps.core.apps.CoreConfig',
     'apps.cv.apps.CvConfig',
+    'apps.presentation.apps.PresentationConfig',
 ]
 
 MIDDLEWARE = [

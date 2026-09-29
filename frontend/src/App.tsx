@@ -15,6 +15,7 @@ import { AgencyDashboard } from './pages/AgencyDashboard';
 import { CvStudio } from './pages/CvStudio';
 import { CvResults } from './pages/CvResults';
 import { JobMatch } from './pages/JobMatch';
+import { PresentationStudio } from './pages/PresentationStudio';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 
@@ -602,6 +603,14 @@ function RoutedApp({ notify }: { notify: Notify }) {
     return (
       <ProtectedRoute allowedRoles={['student']} notify={notify}>
         <JobMatch notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (path === '/student/presentation' || path === '/student/practice' || path === '/student/videos') {
+    return (
+      <ProtectedRoute allowedRoles={['student']} notify={notify}>
+        <PresentationStudio notify={notify} />
       </ProtectedRoute>
     );
   }
