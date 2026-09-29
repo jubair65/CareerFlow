@@ -75,3 +75,26 @@ class PresentationVideo(models.Model):
             savings = (1 - (self.compressed_file_size / self.raw_file_size)) * 100
             return max(0.0, round(savings, 1))
         return 0.0
+
+
+class SpeechAnalysis(models.Model):
+    video = models.OneToOneField(
+        PresentationVideo,
+        on_delete=models.CASCADE,
+        related_name='speech_analysis'
+    )
+    transcript = models.TextField(blank=True, default='')
+    words_per_minute = models.FloatField(default=0.0)
+    filler_word_count = models.PositiveIntegerField(default=0)
+    filler_words_breakdown = models.JSONField(default=dict, blank=True)
+    clarity_score = models.PositiveIntegerField(default=80)  # 0-100
+    duration_seconds = models.FloatField(default=0.0)
+    processed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Speech Analysis'
+        verbose_name_plural = 'Speech Analyses'
+        ordering = ['-processed_at']
+
+    def __str__(self):
+        return f"SpeechAnalysis ({self.video.original_filename}) - {self.words_per_minute} WPM"

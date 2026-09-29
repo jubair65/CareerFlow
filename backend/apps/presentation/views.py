@@ -7,8 +7,12 @@ from rest_framework import status, permissions, parsers
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from .models import PresentationVideo
-from .serializers import PresentationVideoSerializer, VideoUploadSerializer
+from .models import PresentationVideo, SpeechAnalysis
+from .serializers import (
+    PresentationVideoSerializer,
+    VideoUploadSerializer,
+    SpeechAnalysisSerializer,
+)
 from .validators import (
     validate_video_file,
     validate_video_duration,
@@ -17,6 +21,7 @@ from .validators import (
     MAX_DURATION_SECONDS
 )
 from .services.video_compressor import compress_video, cleanup_staging_file
+from .services.speech_analyzer import analyze_speech
 from apps.core.models import DataAccessLog
 
 logger = logging.getLogger(__name__)
@@ -202,3 +207,55 @@ class PresentationVideoDetailView(APIView):
 
         video.delete()
         return Response({'message': 'Presentation video deleted successfully.'}, status=status.HTTP_200_OK)
+
+
+class PresentationSpeechAnalysisView(APIView):
+    """
+    GET /api/presentation/<video_id>/speech/
+    POST /api/presentation/<video_id>/speech/
+    Retrieve or trigger speech analysis for a candidate's presentation video (US-12).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_video(self, video_id, user):
+        return PresentationVideo.objects.filter(id=video_id, user=user).first()
+
+    def get(self, request, video_id):
+        video = self.get_video(video_id, request.user)
+        if not video:
+            return Response({'error': 'Video not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        speech_analysis = getattr(video, 'speech_analysis', None)
+        if not speech_analysis:
+            return Response(
+                {
+                    'detail': 'Speech analysis has not been performed on this video yet.',
+                    'status': video.status
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = SpeechAnalysisSerializer(speech_analysis)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, video_id):
+        video = self.get_video(video_id, request.user)
+        if not video:
+            return Response({'error': 'Video not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            speech_record = analyze_speech(video)
+            serializer = SpeechAnalysisSerializer(speech_record)
+            return Response(
+                {
+                    'message': 'Speech analysis completed successfully.',
+                    'speech_analysis': serializer.data
+                },
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            logger.error(f"Error analyzing speech for video {video_id}: {e}")
+            return Response(
+                {'error': f"Speech analysis failed: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
