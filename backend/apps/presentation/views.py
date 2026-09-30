@@ -7,13 +7,20 @@ from rest_framework import status, permissions, parsers
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from .models import PresentationVideo, SpeechAnalysis, BehavioralAnalysis, PresentationScore
+from .models import (
+    PresentationVideo,
+    SpeechAnalysis,
+    BehavioralAnalysis,
+    PresentationScore,
+    PresentationFeedback,
+)
 from .serializers import (
     PresentationVideoSerializer,
     VideoUploadSerializer,
     SpeechAnalysisSerializer,
     BehavioralAnalysisSerializer,
     PresentationScoreSerializer,
+    PresentationFeedbackSerializer,
 )
 from .validators import (
     validate_video_file,
@@ -26,6 +33,7 @@ from .services.video_compressor import compress_video, cleanup_staging_file
 from .services.speech_analyzer import analyze_speech
 from .services.behavioral_analyzer import analyze_behavior
 from .services.scorer import calculate_presentation_score
+from .services.llm_coach_service import GeminiPresentationCoachService
 from apps.core.models import DataAccessLog
 
 logger = logging.getLogger(__name__)
@@ -392,5 +400,105 @@ class PresentationScoreView(APIView):
             logger.error(f"Error calculating score for video {video_id}: {e}")
             return Response(
                 {'error': f"Score calculation failed: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class PresentationSuggestionsView(APIView):
+    """
+    GET /api/presentation/<video_id>/suggestions/
+    POST /api/presentation/<video_id>/suggestions/
+    POST /api/presentation/<video_id>/suggestions/generate/
+    Retrieve or generate personalized AI improvement suggestions (US-15)
+    using GeminiPresentationCoachService with structured JSON output and drill callouts.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_video(self, video_id, user):
+        return PresentationVideo.objects.filter(id=video_id, user=user).first()
+
+    def _generate_or_get_feedback(self, video, force_refresh: bool = False):
+        if not force_refresh:
+            existing = PresentationFeedback.objects.filter(video=video).first()
+            if existing:
+                return existing
+
+        speech = getattr(video, 'speech_analysis', None)
+        behavioral = getattr(video, 'behavioral_analysis', None)
+        score = getattr(video, 'presentation_score', None)
+
+        if not speech:
+            try:
+                speech = analyze_speech(video)
+                video.refresh_from_db()
+            except Exception as e:
+                logger.warning(f"Speech analysis failed while preparing suggestions: {e}")
+
+        if not behavioral:
+            try:
+                behavioral = analyze_behavior(video)
+                video.refresh_from_db()
+            except Exception as e:
+                logger.warning(f"Behavioral analysis failed while preparing suggestions: {e}")
+
+        if not score:
+            try:
+                score = calculate_presentation_score(video)
+                video.refresh_from_db()
+            except Exception as e:
+                logger.warning(f"Score calculation failed while preparing suggestions: {e}")
+
+        metrics = {
+            'wpm': getattr(speech, 'words_per_minute', 140.0),
+            'filler_count': getattr(speech, 'filler_word_count', 0),
+            'filler_breakdown': getattr(speech, 'filler_words_breakdown', {}),
+            'eye_contact': getattr(behavioral, 'eye_contact_score', 75),
+            'posture_score': getattr(behavioral, 'posture_score', 80),
+            'engagement_score': getattr(behavioral, 'engagement_score', 75),
+            'overall_score': getattr(score, 'overall_score', 78),
+        }
+
+        service = GeminiPresentationCoachService()
+        feedback_data = service.generate_feedback(metrics)
+
+        feedback, _ = PresentationFeedback.objects.update_or_create(
+            video=video,
+            defaults={
+                'summary': feedback_data.get('summary', 'Solid presentation foundation.'),
+                'strengths': feedback_data.get('strengths', []),
+                'improvements': feedback_data.get('critical_improvements', []),
+                'practice_tip': feedback_data.get('practice_script_tip', ''),
+            }
+        )
+        return feedback
+
+    def get(self, request, video_id):
+        video = self.get_video(video_id, request.user)
+        if not video:
+            return Response({'error': 'Video not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        feedback = self._generate_or_get_feedback(video, force_refresh=False)
+        serializer = PresentationFeedbackSerializer(feedback)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, video_id):
+        video = self.get_video(video_id, request.user)
+        if not video:
+            return Response({'error': 'Video not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            feedback = self._generate_or_get_feedback(video, force_refresh=True)
+            serializer = PresentationFeedbackSerializer(feedback)
+            return Response(
+                {
+                    'message': 'AI coaching suggestions generated successfully.',
+                    'ai_feedback': serializer.data,
+                },
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            logger.error(f"Error generating suggestions for video {video_id}: {e}")
+            return Response(
+                {'error': f"Failed to generate feedback: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

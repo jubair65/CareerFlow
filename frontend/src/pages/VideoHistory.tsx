@@ -33,6 +33,7 @@ import {
 } from '../api/presentation';
 import { WebcamPlaybackPlayer } from '../components/presentation/WebcamPlaybackPlayer';
 import { PresentationScoreCard } from '../components/presentation/PresentationScoreCard';
+import { SuggestionsList } from '../components/presentation/SuggestionsList';
 
 const PRACTICE_PROMPTS = [
   'Tell me about yourself',
@@ -485,6 +486,13 @@ export function VideoHistory({ notify }: { notify: Notify }) {
                 <PresentationScoreCard
                   videoId={analysisVideo.id}
                   initialScore={analysisVideo.presentation_score}
+                  notify={notify}
+                />
+
+                {/* AI Executive Coaching Suggestions (US-15) */}
+                <SuggestionsList
+                  videoId={analysisVideo.id}
+                  initialFeedback={analysisVideo.ai_feedback}
                   notify={notify}
                 />
 

@@ -1,5 +1,11 @@
 from rest_framework import serializers
-from .models import PresentationVideo, SpeechAnalysis, BehavioralAnalysis, PresentationScore
+from .models import (
+    PresentationVideo,
+    SpeechAnalysis,
+    BehavioralAnalysis,
+    PresentationScore,
+    PresentationFeedback,
+)
 from .validators import validate_video_file, MAX_UPLOAD_SIZE
 
 
@@ -95,6 +101,29 @@ class PresentationScoreSerializer(serializers.ModelSerializer):
         ]
 
 
+class PresentationFeedbackSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PresentationFeedback
+        fields = [
+            'id',
+            'video',
+            'summary',
+            'strengths',
+            'improvements',
+            'practice_tip',
+            'created_at',
+        ]
+        read_only_fields = [
+            'id',
+            'video',
+            'summary',
+            'strengths',
+            'improvements',
+            'practice_tip',
+            'created_at',
+        ]
+
+
 class PresentationVideoSerializer(serializers.ModelSerializer):
     formatted_raw_size = serializers.ReadOnlyField()
     formatted_compressed_size = serializers.ReadOnlyField()
@@ -103,6 +132,7 @@ class PresentationVideoSerializer(serializers.ModelSerializer):
     speech_analysis = SpeechAnalysisSerializer(read_only=True)
     behavioral_analysis = BehavioralAnalysisSerializer(read_only=True)
     presentation_score = PresentationScoreSerializer(read_only=True)
+    ai_feedback = PresentationFeedbackSerializer(read_only=True)
 
     class Meta:
         model = PresentationVideo
@@ -124,6 +154,7 @@ class PresentationVideoSerializer(serializers.ModelSerializer):
             'speech_analysis',
             'behavioral_analysis',
             'presentation_score',
+            'ai_feedback',
         ]
         read_only_fields = [
             'id',
@@ -137,6 +168,7 @@ class PresentationVideoSerializer(serializers.ModelSerializer):
             'speech_analysis',
             'behavioral_analysis',
             'presentation_score',
+            'ai_feedback',
         ]
 
     def get_file_url(self, obj) -> str:

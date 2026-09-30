@@ -12,6 +12,7 @@ from .behavioral_metrics import (
 from .vision_pipeline import VisionPipeline
 from .behavioral_analyzer import BehavioralAnalyzer, analyze_behavior
 from .scorer import PresentationScorer, calculate_presentation_score
+from .llm_coach_service import GeminiPresentationCoachService
 
 __all__ = [
     'compress_video',
@@ -35,4 +36,5 @@ __all__ = [
     'analyze_behavior',
     'PresentationScorer',
     'calculate_presentation_score',
+    'GeminiPresentationCoachService',
 ]

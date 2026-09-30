@@ -209,3 +209,36 @@ class PresentationScore(models.Model):
         elif self.overall_score >= 70:
             return "#d97706"
         return "#dc2626"
+
+
+class PresentationFeedback(models.Model):
+    video = models.OneToOneField(
+        PresentationVideo,
+        on_delete=models.CASCADE,
+        related_name='ai_feedback'
+    )
+    summary = models.TextField(
+        help_text="2-sentence encouraging executive evaluation"
+    )
+    strengths = models.JSONField(
+        default=list,
+        help_text="List of quantitative and qualitative presentation strengths"
+    )
+    improvements = models.JSONField(
+        default=list,
+        help_text="List of improvement objects containing category, observation, and actionable_drill"
+    )
+    practice_tip = models.TextField(
+        blank=True,
+        default='',
+        help_text="Intentional phrasing and pacing sample sentence"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Presentation Feedback'
+        verbose_name_plural = 'Presentation Feedbacks'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"PresentationFeedback ({self.video.original_filename})"

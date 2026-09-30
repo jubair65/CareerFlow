@@ -19,6 +19,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { PageHeading, type Notify } from '../components/dashboard/DashboardShared';
 import { VideoRecorder } from '../components/presentation/VideoRecorder';
 import { PresentationScoreCard } from '../components/presentation/PresentationScoreCard';
+import { SuggestionsList } from '../components/presentation/SuggestionsList';
 import {
   apiGetActivePresentationVideo,
   apiGetPresentationVideoHistory,
@@ -249,6 +250,15 @@ export function PresentationStudio({ notify }: { notify: Notify }) {
           <PresentationScoreCard
             videoId={activeVideo.id}
             initialScore={activeVideo.presentation_score}
+            notify={notify}
+          />
+        )}
+
+        {/* AI IMPROVEMENT SUGGESTIONS & DRILLS (US-15) */}
+        {activeVideo && !showRecorder && (
+          <SuggestionsList
+            videoId={activeVideo.id}
+            initialFeedback={activeVideo.ai_feedback}
             notify={notify}
           />
         )}

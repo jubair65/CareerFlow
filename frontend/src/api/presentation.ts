@@ -26,6 +26,7 @@ export interface PresentationVideo {
   speech_analysis?: SpeechAnalysisData | null;
   behavioral_analysis?: BehavioralAnalysisData | null;
   presentation_score?: PresentationScoreData | null;
+  ai_feedback?: PresentationFeedbackData | null;
 }
 
 export interface PresentationScoreData {
@@ -199,4 +200,43 @@ export async function apiCalculatePresentationScore(videoId: number): Promise<Pr
     `/presentation/${videoId}/score/`
   );
   return response.data.presentation_score;
+}
+
+export interface ImprovementItem {
+  category: string;
+  observation: string;
+  actionable_drill: string;
+}
+
+export interface PresentationFeedbackData {
+  id: number;
+  video: number;
+  summary: string;
+  strengths: string[];
+  improvements: ImprovementItem[];
+  practice_tip: string;
+  created_at: string;
+}
+
+/**
+ * Fetch AI improvement suggestions for a video (US-15).
+ */
+export async function apiGetPresentationSuggestions(videoId: number): Promise<PresentationFeedbackData | null> {
+  try {
+    const response = await apiClient.get<PresentationFeedbackData>(`/presentation/${videoId}/suggestions/`);
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.status === 404) return null;
+    throw error;
+  }
+}
+
+/**
+ * Trigger generation or refresh of AI improvement suggestions (US-15).
+ */
+export async function apiGeneratePresentationSuggestions(videoId: number): Promise<PresentationFeedbackData> {
+  const response = await apiClient.post<{ message: string; ai_feedback: PresentationFeedbackData } | PresentationFeedbackData>(
+    `/presentation/${videoId}/suggestions/`
+  );
+  return 'ai_feedback' in response.data ? response.data.ai_feedback : response.data;
 }

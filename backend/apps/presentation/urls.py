@@ -7,6 +7,7 @@ from .views import (
     PresentationSpeechAnalysisView,
     PresentationBehavioralAnalysisView,
     PresentationScoreView,
+    PresentationSuggestionsView,
 )
 
 app_name = 'presentation'
@@ -19,4 +20,6 @@ urlpatterns = [
     path('<int:video_id>/speech/', PresentationSpeechAnalysisView.as_view(), name='speech_analysis'),
     path('<int:video_id>/behavioral/', PresentationBehavioralAnalysisView.as_view(), name='behavioral_analysis'),
     path('<int:video_id>/score/', PresentationScoreView.as_view(), name='presentation_score'),
+    path('<int:video_id>/suggestions/', PresentationSuggestionsView.as_view(), name='presentation_suggestions'),
+    path('<int:video_id>/suggestions/generate/', PresentationSuggestionsView.as_view(), name='presentation_suggestions_generate'),
 ]
