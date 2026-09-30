@@ -180,10 +180,17 @@ class PipelineManager:
             'wpm': getattr(speech, 'words_per_minute', 140.0) if speech else 140.0,
             'filler_count': getattr(speech, 'filler_word_count', 0) if speech else 0,
             'filler_breakdown': getattr(speech, 'filler_words_breakdown', {}) if speech else {},
+            'transcript': getattr(speech, 'transcript', '') if speech else '',
             'eye_contact': getattr(behavioral, 'eye_contact_score', 75) if behavioral else 75,
             'posture_score': getattr(behavioral, 'posture_score', 80) if behavioral else 80,
             'engagement_score': getattr(behavioral, 'engagement_score', 75) if behavioral else 75,
             'overall_score': getattr(score, 'overall_score', 78) if score else 78,
+            'pace_score': getattr(score, 'pace_score', 80) if score else 80,
+            'filler_score': getattr(score, 'filler_score', 85) if score else 85,
+            'eye_contact_score': getattr(score, 'eye_contact_score', getattr(behavioral, 'eye_contact_score', 75)) if (score or behavioral) else 75,
+            'speech_score': getattr(score, 'speech_score', 75) if score else 75,
+            'behavioral_score': getattr(score, 'behavioral_score', 75) if score else 75,
+            'duration_seconds': getattr(video, 'duration_seconds', getattr(speech, 'duration_seconds', 0.0)) if (video or speech) else 0.0,
         }
 
         coach_service = GeminiPresentationCoachService()

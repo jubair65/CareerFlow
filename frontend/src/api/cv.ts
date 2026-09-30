@@ -76,6 +76,12 @@ export interface SignalKeyword {
   skills_count: number;
   action_verbs_count: number;
   action_verbs_found: string[];
+  /** Weak passive phrases detected (e.g. 'responsible for', 'worked on') */
+  weak_phrases_found?: string[];
+  /** Detected role profile from CV text (e.g. 'frontend', 'devops') */
+  role_profile?: string | null;
+  /** Whether a role-specific bonus was applied to the keyword score */
+  role_bonus_applied?: boolean;
 }
 
 export interface SignalClarity {
@@ -84,6 +90,8 @@ export interface SignalClarity {
   metrics_count: number;
   metric_samples: string[];
   bullet_count: number;
+  /** Bullet-point examples that have an action verb but no quantifiable metric */
+  weak_bullet_examples?: string[];
 }
 
 export interface SignalRecord {
@@ -98,6 +106,8 @@ export interface SignalBreakdown {
   clarity_impact?: SignalClarity;
   experience?: SignalRecord;
   education?: SignalRecord;
+  /** Which engine generated the suggestions: 'gemini' | 'rule-based' */
+  ai_suggestions_source?: 'gemini' | 'rule-based';
 }
 
 export interface CVFeedback {
@@ -111,6 +121,7 @@ export interface CVFeedback {
   keyword_strength_score: number;
   experience_score: number;
   education_score: number;
+  /** Up to 6 prioritised, CV-content-aware suggestions */
   suggestions: string[];
   signal_breakdown: SignalBreakdown;
   extracted_skills: string[];

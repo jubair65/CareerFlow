@@ -416,6 +416,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
   transform: scaleX(-1);
 }
 
-.mirror {
+.mirror,
+.-scale-x-100 {
   transform: scaleX(-1) !important;
+  -webkit-transform: scaleX(-1) !important;
 }
+

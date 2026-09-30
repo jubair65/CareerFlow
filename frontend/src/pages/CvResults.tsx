@@ -229,7 +229,7 @@ ${tier.description}
 ${feedback.extracted_skills?.length ? feedback.extracted_skills.join(', ') : 'None detected'}
 
 ---------------------------------------------------------------
-3. TOP THREE ACTIONABLE EDITS
+3. SMART SUGGESTIONS (${feedback.suggestions?.length || 0})
 ---------------------------------------------------------------
 ${feedback.suggestions?.map((item, idx) => `[${idx + 1}] ${item}`).join('\n\n') || 'None'}
 
@@ -521,16 +521,32 @@ Produced by CareerFlow Talent Intelligence Platform
                   <Lightbulb size={18} />
                 </div>
                 <div>
-                  <h2 className="font-bold text-[#253142] text-base">Three Useful Edits</h2>
+                  <h2 className="font-bold text-[#253142] text-base">Smart Suggestions</h2>
                   <p className="text-xs text-[#7b8490]">
-                    Prioritized recommendations to boost your CV ATS score and recruiter impressions
+                    {feedback.suggestions?.length || 0} prioritised, CV-specific recommendations to boost your ATS score
                   </p>
                 </div>
               </div>
-              <Badge tone="good">Instant Boosts</Badge>
+              <div className="flex items-center gap-2">
+                {feedback.signal_breakdown?.ai_suggestions_source === 'gemini' ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e8eeff] border border-[#b8c8ff] px-2.5 py-1 text-[11px] font-bold text-[#3b52c4]">
+                    ✨ Powered by Gemini AI
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#f4f2e9] border border-[#d9dbd1] px-2.5 py-1 text-[11px] font-semibold text-[#687382]">
+                    Rule-based
+                  </span>
+                )}
+                {feedback.signal_breakdown?.keyword_strength?.role_profile && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#e8f4ef] px-2.5 py-1 text-[11px] font-bold text-[#277254] border border-[#c3ddd0]">
+                    🎯 {feedback.signal_breakdown.keyword_strength.role_profile.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} role detected
+                  </span>
+                )}
+                <Badge tone="good">Instant Boosts</Badge>
+              </div>
             </div>
 
-            <div className="mt-5 grid gap-4 md:grid-cols-3" data-testid="container-suggestions">
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="container-suggestions">
               {feedback.suggestions?.map((suggestion, idx) => (
                 <div
                   key={idx}
@@ -589,11 +605,22 @@ Produced by CareerFlow Talent Intelligence Platform
                 <div className="flex justify-between text-[11px] text-[#7b8490]">
                   <span>
                     Action verbs found:{' '}
-                    {feedback.signal_breakdown?.keyword_strength?.action_verbs_found?.join(', ') ||
+                    {feedback.signal_breakdown?.keyword_strength?.action_verbs_found?.slice(0, 5).join(', ') ||
                       'Standard'}
                   </span>
                   <span>{feedback.extracted_skills?.length || 0} skills</span>
                 </div>
+                {/* Weak passive phrases warning */}
+                {(feedback.signal_breakdown?.keyword_strength?.weak_phrases_found?.length ?? 0) > 0 && (
+                  <div className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-[#fff4ca] border border-[#e8d98a] px-2.5 py-1.5">
+                    <AlertTriangle size={12} className="mt-0.5 shrink-0 text-[#9a7922]" />
+                    <span className="text-[11px] text-[#7a6318] leading-relaxed">
+                      Weak phrases found:{' '}
+                      <strong>{feedback.signal_breakdown.keyword_strength.weak_phrases_found!.map(p => `"${p}"`).join(', ')}</strong>
+                      {' '}— replace with strong action verbs.
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* 2. Clarity & Impact */}
@@ -614,10 +641,19 @@ Produced by CareerFlow Talent Intelligence Platform
                 <div className="flex justify-between text-[11px] text-[#7b8490]">
                   <span>
                     Quantifiable metrics detected:{' '}
-                    {feedback.signal_breakdown?.clarity_impact?.metric_samples?.join(', ') || 'None'}
+                    {feedback.signal_breakdown?.clarity_impact?.metric_samples?.slice(0, 3).join(', ') || 'None'}
                   </span>
                   <span>{feedback.signal_breakdown?.clarity_impact?.metrics_count || 0} occurrences</span>
                 </div>
+                {/* Weak bullet examples hint */}
+                {(feedback.signal_breakdown?.clarity_impact?.weak_bullet_examples?.length ?? 0) > 0 && (
+                  <div className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-[#fdf2f0] border border-[#e8b8b3] px-2.5 py-1.5">
+                    <AlertTriangle size={12} className="mt-0.5 shrink-0 text-[#a33d35]" />
+                    <span className="text-[11px] text-[#7a2a24] leading-relaxed">
+                      Bullet needing a metric: <em>"{feedback.signal_breakdown.clarity_impact.weak_bullet_examples![0]}"</em>
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* 3. Formatting & Section Completeness */}

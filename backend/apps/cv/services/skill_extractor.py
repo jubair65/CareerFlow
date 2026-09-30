@@ -1,4 +1,4 @@
-﻿import os
+import os
 import re
 import json
 from typing import List, Dict, Set, Any, Optional, Tuple
@@ -11,37 +11,144 @@ DEFAULT_TAXONOMY_PATH = os.path.join(
 
 # Canonical mapping for aliases and synonyms
 CANONICAL_ALIASES = {
+    # React ecosystem
     'react.js': 'React',
     'reactjs': 'React',
+    'react native': 'React Native',
+    # Node / Express
     'node.js': 'Node.js',
     'nodejs': 'Node.js',
     'express.js': 'Express',
     'expressjs': 'Express',
+    # Vue ecosystem
     'vue.js': 'Vue',
     'vuejs': 'Vue',
     'nuxt.js': 'Nuxt.js',
     'nuxtjs': 'Nuxt.js',
+    # Go
     'golang': 'Go',
+    # Kubernetes
     'k8s': 'Kubernetes',
+    # Postgres
     'postgres': 'PostgreSQL',
     'postgresql': 'PostgreSQL',
+    # Tailwind
     'tailwind css': 'TailwindCSS',
     'tailwindcss': 'TailwindCSS',
+    # Django REST
     'drf': 'Django REST Framework',
     'django rest framework': 'Django REST Framework',
+    # Cloud providers
     'amazon web services': 'AWS',
     'google cloud platform': 'GCP',
+    'google cloud': 'GCP',
     'microsoft azure': 'Azure',
+    # AI / ML
     'nlp': 'Natural Language Processing',
     'natural language processing': 'Natural Language Processing',
     'ml': 'Machine Learning',
     'machine learning': 'Machine Learning',
     'ai': 'Artificial Intelligence',
     'artificial intelligence': 'Artificial Intelligence',
-    'rest': 'REST API',
-    'restful api': 'REST API',
-    'rest api': 'REST API',
+    'llms': 'Large Language Models',
+    'large language models': 'Large Language Models',
+    'openai': 'OpenAI API',
+    'openai api': 'OpenAI API',
+    'gemini': 'Gemini API',
+    'gemini api': 'Gemini API',
+    'claude api': 'Claude API',
+    'hugging face': 'Hugging Face',
+    'langchain': 'LangChain',
+    'llamaindex': 'LlamaIndex',
+    'llama index': 'LlamaIndex',
+    'xgboost': 'XGBoost',
+    'lightgbm': 'LightGBM',
+    'catboost': 'CatBoost',
+    'scikit-learn': 'Scikit-Learn',
+    'sklearn': 'Scikit-Learn',
+    'pyspark': 'PySpark',
+    # REST / API
+    'rest': 'REST',
+    'restful api': 'RESTful API',
+    'rest api': 'REST',
+    # .NET
     '.net core': '.NET Core',
+    'dotnet': '.NET',
+    # ORM tools
+    'drizzle': 'Drizzle ORM',
+    'prisma orm': 'Prisma',
+    'typeorm': 'TypeORM',
+    # Modern frontend / fullstack frameworks
+    'nextjs': 'Next.js',
+    'next.js': 'Next.js',
+    'sveltekit': 'SvelteKit',
+    'astrojs': 'Astro',
+    'shadcn': 'ShadCN',
+    'shadcn/ui': 'ShadCN',
+    'radix': 'Radix UI',
+    'tanstack query': 'TanStack Query',
+    'react query': 'TanStack Query',
+    # Testing
+    'playwright': 'Playwright',
+    'cypress': 'Cypress',
+    'vitest': 'Vitest',
+    'jest': 'Jest',
+    'selenium': 'Selenium',
+    'testing library': 'Testing Library',
+    'pytest': 'Pytest',
+    # DevOps / infra
+    'github actions': 'GitHub Actions',
+    'gitlab ci': 'GitLab CI',
+    'gitlab ci/cd': 'GitLab CI/CD',
+    'argo cd': 'ArgoCD',
+    'argocd': 'ArgoCD',
+    'aws cdk': 'AWS CDK',
+    'terraform': 'Terraform',
+    'ansible': 'Ansible',
+    'opentelemetry': 'OpenTelemetry',
+    'otel': 'OpenTelemetry',
+    'new relic': 'New Relic',
+    'datadog': 'Datadog',
+    # Databases / vector stores
+    'pinecone': 'Pinecone',
+    'weaviate': 'Weaviate',
+    'chroma': 'Chroma',
+    'qdrant': 'Qdrant',
+    'neon': 'Neon',
+    'planetscale': 'PlanetScale',
+    'cockroachdb': 'CockroachDB',
+    'clickhouse': 'ClickHouse',
+    # Messaging
+    'rabbitmq': 'RabbitMQ',
+    'kafka': 'Kafka',
+    'celery': 'Celery',
+    # Auth / payments
+    'auth0': 'Auth0',
+    'clerk': 'Clerk',
+    'keycloak': 'Keycloak',
+    'stripe': 'Stripe',
+    # Runtime / build tools
+    'bun': 'Bun',
+    'deno': 'Deno',
+    'vite': 'Vite',
+    'turborepo': 'Turborepo',
+    # Engineering concepts
+    'ddd': 'Domain-Driven Design',
+    'domain-driven design': 'Domain-Driven Design',
+    'tdd': 'Test-Driven Development',
+    'test-driven development': 'Test-Driven Development',
+    'oop': 'Object-Oriented Programming',
+    'object-oriented programming': 'Object-Oriented Programming',
+    'cqrs': 'CQRS',
+    'grpc': 'gRPC',
+    'oauth2': 'OAuth2',
+    'oauth': 'OAuth',
+    'jwt': 'JWT',
+    # Data engineering
+    'dbt': 'dbt',
+    'prefect': 'Prefect',
+    'airflow': 'Airflow',
+    'apache spark': 'Apache Spark',
 }
 
 

@@ -36,14 +36,7 @@ import { PresentationScoreCard } from '../components/presentation/PresentationSc
 import { SuggestionsList } from '../components/presentation/SuggestionsList';
 import { PipelineStatusAlert } from '../components/presentation/PipelineStatusAlert';
 
-const PRACTICE_PROMPTS = [
-  'Tell me about yourself',
-  'Why this role?',
-  'A challenge you solved',
-  'Greatest strength and weakness',
-  'Handling conflict in a team',
-  'Where do you see yourself in 3 years?',
-];
+
 
 export function VideoHistory({ notify }: { notify: Notify }) {
   const [, setLocation] = useLocation();
@@ -166,32 +159,49 @@ export function VideoHistory({ notify }: { notify: Notify }) {
     });
   };
 
-  const getVideoTitle = (video: PresentationVideo, index: number) => {
-    if (video.original_filename && !video.original_filename.startsWith('webcam_recording')) {
-      const cleanName = video.original_filename.replace(/\.[^/.]+$/, '');
-      if (cleanName.length > 2) return cleanName;
-    }
-    return PRACTICE_PROMPTS[index % PRACTICE_PROMPTS.length];
+  const getVideoTitle = (video: PresentationVideo) => {
+    const raw =
+      video.original_filename ||
+      (video.file ? video.file.split('/').pop()?.split('\\').pop() : '') ||
+      `take_${video.id}`;
+    const cleanName = raw.replace(/\.[^/.]+$/, '');
+    return cleanName || raw;
   };
 
-  const getVideoScore = (video: PresentationVideo, index: number) => {
-    if (video.behavioral_analysis && video.speech_analysis) {
-      return Math.round(
-        (video.behavioral_analysis.engagement_score +
-          video.behavioral_analysis.eye_contact_score +
-          video.speech_analysis.clarity_score) /
-          3
-      );
+  const getVideoScore = (video: PresentationVideo): number | null => {
+    // 1. Exact composite presentation score evaluated for this take
+    if (
+      video.presentation_score?.overall_score !== undefined &&
+      video.presentation_score?.overall_score !== null
+    ) {
+      return Math.round(video.presentation_score.overall_score);
     }
-    if (video.behavioral_analysis?.engagement_score) {
-      return video.behavioral_analysis.engagement_score;
+
+    // 2. Computed composite score if individual analyses completed
+    if (video.speech_analysis && video.behavioral_analysis) {
+      const speechPart = video.speech_analysis.clarity_score;
+      const eyePart = video.behavioral_analysis.eye_contact_score;
+      const engagementPart = video.behavioral_analysis.engagement_score;
+      const posturePart = video.behavioral_analysis.posture_score;
+      const behavioralAvg = (eyePart + engagementPart + posturePart) / 3;
+      return Math.round(speechPart * 0.5 + behavioralAvg * 0.5);
     }
-    if (video.speech_analysis?.clarity_score) {
-      return video.speech_analysis.clarity_score;
+
+    if (
+      video.speech_analysis?.clarity_score !== undefined &&
+      video.speech_analysis?.clarity_score !== null
+    ) {
+      return Math.round(video.speech_analysis.clarity_score);
     }
-    // Realistic fallback score based on take index matching design
-    const fallbackScores = [82, 77, 74, 85, 79, 81];
-    return fallbackScores[index % fallbackScores.length];
+
+    if (
+      video.behavioral_analysis?.engagement_score !== undefined &&
+      video.behavioral_analysis?.engagement_score !== null
+    ) {
+      return Math.round(video.behavioral_analysis.engagement_score);
+    }
+
+    return null;
   };
 
   return (
@@ -267,11 +277,10 @@ export function VideoHistory({ notify }: { notify: Notify }) {
 
               {/* Table Body Rows */}
               <div className="divide-y divide-[#ecefe7]">
-                {videoHistory.map((video, idx) => {
-                  const title = getVideoTitle(video, idx);
-                  const score = getVideoScore(video, idx);
-                  // Highlight row 2 as in screenshot, or hover on all rows
-                  const isHighlighted = idx === 1;
+                {videoHistory.map((video) => {
+                  const title = getVideoTitle(video);
+                  const score = getVideoScore(video);
+                  const isHighlighted = video.is_active;
 
                   return (
                     <div
@@ -313,9 +322,19 @@ export function VideoHistory({ notify }: { notify: Notify }) {
                       <div className="flex justify-center">
                         <div
                           data-testid={`score-badge-${video.id}`}
-                          className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#e5be49] bg-white text-sm font-bold text-[#253142] shadow-xs"
+                          className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${
+                            score !== null
+                              ? 'border-[#e5be49] text-[#253142]'
+                              : 'border-[#d9dbd1] text-[#687382]'
+                          } bg-white text-sm font-bold shadow-xs`}
                         >
-                          {score}
+                          {score !== null ? (
+                            score
+                          ) : video.status === 'COMPLETED' || video.status === 'FAILED' ? (
+                            '—'
+                          ) : (
+                            <Loader2 size={14} className="animate-spin text-[#277254]" />
+                          )}
                         </div>
                       </div>
 
@@ -488,7 +507,7 @@ export function VideoHistory({ notify }: { notify: Notify }) {
                   video={analysisVideo}
                   onRetrySuccess={(updated) => {
                     setAnalysisVideo(updated);
-                    loadVideos();
+                    loadHistory();
                   }}
                   notify={notify}
                 />

@@ -284,7 +284,9 @@ export function WebcamPlaybackPlayer({
           transform: isMirrored ? 'scaleX(-1)' : 'none',
           WebkitTransform: isMirrored ? 'scaleX(-1)' : 'none',
         }}
-        className="h-full w-full object-cover transition-transform duration-300"
+        className={`h-full w-full object-contain transition-transform duration-300 ${
+          isMirrored ? 'mirror' : ''
+        }`}
         onLoadedMetadata={handleLoadedMetadata}
         onTimeUpdate={handleTimeUpdate}
         onPlay={() => setIsPlaying(true)}

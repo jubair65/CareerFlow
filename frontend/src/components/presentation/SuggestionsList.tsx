@@ -206,7 +206,7 @@ export function SuggestionsList({ videoId, initialFeedback, notify }: Suggestion
               data-testid="badge-gemini-model"
               className="inline-flex items-center gap-1 rounded-md border border-[#c2e2d4] bg-[#eaf4ef] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#1e5c43]"
             >
-              <Flame size={11} className="text-[#277254]" /> Gemini 2.5 Flash
+              <Sparkles size={11} className="text-[#277254]" /> Powered by Gemini AI
             </span>
           </div>
           <p className="mt-1 text-xs text-[#687382]">

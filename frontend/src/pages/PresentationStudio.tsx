@@ -12,12 +12,12 @@ import {
   ShieldCheck,
   FileVideo,
   Layers,
-  ArrowRight,
-  FlipHorizontal
+  ArrowRight
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { PageHeading, type Notify } from '../components/dashboard/DashboardShared';
 import { VideoRecorder } from '../components/presentation/VideoRecorder';
+import { WebcamPlaybackPlayer } from '../components/presentation/WebcamPlaybackPlayer';
 import { PresentationScoreCard } from '../components/presentation/PresentationScoreCard';
 import { SuggestionsList } from '../components/presentation/SuggestionsList';
 import { PipelineStatusAlert } from '../components/presentation/PipelineStatusAlert';
@@ -152,16 +152,6 @@ export function PresentationStudio({ notify }: { notify: Notify }) {
                     <h3 className="text-base font-bold text-[#253142]">Active Presentation Video</h3>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsMirroredActive((prev) => !prev)}
-                      className="flex items-center gap-1.5 rounded-lg border border-[#d9dbd1] bg-white px-2.5 py-1 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] transition cursor-pointer"
-                      title={isMirroredActive ? 'Switch to Normal View' : 'Switch to Mirrored View'}
-                      data-testid="button-toggle-mirror-active"
-                    >
-                      <FlipHorizontal size={13} className={isMirroredActive ? 'text-[#277254]' : ''} />
-                      <span>{isMirroredActive ? 'Mirrored' : 'Normal View'}</span>
-                    </button>
                     <span
                       data-testid="badge-video-status"
                       className={`rounded-lg px-2.5 py-1 text-xs font-bold ${
@@ -178,14 +168,13 @@ export function PresentationStudio({ notify }: { notify: Notify }) {
                 </div>
 
               {/* Video Player */}
-              <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
-                <video
+              <div className="w-full overflow-hidden rounded-xl bg-black">
+                <WebcamPlaybackPlayer
                   src={activeVideo.file_url || activeVideo.file}
-                  controls
-                  data-testid="active-video-player"
-                  className={`h-full w-full object-contain transition-transform duration-300 ${
-                    isMirroredActive ? '-scale-x-100 mirror' : ''
-                  }`}
+                  durationSeconds={activeVideo.duration_seconds}
+                  isMirrored={isMirroredActive}
+                  onToggleMirror={() => setIsMirroredActive((prev) => !prev)}
+                  testId="active-video-player"
                 />
               </div>
 
