@@ -149,8 +149,10 @@ export async function apiGetSpeechAnalysis(videoId: number): Promise<SpeechAnaly
  * Trigger speech analysis on a video.
  */
 export async function apiTriggerSpeechAnalysis(videoId: number): Promise<SpeechAnalysisData> {
-  const response = await apiClient.post<SpeechAnalysisData>(`/presentation/${videoId}/speech/`);
-  return response.data;
+  const response = await apiClient.post<{ message: string; speech_analysis: SpeechAnalysisData } | SpeechAnalysisData>(
+    `/presentation/${videoId}/speech/`
+  );
+  return 'speech_analysis' in response.data ? response.data.speech_analysis : response.data;
 }
 
 /**
@@ -170,8 +172,10 @@ export async function apiGetBehavioralAnalysis(videoId: number): Promise<Behavio
  * Trigger behavioral analysis on a video.
  */
 export async function apiTriggerBehavioralAnalysis(videoId: number): Promise<BehavioralAnalysisData> {
-  const response = await apiClient.post<BehavioralAnalysisData>(`/presentation/${videoId}/behavioral/`);
-  return response.data;
+  const response = await apiClient.post<{ message: string; behavioral_analysis: BehavioralAnalysisData } | BehavioralAnalysisData>(
+    `/presentation/${videoId}/behavioral/`
+  );
+  return 'behavioral_analysis' in response.data ? response.data.behavioral_analysis : response.data;
 }
 
 /**
