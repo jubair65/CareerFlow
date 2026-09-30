@@ -5,6 +5,7 @@ from .models import (
     BehavioralAnalysis,
     PresentationScore,
     PresentationFeedback,
+    PipelineExecutionLog,
 )
 from .validators import validate_video_file, MAX_UPLOAD_SIZE
 
@@ -124,6 +125,23 @@ class PresentationFeedbackSerializer(serializers.ModelSerializer):
         ]
 
 
+class PipelineExecutionLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PipelineExecutionLog
+        fields = [
+            'id',
+            'video',
+            'stage',
+            'status',
+            'attempt',
+            'error_message',
+            'details',
+            'execution_time_ms',
+            'created_at',
+        ]
+        read_only_fields = fields
+
+
 class PresentationVideoSerializer(serializers.ModelSerializer):
     formatted_raw_size = serializers.ReadOnlyField()
     formatted_compressed_size = serializers.ReadOnlyField()
@@ -133,6 +151,7 @@ class PresentationVideoSerializer(serializers.ModelSerializer):
     behavioral_analysis = BehavioralAnalysisSerializer(read_only=True)
     presentation_score = PresentationScoreSerializer(read_only=True)
     ai_feedback = PresentationFeedbackSerializer(read_only=True)
+    execution_logs = PipelineExecutionLogSerializer(many=True, read_only=True)
 
     class Meta:
         model = PresentationVideo
@@ -155,6 +174,7 @@ class PresentationVideoSerializer(serializers.ModelSerializer):
             'behavioral_analysis',
             'presentation_score',
             'ai_feedback',
+            'execution_logs',
         ]
         read_only_fields = [
             'id',
@@ -169,6 +189,7 @@ class PresentationVideoSerializer(serializers.ModelSerializer):
             'behavioral_analysis',
             'presentation_score',
             'ai_feedback',
+            'execution_logs',
         ]
 
     def get_file_url(self, obj) -> str:

@@ -34,6 +34,7 @@ import {
 import { WebcamPlaybackPlayer } from '../components/presentation/WebcamPlaybackPlayer';
 import { PresentationScoreCard } from '../components/presentation/PresentationScoreCard';
 import { SuggestionsList } from '../components/presentation/SuggestionsList';
+import { PipelineStatusAlert } from '../components/presentation/PipelineStatusAlert';
 
 const PRACTICE_PROMPTS = [
   'Tell me about yourself',
@@ -482,6 +483,16 @@ export function VideoHistory({ notify }: { notify: Notify }) {
               </div>
             ) : (
               <div className="mt-6 space-y-6">
+                {/* Pipeline Resilience Status Alert (US-40) */}
+                <PipelineStatusAlert
+                  video={analysisVideo}
+                  onRetrySuccess={(updated) => {
+                    setAnalysisVideo(updated);
+                    loadVideos();
+                  }}
+                  notify={notify}
+                />
+
                 {/* Composite Presentation Scorecard (US-14) */}
                 <PresentationScoreCard
                   videoId={analysisVideo.id}

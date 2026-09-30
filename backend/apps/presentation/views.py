@@ -13,6 +13,7 @@ from .models import (
     BehavioralAnalysis,
     PresentationScore,
     PresentationFeedback,
+    PipelineExecutionLog,
 )
 from .serializers import (
     PresentationVideoSerializer,
@@ -21,6 +22,7 @@ from .serializers import (
     BehavioralAnalysisSerializer,
     PresentationScoreSerializer,
     PresentationFeedbackSerializer,
+    PipelineExecutionLogSerializer,
 )
 from .validators import (
     validate_video_file,
@@ -34,6 +36,7 @@ from .services.speech_analyzer import analyze_speech
 from .services.behavioral_analyzer import analyze_behavior
 from .services.scorer import calculate_presentation_score
 from .services.llm_coach_service import GeminiPresentationCoachService
+from .services.pipeline_manager import PipelineManager
 from apps.core.models import DataAccessLog
 
 logger = logging.getLogger(__name__)
@@ -502,3 +505,71 @@ class PresentationSuggestionsView(APIView):
                 {'error': f"Failed to generate feedback: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class PipelineRetryView(APIView):
+    """
+    POST /api/presentation/<video_id>/retry/
+    US-40: Manually triggers supervised pipeline retry for a presentation video.
+    Re-runs speech, behavioral, scoring, and suggestions with exponential backoff
+    and graceful degradation.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, video_id):
+        video = PresentationVideo.objects.filter(id=video_id, user=request.user).first()
+        if not video:
+            return Response({'error': 'Video not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            pipeline_result = PipelineManager.retry_pipeline(video)
+            video.refresh_from_db()
+            serializer = PresentationVideoSerializer(video, context={'request': request})
+            return Response(
+                {
+                    'message': 'Pipeline execution initiated / completed.',
+                    'result': pipeline_result,
+                    'video': serializer.data,
+                },
+                status=status.HTTP_200_OK if pipeline_result.get('success') else status.HTTP_207_MULTI_STATUS
+            )
+        except Exception as e:
+            logger.error(f"[US-40] Error retrying pipeline for video {video_id}: {e}", exc_info=True)
+            return Response(
+                {'error': f"Pipeline retry failed: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class PipelineStatusView(APIView):
+    """
+    GET /api/presentation/<video_id>/status/
+    US-40: Returns real-time pipeline status, degradation indicators, and recent stage logs.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, video_id):
+        video = PresentationVideo.objects.filter(id=video_id, user=request.user).first()
+        if not video:
+            return Response({'error': 'Video not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        telemetry = PipelineManager.get_pipeline_telemetry(video)
+        return Response(telemetry, status=status.HTTP_200_OK)
+
+
+class PipelineLogsView(APIView):
+    """
+    GET /api/presentation/<video_id>/logs/
+    US-40: Returns chronological execution logs and telemetry for a presentation video.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, video_id):
+        video = PresentationVideo.objects.filter(id=video_id, user=request.user).first()
+        if not video:
+            return Response({'error': 'Video not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        logs = video.execution_logs.all()[:50]
+        serializer = PipelineExecutionLogSerializer(logs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+

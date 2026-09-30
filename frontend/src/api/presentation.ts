@@ -20,6 +20,8 @@ export interface PresentationVideo {
     | 'PROCESSING_SPEECH'
     | 'PROCESSING_VISION'
     | 'SCORING'
+    | 'RETRYING'
+    | 'PARTIALLY_COMPLETED'
     | 'COMPLETED'
     | 'FAILED';
   uploaded_at: string;
@@ -27,6 +29,7 @@ export interface PresentationVideo {
   behavioral_analysis?: BehavioralAnalysisData | null;
   presentation_score?: PresentationScoreData | null;
   ai_feedback?: PresentationFeedbackData | null;
+  execution_logs?: PipelineExecutionLogData[];
 }
 
 export interface PresentationScoreData {
@@ -240,3 +243,66 @@ export async function apiGeneratePresentationSuggestions(videoId: number): Promi
   );
   return 'ai_feedback' in response.data ? response.data.ai_feedback : response.data;
 }
+
+export interface PipelineExecutionLogData {
+  id: number;
+  video: number;
+  stage: string;
+  status: 'SUCCESS' | 'RETRY' | 'DEGRADED' | 'FAILED';
+  attempt: number;
+  error_message: string;
+  details: Record<string, any>;
+  execution_time_ms: number;
+  created_at: string;
+}
+
+export interface PipelineStatusData {
+  video_id: number;
+  status: string;
+  is_degraded: boolean;
+  degradation_note: string;
+  has_speech: boolean;
+  has_behavioral: boolean;
+  has_score: boolean;
+  has_feedback: boolean;
+  logs: PipelineExecutionLogData[];
+}
+
+export interface PipelineRetryResponse {
+  message: string;
+  result: {
+    success: boolean;
+    video_id: number;
+    status: string;
+    stages_completed: string[];
+    degraded: boolean;
+    error?: string | null;
+    duration_ms?: number;
+  };
+  video: PresentationVideo;
+}
+
+/**
+ * Manually trigger pipeline retry with supervised resilience (US-40).
+ */
+export async function apiRetryPresentationPipeline(videoId: number): Promise<PipelineRetryResponse> {
+  const response = await apiClient.post<PipelineRetryResponse>(`/presentation/${videoId}/retry/`);
+  return response.data;
+}
+
+/**
+ * Fetch real-time pipeline status and telemetry (US-40).
+ */
+export async function apiGetPipelineStatus(videoId: number): Promise<PipelineStatusData> {
+  const response = await apiClient.get<PipelineStatusData>(`/presentation/${videoId}/status/`);
+  return response.data;
+}
+
+/**
+ * Fetch chronological pipeline execution logs (US-40).
+ */
+export async function apiGetPipelineLogs(videoId: number): Promise<PipelineExecutionLogData[]> {
+  const response = await apiClient.get<PipelineExecutionLogData[]>(`/presentation/${videoId}/logs/`);
+  return response.data;
+}
+

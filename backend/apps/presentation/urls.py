@@ -8,6 +8,9 @@ from .views import (
     PresentationBehavioralAnalysisView,
     PresentationScoreView,
     PresentationSuggestionsView,
+    PipelineRetryView,
+    PipelineStatusView,
+    PipelineLogsView,
 )
 
 app_name = 'presentation'
@@ -22,4 +25,8 @@ urlpatterns = [
     path('<int:video_id>/score/', PresentationScoreView.as_view(), name='presentation_score'),
     path('<int:video_id>/suggestions/', PresentationSuggestionsView.as_view(), name='presentation_suggestions'),
     path('<int:video_id>/suggestions/generate/', PresentationSuggestionsView.as_view(), name='presentation_suggestions_generate'),
+    # US-40: Pipeline Resilience & Recovery Endpoints
+    path('<int:video_id>/retry/', PipelineRetryView.as_view(), name='pipeline_retry'),
+    path('<int:video_id>/status/', PipelineStatusView.as_view(), name='pipeline_status'),
+    path('<int:video_id>/logs/', PipelineLogsView.as_view(), name='pipeline_logs'),
 ]

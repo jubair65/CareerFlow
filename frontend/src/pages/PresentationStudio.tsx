@@ -20,6 +20,7 @@ import { PageHeading, type Notify } from '../components/dashboard/DashboardShare
 import { VideoRecorder } from '../components/presentation/VideoRecorder';
 import { PresentationScoreCard } from '../components/presentation/PresentationScoreCard';
 import { SuggestionsList } from '../components/presentation/SuggestionsList';
+import { PipelineStatusAlert } from '../components/presentation/PipelineStatusAlert';
 import {
   apiGetActivePresentationVideo,
   apiGetPresentationVideoHistory,
@@ -123,33 +124,58 @@ export function PresentationStudio({ notify }: { notify: Notify }) {
 
         {/* ACTIVE VIDEO DISPLAY */}
         {activeVideo && !showRecorder && (
-          <div className="grid gap-6 lg:grid-cols-3">
-            {/* Video Player Card */}
-            <div className="lg:col-span-2 overflow-hidden rounded-2xl border border-[#d9dbd1] bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-3 w-3 rounded-full bg-[#277254]" />
-                  <h3 className="text-base font-bold text-[#253142]">Active Presentation Video</h3>
+          <div className="space-y-6">
+            {/* US-40: Resilient Pipeline Status, Failure Alert, and Telemetry */}
+            <PipelineStatusAlert
+              video={activeVideo}
+              onRetrySuccess={(updated) => {
+                setActiveVideo(updated);
+                loadVideos();
+              }}
+              notify={notify}
+            />
+
+            <div className="grid gap-6 lg:grid-cols-3">
+              {/* Video Player Card */}
+              <div className="lg:col-span-2 overflow-hidden rounded-2xl border border-[#d9dbd1] bg-white p-5 shadow-sm">
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`flex h-3 w-3 rounded-full ${
+                        activeVideo.status === 'FAILED'
+                          ? 'bg-[#dc2626]'
+                          : activeVideo.status === 'RETRYING' || activeVideo.status === 'PARTIALLY_COMPLETED'
+                          ? 'bg-[#d97706]'
+                          : 'bg-[#277254]'
+                      }`}
+                    />
+                    <h3 className="text-base font-bold text-[#253142]">Active Presentation Video</h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsMirroredActive((prev) => !prev)}
+                      className="flex items-center gap-1.5 rounded-lg border border-[#d9dbd1] bg-white px-2.5 py-1 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] transition cursor-pointer"
+                      title={isMirroredActive ? 'Switch to Normal View' : 'Switch to Mirrored View'}
+                      data-testid="button-toggle-mirror-active"
+                    >
+                      <FlipHorizontal size={13} className={isMirroredActive ? 'text-[#277254]' : ''} />
+                      <span>{isMirroredActive ? 'Mirrored' : 'Normal View'}</span>
+                    </button>
+                    <span
+                      data-testid="badge-video-status"
+                      className={`rounded-lg px-2.5 py-1 text-xs font-bold ${
+                        activeVideo.status === 'FAILED'
+                          ? 'bg-[#fee2e2] text-[#dc2626]'
+                          : activeVideo.status === 'RETRYING' || activeVideo.status === 'PARTIALLY_COMPLETED'
+                          ? 'bg-[#fef3c7] text-[#b45309]'
+                          : 'bg-[#e2f0e9] text-[#277254]'
+                      }`}
+                    >
+                      {activeVideo.status.replace(/_/g, ' ')}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsMirroredActive((prev) => !prev)}
-                    className="flex items-center gap-1.5 rounded-lg border border-[#d9dbd1] bg-white px-2.5 py-1 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] transition cursor-pointer"
-                    title={isMirroredActive ? 'Switch to Normal View' : 'Switch to Mirrored View'}
-                    data-testid="button-toggle-mirror-active"
-                  >
-                    <FlipHorizontal size={13} className={isMirroredActive ? 'text-[#277254]' : ''} />
-                    <span>{isMirroredActive ? 'Mirrored' : 'Normal View'}</span>
-                  </button>
-                  <span
-                    data-testid="badge-video-status"
-                    className="rounded-lg bg-[#e2f0e9] px-2.5 py-1 text-xs font-bold text-[#277254]"
-                  >
-                    {activeVideo.status.replace(/_/g, ' ')}
-                  </span>
-                </div>
-              </div>
 
               {/* Video Player */}
               <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
@@ -243,7 +269,8 @@ export function PresentationStudio({ notify }: { notify: Notify }) {
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
         {/* PRESENTATION SCORECARD (US-14) */}
         {activeVideo && !showRecorder && (

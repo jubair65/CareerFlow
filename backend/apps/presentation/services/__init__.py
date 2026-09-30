@@ -13,6 +13,7 @@ from .vision_pipeline import VisionPipeline
 from .behavioral_analyzer import BehavioralAnalyzer, analyze_behavior
 from .scorer import PresentationScorer, calculate_presentation_score
 from .llm_coach_service import GeminiPresentationCoachService
+from .pipeline_manager import PipelineManager, retry_with_backoff
 
 __all__ = [
     'compress_video',
@@ -37,4 +38,7 @@ __all__ = [
     'PresentationScorer',
     'calculate_presentation_score',
     'GeminiPresentationCoachService',
+    'PipelineManager',
+    'retry_with_backoff',
 ]
+

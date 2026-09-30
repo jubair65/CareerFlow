@@ -18,6 +18,8 @@ class PresentationVideo(models.Model):
         ('PROCESSING_SPEECH', 'Processing Speech Analysis'),
         ('PROCESSING_VISION', 'Processing Behavioral Analysis'),
         ('SCORING', 'Calculating Scores'),
+        ('RETRYING', 'Retrying Analysis'),
+        ('PARTIALLY_COMPLETED', 'Partially Completed'),
         ('COMPLETED', 'Completed'),
         ('FAILED', 'Failed'),
     ]
@@ -242,3 +244,45 @@ class PresentationFeedback(models.Model):
 
     def __str__(self):
         return f"PresentationFeedback ({self.video.original_filename})"
+
+
+class PipelineExecutionLog(models.Model):
+    """
+    US-40: Observability and resilience logging for AI pipeline execution stages.
+    Records every stage attempt, execution duration, status (SUCCESS, RETRY, DEGRADED, FAILED),
+    and exception details to empower telemetry, diagnostics, and graceful recovery.
+    """
+    class Stage(models.TextChoices):
+        AUDIO_EXTRACTION = 'AUDIO_EXTRACTION', 'Audio Extraction'
+        SPEECH_ANALYSIS = 'SPEECH_ANALYSIS', 'Speech Analysis (Whisper)'
+        VISION_ANALYSIS = 'VISION_ANALYSIS', 'Behavioral Analysis (MediaPipe)'
+        SCORING = 'SCORING', 'Composite Scoring'
+        SUGGESTIONS = 'SUGGESTIONS', 'AI Coaching Suggestions'
+        PIPELINE = 'PIPELINE', 'Full Pipeline'
+
+    class Status(models.TextChoices):
+        SUCCESS = 'SUCCESS', 'Success'
+        RETRY = 'RETRY', 'Retrying'
+        DEGRADED = 'DEGRADED', 'Gracefully Degraded'
+        FAILED = 'FAILED', 'Failed'
+
+    video = models.ForeignKey(
+        PresentationVideo,
+        on_delete=models.CASCADE,
+        related_name='execution_logs'
+    )
+    stage = models.CharField(max_length=50, choices=Stage.choices)
+    status = models.CharField(max_length=20, choices=Status.choices)
+    attempt = models.PositiveIntegerField(default=1)
+    error_message = models.TextField(blank=True, default='')
+    details = models.JSONField(default=dict, blank=True)
+    execution_time_ms = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Pipeline Execution Log'
+        verbose_name_plural = 'Pipeline Execution Logs'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Log ({self.video.original_filename}) [{self.stage}] - {self.status} (attempt {self.attempt})"
