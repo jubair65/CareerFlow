@@ -46,9 +46,17 @@ def extract_audio(video_path: str, output_wav_path: str = None) -> str:
         raise RuntimeError("FFmpeg binary not found in system PATH or python environment.")
 
     if not output_wav_path:
+        import uuid
         temp_dir = tempfile.gettempdir()
         base_name = os.path.splitext(os.path.basename(video_path))[0]
-        output_wav_path = os.path.join(temp_dir, f"{base_name}_audio16k.wav")
+        unique_token = uuid.uuid4().hex[:8]
+        output_wav_path = os.path.join(temp_dir, f"{base_name}_{unique_token}_audio16k.wav")
+
+    if os.path.exists(output_wav_path):
+        try:
+            os.remove(output_wav_path)
+        except OSError:
+            pass
 
     os.makedirs(os.path.dirname(output_wav_path), exist_ok=True)
 

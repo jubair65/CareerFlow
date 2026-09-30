@@ -49,33 +49,73 @@ def validate_video_file(file) -> str:
 
 def probe_video_duration(file_path: str) -> int:
     """
-    Attempts to probe video duration in seconds using ffprobe.
-    If ffprobe is not installed or inspection fails, returns 0 or estimated duration.
+    Probes video duration in seconds using ffprobe, OpenCV, or FFmpeg.
+    Ensures accurate duration detection across all machines even when ffprobe is not installed.
     """
+    # 1. Try ffprobe if available in system PATH
     ffprobe_bin = shutil.which("ffprobe")
-    if not ffprobe_bin:
-        return 0
+    if ffprobe_bin:
+        try:
+            cmd = [
+                ffprobe_bin,
+                "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                file_path
+            ]
+            result = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=10,
+                check=True
+            )
+            duration_float = float(result.stdout.strip())
+            if duration_float > 0:
+                return int(round(duration_float))
+        except Exception:
+            pass
 
+    # 2. Try OpenCV VideoCapture
     try:
-        cmd = [
-            ffprobe_bin,
-            "-v", "error",
-            "-show_entries", "format=duration",
-            "-of", "default=noprint_wrappers=1:nokey=1",
-            file_path
-        ]
-        result = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=10,
-            check=True
-        )
-        duration_float = float(result.stdout.strip())
-        return int(round(duration_float))
+        import cv2
+        cap = cv2.VideoCapture(file_path)
+        if cap.isOpened():
+            fps = cap.get(cv2.CAP_PROP_FPS) or 0.0
+            frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0.0
+            cap.release()
+            if fps > 0 and frame_count > 0:
+                duration_sec = frame_count / fps
+                if duration_sec > 0:
+                    return int(round(duration_sec))
     except Exception:
-        return 0
+        pass
+
+    # 3. Try FFmpeg stderr parsing (via imageio-ffmpeg or system ffmpeg)
+    try:
+        import re
+        from apps.presentation.services.audio_extractor import get_ffmpeg_binary
+        ffmpeg_bin = get_ffmpeg_binary()
+        if ffmpeg_bin:
+            cmd = [ffmpeg_bin, "-i", file_path]
+            proc = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=10
+            )
+            match = re.search(r"Duration:\s*(\d+):(\d+):(\d+\.?\d*)", proc.stderr)
+            if match:
+                hours, mins, secs = match.groups()
+                total_sec = int(hours) * 3600 + int(mins) * 60 + float(secs)
+                if total_sec > 0:
+                    return int(round(total_sec))
+    except Exception:
+        pass
+
+    return 0
 
 
 def validate_video_duration(duration_seconds: int):

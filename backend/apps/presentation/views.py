@@ -329,17 +329,24 @@ class PresentationScoreView(APIView):
     def get_video(self, video_id, user):
         return PresentationVideo.objects.filter(id=video_id, user=user).first()
 
-    def _ensure_analysis_and_score(self, video):
-        # 1. Run speech analysis if missing
-        if not hasattr(video, 'speech_analysis'):
+    def _ensure_analysis_and_score(self, video, force_refresh: bool = False):
+        # 1. Run speech analysis if missing or force_refresh
+        has_speech = hasattr(video, 'speech_analysis') and video.speech_analysis is not None
+        if not has_speech or force_refresh:
             try:
                 analyze_speech(video)
                 video.refresh_from_db()
             except Exception as e:
                 logger.warning(f"Could not automatically execute speech analysis on video {video.id}: {e}")
 
-        # 2. Run behavioral analysis if missing
-        if not hasattr(video, 'behavioral_analysis'):
+        # 2. Run behavioral analysis if missing, force_refresh, or previous analysis had old degraded fallback metrics (0, 75, 75)
+        has_beh = hasattr(video, 'behavioral_analysis') and video.behavioral_analysis is not None
+        is_dummy_beh = False
+        if has_beh:
+            b = video.behavioral_analysis
+            is_dummy_beh = (b.eye_contact_score == 0 and b.posture_score == 75 and b.engagement_score == 75)
+
+        if not has_beh or force_refresh or is_dummy_beh:
             try:
                 analyze_behavior(video)
                 video.refresh_from_db()
@@ -355,8 +362,12 @@ class PresentationScoreView(APIView):
             return Response({'error': 'Video not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         score = getattr(video, 'presentation_score', None)
-        if not score or score.overall_score == 0:
-            score = self._ensure_analysis_and_score(video)
+        # Check if score needs calculation or refresh from old dummy metrics
+        beh = getattr(video, 'behavioral_analysis', None)
+        is_dummy = beh and (beh.eye_contact_score == 0 and beh.posture_score == 75 and beh.engagement_score == 75)
+
+        if not score or score.overall_score == 0 or is_dummy:
+            score = self._ensure_analysis_and_score(video, force_refresh=bool(is_dummy))
 
         serializer = PresentationScoreSerializer(score)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -367,7 +378,8 @@ class PresentationScoreView(APIView):
             return Response({'error': 'Video not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         try:
-            score = self._ensure_analysis_and_score(video)
+            force = request.data.get('force', True) if isinstance(request.data, dict) else True
+            score = self._ensure_analysis_and_score(video, force_refresh=force)
             serializer = PresentationScoreSerializer(score)
             return Response(
                 {

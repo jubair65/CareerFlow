@@ -70,6 +70,11 @@ class BehavioralAnalyzer:
                         "frame_metrics": frame_metrics,
                     }
                 )
+                if video.duration_seconds == 0:
+                    dur = frame_metrics.get("duration_seconds", 0)
+                    if dur > 0:
+                        video.duration_seconds = int(round(dur))
+                        video.save(update_fields=['duration_seconds'])
                 video.status = 'READY_FOR_ANALYSIS'
                 video.save(update_fields=['status'])
 

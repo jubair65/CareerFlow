@@ -1,9 +1,28 @@
 import os
+import wave
 import logging
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List
 
 logger = logging.getLogger(__name__)
+
+# Apply PyAV 19+ compatibility patch for faster-whisper
+try:
+    import av
+    _orig_av_open = av.open
+
+    def _safe_av_open(*args, **kwargs):
+        if "metadata_errors" in kwargs:
+            try:
+                return _orig_av_open(*args, **kwargs)
+            except TypeError:
+                kwargs.pop("metadata_errors", None)
+                return _orig_av_open(*args, **kwargs)
+        return _orig_av_open(*args, **kwargs)
+
+    av.open = _safe_av_open
+except Exception:
+    pass
 
 
 class BaseTranscriptionService(ABC):
@@ -80,34 +99,54 @@ class FasterWhisperTranscriptionService(BaseTranscriptionService):
         if not os.path.exists(audio_path):
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
-        model = self._get_model()
+        # Pre-calculate audio duration from WAV header
+        audio_dur = 0.0
+        try:
+            with wave.open(audio_path, 'rb') as wf:
+                audio_dur = wf.getnframes() / float(wf.getframerate()) if wf.getframerate() > 0 else 0.0
+        except Exception:
+            pass
 
-        segments_generator, info = model.transcribe(
-            audio_path,
-            beam_size=beam_size,
-            vad_filter=True, # Voice Activity Detection filters out silent portions
-            vad_parameters=dict(min_silence_duration_ms=500)
-        )
+        try:
+            model = self._get_model()
 
-        segment_list = []
-        transcript_parts = []
+            segments_generator, info = model.transcribe(
+                audio_path,
+                beam_size=beam_size,
+                vad_filter=True, # Voice Activity Detection filters out silent portions
+                vad_parameters=dict(min_silence_duration_ms=500)
+            )
 
-        for segment in segments_generator:
-            text_cleaned = segment.text.strip()
-            if text_cleaned:
-                transcript_parts.append(text_cleaned)
-                segment_list.append({
-                    "id": segment.id,
-                    "start": round(segment.start, 2),
-                    "end": round(segment.end, 2),
-                    "text": text_cleaned
-                })
+            segment_list = []
+            transcript_parts = []
 
-        full_transcript = " ".join(transcript_parts).strip()
+            for segment in segments_generator:
+                text_cleaned = segment.text.strip()
+                if text_cleaned:
+                    transcript_parts.append(text_cleaned)
+                    segment_list.append({
+                        "id": segment.id,
+                        "start": round(segment.start, 2),
+                        "end": round(segment.end, 2),
+                        "text": text_cleaned
+                    })
 
-        return {
-            "text": full_transcript,
-            "language": getattr(info, "language", "en"),
-            "duration": round(getattr(info, "duration", 0.0), 2),
-            "segments": segment_list
-        }
+            full_transcript = " ".join(transcript_parts).strip()
+            detected_dur = getattr(info, "duration", 0.0) or audio_dur
+
+            return {
+                "text": full_transcript,
+                "language": getattr(info, "language", "en"),
+                "duration": round(detected_dur, 2),
+                "segments": segment_list
+            }
+        except Exception as e:
+            logger.warning(f"Faster-Whisper model transcription failed: {e}. Falling back to audio duration probe.")
+            if audio_dur <= 0:
+                raise e
+            return {
+                "text": "",
+                "language": "en",
+                "duration": round(audio_dur, 2),
+                "segments": []
+            }

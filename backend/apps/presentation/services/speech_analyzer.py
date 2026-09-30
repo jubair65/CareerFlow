@@ -71,9 +71,20 @@ class SpeechAnalyzer:
             transcript = transcription_result.get("text", "")
             duration = transcription_result.get("duration", 0.0)
 
-            # Fallback to video duration if Whisper duration is 0
-            if duration <= 0 and video.duration_seconds > 0:
-                duration = float(video.duration_seconds)
+            # Fallback to video duration if Whisper duration is 0, or backfill video.duration_seconds
+            if duration <= 0:
+                if video.duration_seconds > 0:
+                    duration = float(video.duration_seconds)
+                else:
+                    from apps.presentation.validators import probe_video_duration
+                    probed = probe_video_duration(video_path)
+                    if probed > 0:
+                        duration = float(probed)
+                        video.duration_seconds = probed
+                        video.save(update_fields=['duration_seconds'])
+            elif video.duration_seconds == 0 and duration > 0:
+                video.duration_seconds = int(round(duration))
+                video.save(update_fields=['duration_seconds'])
 
             # Step 4: Compute metrics
             total_words = count_words(transcript)
