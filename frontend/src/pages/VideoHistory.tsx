@@ -32,6 +32,7 @@ import {
   type BehavioralAnalysisData
 } from '../api/presentation';
 import { WebcamPlaybackPlayer } from '../components/presentation/WebcamPlaybackPlayer';
+import { PresentationScoreCard } from '../components/presentation/PresentationScoreCard';
 
 const PRACTICE_PROMPTS = [
   'Tell me about yourself',
@@ -480,6 +481,13 @@ export function VideoHistory({ notify }: { notify: Notify }) {
               </div>
             ) : (
               <div className="mt-6 space-y-6">
+                {/* Composite Presentation Scorecard (US-14) */}
+                <PresentationScoreCard
+                  videoId={analysisVideo.id}
+                  initialScore={analysisVideo.presentation_score}
+                  notify={notify}
+                />
+
                 {/* Speech Metrics */}
                 <div className="rounded-xl border border-[#ecefe7] bg-[#fbfaf5] p-5">
                   <div className="flex items-center justify-between mb-4">

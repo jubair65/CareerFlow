@@ -11,6 +11,7 @@ from .behavioral_metrics import (
 )
 from .vision_pipeline import VisionPipeline
 from .behavioral_analyzer import BehavioralAnalyzer, analyze_behavior
+from .scorer import PresentationScorer, calculate_presentation_score
 
 __all__ = [
     'compress_video',
@@ -32,4 +33,6 @@ __all__ = [
     'VisionPipeline',
     'BehavioralAnalyzer',
     'analyze_behavior',
+    'PresentationScorer',
+    'calculate_presentation_score',
 ]

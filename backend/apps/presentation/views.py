@@ -7,12 +7,13 @@ from rest_framework import status, permissions, parsers
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from .models import PresentationVideo, SpeechAnalysis, BehavioralAnalysis
+from .models import PresentationVideo, SpeechAnalysis, BehavioralAnalysis, PresentationScore
 from .serializers import (
     PresentationVideoSerializer,
     VideoUploadSerializer,
     SpeechAnalysisSerializer,
     BehavioralAnalysisSerializer,
+    PresentationScoreSerializer,
 )
 from .validators import (
     validate_video_file,
@@ -24,6 +25,7 @@ from .validators import (
 from .services.video_compressor import compress_video, cleanup_staging_file
 from .services.speech_analyzer import analyze_speech
 from .services.behavioral_analyzer import analyze_behavior
+from .services.scorer import calculate_presentation_score
 from apps.core.models import DataAccessLog
 
 logger = logging.getLogger(__name__)
@@ -312,5 +314,71 @@ class PresentationBehavioralAnalysisView(APIView):
             logger.error(f"Error analyzing behavior for video {video_id}: {e}")
             return Response(
                 {'error': f"Behavioral analysis failed: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class PresentationScoreView(APIView):
+    """
+    GET /api/presentation/<video_id>/score/
+    POST /api/presentation/<video_id>/score/
+    Retrieve or calculate composite presentation score synthesizing speech and behavioral metrics (US-14).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_video(self, video_id, user):
+        return PresentationVideo.objects.filter(id=video_id, user=user).first()
+
+    def _ensure_analysis_and_score(self, video):
+        # 1. Run speech analysis if missing
+        if not hasattr(video, 'speech_analysis'):
+            try:
+                analyze_speech(video)
+                video.refresh_from_db()
+            except Exception as e:
+                logger.warning(f"Could not automatically execute speech analysis on video {video.id}: {e}")
+
+        # 2. Run behavioral analysis if missing
+        if not hasattr(video, 'behavioral_analysis'):
+            try:
+                analyze_behavior(video)
+                video.refresh_from_db()
+            except Exception as e:
+                logger.warning(f"Could not automatically execute behavioral analysis on video {video.id}: {e}")
+
+        # 3. Calculate score
+        return calculate_presentation_score(video)
+
+    def get(self, request, video_id):
+        video = self.get_video(video_id, request.user)
+        if not video:
+            return Response({'error': 'Video not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        score = getattr(video, 'presentation_score', None)
+        if not score or score.overall_score == 0:
+            score = self._ensure_analysis_and_score(video)
+
+        serializer = PresentationScoreSerializer(score)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, video_id):
+        video = self.get_video(video_id, request.user)
+        if not video:
+            return Response({'error': 'Video not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            score = self._ensure_analysis_and_score(video)
+            serializer = PresentationScoreSerializer(score)
+            return Response(
+                {
+                    'message': 'Presentation score calculated successfully.',
+                    'presentation_score': serializer.data
+                },
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            logger.error(f"Error calculating score for video {video_id}: {e}")
+            return Response(
+                {'error': f"Score calculation failed: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

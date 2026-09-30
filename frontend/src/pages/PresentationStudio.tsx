@@ -18,6 +18,7 @@ import {
 import { AppShell } from '../components/layout/AppShell';
 import { PageHeading, type Notify } from '../components/dashboard/DashboardShared';
 import { VideoRecorder } from '../components/presentation/VideoRecorder';
+import { PresentationScoreCard } from '../components/presentation/PresentationScoreCard';
 import {
   apiGetActivePresentationVideo,
   apiGetPresentationVideoHistory,
@@ -241,6 +242,15 @@ export function PresentationStudio({ notify }: { notify: Notify }) {
               </div>
             </div>
           </div>
+        )}
+
+        {/* PRESENTATION SCORECARD (US-14) */}
+        {activeVideo && !showRecorder && (
+          <PresentationScoreCard
+            videoId={activeVideo.id}
+            initialScore={activeVideo.presentation_score}
+            notify={notify}
+          />
         )}
 
         {/* Link to Dedicated Video History */}

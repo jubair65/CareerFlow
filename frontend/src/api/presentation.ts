@@ -25,6 +25,25 @@ export interface PresentationVideo {
   uploaded_at: string;
   speech_analysis?: SpeechAnalysisData | null;
   behavioral_analysis?: BehavioralAnalysisData | null;
+  presentation_score?: PresentationScoreData | null;
+}
+
+export interface PresentationScoreData {
+  id: number;
+  video: number;
+  overall_score: number;
+  speech_score: number;
+  behavioral_score: number;
+  pace_score: number;
+  filler_score: number;
+  eye_contact_score: number;
+  posture_score: number;
+  engagement_score: number;
+  has_behavioral_data: boolean;
+  notes: string;
+  grade_label: 'Excellent' | 'Competent' | 'Needs Practice';
+  grade_color: string;
+  calculated_at: string;
 }
 
 export interface SpeechAnalysisData {
@@ -153,4 +172,27 @@ export async function apiGetBehavioralAnalysis(videoId: number): Promise<Behavio
 export async function apiTriggerBehavioralAnalysis(videoId: number): Promise<BehavioralAnalysisData> {
   const response = await apiClient.post<BehavioralAnalysisData>(`/presentation/${videoId}/behavioral/`);
   return response.data;
+}
+
+/**
+ * Get composite presentation score for a video (US-14).
+ */
+export async function apiGetPresentationScore(videoId: number): Promise<PresentationScoreData | null> {
+  try {
+    const response = await apiClient.get<PresentationScoreData>(`/presentation/${videoId}/score/`);
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.status === 404) return null;
+    throw error;
+  }
+}
+
+/**
+ * Calculate or recalculate composite presentation score for a video (US-14).
+ */
+export async function apiCalculatePresentationScore(videoId: number): Promise<PresentationScoreData> {
+  const response = await apiClient.post<{ message: string; presentation_score: PresentationScoreData }>(
+    `/presentation/${videoId}/score/`
+  );
+  return response.data.presentation_score;
 }

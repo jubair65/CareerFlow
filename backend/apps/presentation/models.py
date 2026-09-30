@@ -135,3 +135,77 @@ class BehavioralAnalysis(models.Model):
             f"BehavioralAnalysis ({self.video.original_filename}) - "
             f"Eye: {self.eye_contact_score}%, Posture: {self.posture_score}%, Engagement: {self.engagement_score}%"
         )
+
+
+class PresentationScore(models.Model):
+    video = models.OneToOneField(
+        PresentationVideo,
+        on_delete=models.CASCADE,
+        related_name='presentation_score'
+    )
+    overall_score = models.PositiveIntegerField(
+        default=0,
+        help_text="Calculated composite score 0-100"
+    )
+    speech_score = models.PositiveIntegerField(
+        default=0,
+        help_text="Composite speech score 0-100 (pace + filler)"
+    )
+    behavioral_score = models.PositiveIntegerField(
+        default=0,
+        help_text="Composite behavioral score 0-100 (eye contact + posture + engagement)"
+    )
+    pace_score = models.PositiveIntegerField(
+        default=0,
+        help_text="Pacing subscore (optimal 130-160 WPM)"
+    )
+    filler_score = models.PositiveIntegerField(
+        default=0,
+        help_text="Filler word control subscore"
+    )
+    eye_contact_score = models.PositiveIntegerField(
+        default=0,
+        help_text="Camera gaze adherence subscore"
+    )
+    posture_score = models.PositiveIntegerField(
+        default=0,
+        help_text="Shoulder alignment and stability subscore"
+    )
+    engagement_score = models.PositiveIntegerField(
+        default=0,
+        help_text="Facial expressiveness and attentiveness subscore"
+    )
+    has_behavioral_data = models.BooleanField(
+        default=True,
+        help_text="Whether video had valid computer vision landmarks"
+    )
+    notes = models.TextField(
+        blank=True,
+        default='',
+        help_text="Evaluation notes or degradation indicators"
+    )
+    calculated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Presentation Score'
+        verbose_name_plural = 'Presentation Scores'
+        ordering = ['-calculated_at']
+
+    def __str__(self):
+        return f"PresentationScore ({self.video.original_filename}) - {self.overall_score}/100 ({self.grade_label})"
+
+    @property
+    def grade_label(self) -> str:
+        if self.overall_score >= 85:
+            return "Excellent"
+        elif self.overall_score >= 70:
+            return "Competent"
+        return "Needs Practice"
+
+    @property
+    def grade_color(self) -> str:
+        if self.overall_score >= 85:
+            return "#277254"
+        elif self.overall_score >= 70:
+            return "#d97706"
+        return "#dc2626"

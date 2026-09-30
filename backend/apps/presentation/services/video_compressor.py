@@ -27,6 +27,12 @@ def compress_video(input_path: str, output_path: str, crf: int = 26) -> dict:
     """
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     ffmpeg_bin = shutil.which("ffmpeg")
+    if not ffmpeg_bin:
+        try:
+            import imageio_ffmpeg
+            ffmpeg_bin = imageio_ffmpeg.get_ffmpeg_exe()
+        except Exception:
+            ffmpeg_bin = None
 
     if not ffmpeg_bin:
         logger.warning(

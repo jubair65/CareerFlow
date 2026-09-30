@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import PresentationVideo, SpeechAnalysis, BehavioralAnalysis
+from .models import PresentationVideo, SpeechAnalysis, BehavioralAnalysis, PresentationScore
 from .validators import validate_video_file, MAX_UPLOAD_SIZE
 
 
@@ -53,6 +53,48 @@ class BehavioralAnalysisSerializer(serializers.ModelSerializer):
         ]
 
 
+class PresentationScoreSerializer(serializers.ModelSerializer):
+    grade_label = serializers.ReadOnlyField()
+    grade_color = serializers.ReadOnlyField()
+
+    class Meta:
+        model = PresentationScore
+        fields = [
+            'id',
+            'video',
+            'overall_score',
+            'speech_score',
+            'behavioral_score',
+            'pace_score',
+            'filler_score',
+            'eye_contact_score',
+            'posture_score',
+            'engagement_score',
+            'has_behavioral_data',
+            'notes',
+            'grade_label',
+            'grade_color',
+            'calculated_at',
+        ]
+        read_only_fields = [
+            'id',
+            'video',
+            'overall_score',
+            'speech_score',
+            'behavioral_score',
+            'pace_score',
+            'filler_score',
+            'eye_contact_score',
+            'posture_score',
+            'engagement_score',
+            'has_behavioral_data',
+            'notes',
+            'grade_label',
+            'grade_color',
+            'calculated_at',
+        ]
+
+
 class PresentationVideoSerializer(serializers.ModelSerializer):
     formatted_raw_size = serializers.ReadOnlyField()
     formatted_compressed_size = serializers.ReadOnlyField()
@@ -60,6 +102,7 @@ class PresentationVideoSerializer(serializers.ModelSerializer):
     file_url = serializers.SerializerMethodField()
     speech_analysis = SpeechAnalysisSerializer(read_only=True)
     behavioral_analysis = BehavioralAnalysisSerializer(read_only=True)
+    presentation_score = PresentationScoreSerializer(read_only=True)
 
     class Meta:
         model = PresentationVideo
@@ -80,6 +123,7 @@ class PresentationVideoSerializer(serializers.ModelSerializer):
             'uploaded_at',
             'speech_analysis',
             'behavioral_analysis',
+            'presentation_score',
         ]
         read_only_fields = [
             'id',
@@ -92,6 +136,7 @@ class PresentationVideoSerializer(serializers.ModelSerializer):
             'uploaded_at',
             'speech_analysis',
             'behavioral_analysis',
+            'presentation_score',
         ]
 
     def get_file_url(self, obj) -> str:
