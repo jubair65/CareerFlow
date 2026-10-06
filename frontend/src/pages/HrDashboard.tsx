@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'wouter';
 import {
   FolderOpen,
   Users,
@@ -25,10 +26,15 @@ import {
 } from '../components/dashboard/DashboardShared';
 import { getStoredUser } from '../api/auth';
 import { apiGetHRMatches, type CVJobMatch } from '../api/cv';
+import { apiGetRooms, type RecruitmentRoom } from '../api/recruitment';
+import { RoomCreateModal } from '../components/recruitment/RoomCreateModal';
 
 export function HrDashboard({ notify }: { notify: Notify }) {
+  const [, setLocation] = useLocation();
   const [hrMatches, setHrMatches] = useState<CVJobMatch[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<CVJobMatch | null>(null);
+  const [rooms, setRooms] = useState<RecruitmentRoom[]>([]);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   const user = useMemo(() => {
     try {
@@ -44,22 +50,28 @@ export function HrDashboard({ notify }: { notify: Notify }) {
     apiGetHRMatches()
       .then((data) => setHrMatches(data))
       .catch(() => {});
+
+    apiGetRooms()
+      .then((data) => setRooms(data))
+      .catch(() => {});
   }, []);
 
   const handleAction = (label: string) => {
     notify(`Workflow "${label}" activated in HR workspace!`, 'info');
   };
 
+  const activeRoomsCount = rooms.filter((r) => r.status === 'ACTIVE').length;
+
   return (
     <AppShell role="hr" notify={notify}>
       <PageHeading
-        eyebrow="HR Hiring Portal • US-09 CV Intelligence"
+        eyebrow="HR Hiring Portal • US-18 Recruitment Rooms"
         title={`Good morning, ${userName}.`}
-        description="Your hiring workspace is ready for candidate evaluation and CV match scoring."
+        description="Your hiring workspace is ready for candidate evaluation, room creation, and CV match scoring."
         action={
           <button
             type="button"
-            onClick={() => handleAction('Create Recruitment Room')}
+            onClick={() => setCreateModalOpen(true)}
             data-testid="button-create-room-dashboard"
             className="inline-flex items-center gap-2 rounded-xl bg-[#277254] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#1f5b43] transition shadow-sm"
           >
@@ -70,13 +82,15 @@ export function HrDashboard({ notify }: { notify: Notify }) {
 
       {/* 4 Metric Cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Active rooms"
-          value="3"
-          detail="Across 4 open roles"
-          icon={FolderOpen}
-          accent="yellow"
-        />
+        <div onClick={() => setLocation('/hr/rooms')} className="cursor-pointer">
+          <StatCard
+            label="Active rooms"
+            value={rooms.length > 0 ? `${activeRoomsCount}` : "0"}
+            detail={`${rooms.length} total created rooms`}
+            icon={FolderOpen}
+            accent="yellow"
+          />
+        </div>
         <StatCard
           label="Applicants"
           value={hrMatches.length > 0 ? `${hrMatches.length}` : "48"}
@@ -359,6 +373,16 @@ export function HrDashboard({ notify }: { notify: Notify }) {
       )}
 
       <DataAccessCard />
+
+      <RoomCreateModal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onRoomCreated={(newRoom) => {
+          setRooms((prev) => [newRoom, ...prev]);
+          setLocation('/hr/rooms');
+        }}
+        notify={notify}
+      />
     </AppShell>
   );
 }
