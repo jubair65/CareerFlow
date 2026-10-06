@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     'apps.core.apps.CoreConfig',
     'apps.cv.apps.CvConfig',
     'apps.presentation.apps.PresentationConfig',
+    'apps.recruitment.apps.RecruitmentConfig',
 ]
 
 MIDDLEWARE = [

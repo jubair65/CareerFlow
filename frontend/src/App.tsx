@@ -18,6 +18,7 @@ import { CvProcessingPage } from './components/cv/CvProcessingView';
 import { JobMatch } from './pages/JobMatch';
 import { PresentationStudio } from './pages/PresentationStudio';
 import { VideoHistory } from './pages/VideoHistory';
+import { RecruitmentRoomsPage } from './pages/RecruitmentRoomsPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 
@@ -638,6 +639,14 @@ function RoutedApp({ notify }: { notify: Notify }) {
     return (
       <ProtectedRoute allowedRoles={['hr']} notify={notify}>
         <HrDashboard notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (path === '/hr/rooms') {
+    return (
+      <ProtectedRoute allowedRoles={['hr']} notify={notify}>
+        <RecruitmentRoomsPage notify={notify} />
       </ProtectedRoute>
     );
   }
