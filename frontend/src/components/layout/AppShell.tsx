@@ -131,6 +131,8 @@ export function AppShell({
     setMobileOpen(false);
     if (
       isOverview ||
+      targetPath === '/hr/rooms' ||
+      targetPath === '/hr/dashboard' ||
       targetPath === '/student/cv' ||
       targetPath === '/student/practice' ||
       targetPath === '/student/videos' ||
