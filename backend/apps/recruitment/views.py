@@ -2,14 +2,18 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import RecruitmentRoom
-from .serializers import RecruitmentRoomSerializer, RoomRequirementsSerializer
+from .serializers import (
+    RecruitmentRoomSerializer,
+    RoomRequirementsSerializer,
+    RoomWeightingSerializer,
+)
 from .permissions import IsHRManager, IsRoomOwner
 from .services.matcher_bridge import sync_room_to_job_requirement
 
 
 class RecruitmentRoomViewSet(viewsets.ModelViewSet):
     """
-    CRUD API for HR Recruitment Rooms (US-18 & US-19).
+    CRUD API for HR Recruitment Rooms (US-18, US-19, US-20).
     Strictly isolated so HR Managers can only view and manage their own rooms.
     """
     serializer_class = RecruitmentRoomSerializer
@@ -94,3 +98,41 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_200_OK
         )
+
+    @action(detail=True, methods=['get', 'put', 'patch'], url_path='weighting')
+    def weighting(self, request, pk=None):
+        """
+        US-20-T2: Configure evaluation weighting (CV weight % vs Video weight %) for a Room.
+        Ensures weights are integers within 0-100 and total exactly 100%.
+        """
+        room = self.get_object()
+
+        if request.method == 'GET':
+            serializer = RoomWeightingSerializer(room)
+            return Response(
+                {
+                    "room_id": room.id,
+                    "title": room.title,
+                    "company_name": room.company_name,
+                    "cv_weight": room.cv_weight,
+                    "video_weight": room.video_weight,
+                    "weighting": serializer.data,
+                },
+                status=status.HTTP_200_OK
+            )
+
+        partial = (request.method == 'PATCH')
+        serializer = RoomWeightingSerializer(room, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        updated_room = serializer.save()
+
+        full_serializer = RecruitmentRoomSerializer(updated_room, context={'request': request})
+        return Response(
+            {
+                "message": "Evaluation weighting updated successfully.",
+                "room": full_serializer.data,
+                "weighting": serializer.data,
+            },
+            status=status.HTTP_200_OK
+        )
+

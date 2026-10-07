@@ -92,14 +92,35 @@ class RecruitmentRoom(models.Model):
     class Meta:
         db_table = 'careerflow_recruitment_rooms'
         ordering = ['-created_at']
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(cv_weight__gte=0, cv_weight__lte=100) & models.Q(video_weight__gte=0, video_weight__lte=100),
+                name='check_recruitment_room_weights_range'
+            )
+        ]
 
     def __str__(self):
         return f"{self.title} @ {self.company_name} ({self.get_status_display()})"
+
+    def clean(self):
+        super().clean()
+        from django.core.exceptions import ValidationError
+        if self.cv_weight is None:
+            self.cv_weight = 50
+        if self.video_weight is None:
+            self.video_weight = 50
+        if self.cv_weight < 0 or self.cv_weight > 100:
+            raise ValidationError({'cv_weight': 'CV weight must be between 0 and 100.'})
+        if self.video_weight < 0 or self.video_weight > 100:
+            raise ValidationError({'video_weight': 'Video weight must be between 0 and 100.'})
+        if self.cv_weight + self.video_weight != 100:
+            raise ValidationError({'weights': f'Weights must sum to 100% (currently {self.cv_weight}% + {self.video_weight}% = {self.cv_weight + self.video_weight}%).'})
 
     def save(self, *args, **kwargs):
         # Auto-generate a secure non-guessable share token if not set
         if not self.share_token:
             self.share_token = secrets.token_urlsafe(16)
+        self.clean()
         super().save(*args, **kwargs)
 
     def get_skill_names(self):
