@@ -19,6 +19,7 @@ import { JobMatch } from './pages/JobMatch';
 import { PresentationStudio } from './pages/PresentationStudio';
 import { VideoHistory } from './pages/VideoHistory';
 import { RecruitmentRoomsPage } from './pages/RecruitmentRoomsPage';
+import { PublicApplicationPage } from './pages/PublicApplicationPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 
@@ -657,6 +658,10 @@ function RoutedApp({ notify }: { notify: Notify }) {
         <AgencyDashboard notify={notify} />
       </ProtectedRoute>
     );
+  }
+
+  if (path.startsWith('/apply/')) {
+    return <PublicApplicationPage notify={notify} />;
   }
 
   if (path === '/dashboard' || path.startsWith('/dashboard')) {
