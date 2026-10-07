@@ -329,7 +329,7 @@ export function RoomList({
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="font-bold text-[#253142] group-hover:text-[#277254]">
-                    CV {room.cv_weight || 50}% / Video {room.video_weight || 50}%
+                    CV {room.cv_weight ?? 50}% / Video {room.video_weight ?? 50}%
                   </span>
                   <Edit2 size={11} className="text-[#7b8490] opacity-0 group-hover:opacity-100 transition" />
                 </div>
