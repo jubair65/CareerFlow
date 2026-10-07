@@ -15,9 +15,12 @@ import {
   Sliders,
   X,
   Loader2,
+  Tag,
 } from 'lucide-react';
 import type { RecruitmentRoom } from '../../api/recruitment';
 import { apiUpdateRoom, apiDeleteRoom } from '../../api/recruitment';
+import { JobRequirementsForm } from './JobRequirementsForm';
+
 
 interface RoomListProps {
   rooms: RecruitmentRoom[];
@@ -46,6 +49,16 @@ export function RoomList({
   const [editDesc, setEditDesc] = useState('');
   const [editStatus, setEditStatus] = useState<'ACTIVE' | 'PAUSED' | 'CLOSED'>('ACTIVE');
   const [savingEdit, setSavingEdit] = useState(false);
+
+  // US-19 Job Requirements Modal State
+  const [requirementsRoom, setRequirementsRoom] = useState<RecruitmentRoom | null>(null);
+
+  const getRoomSkillNames = (room: RecruitmentRoom): string[] => {
+    if (!room.skills_required || !Array.isArray(room.skills_required)) return [];
+    return room.skills_required
+      .map((item) => (typeof item === 'string' ? item : item?.name))
+      .filter(Boolean) as string[];
+  };
 
   const filteredRooms = useMemo(() => {
     return rooms.filter((r) => {
@@ -234,13 +247,70 @@ export function RoomList({
                 </span>
               </div>
 
+              {/* Role Category & Seniority Badges */}
+              {(room.role_category || room.experience_level) && (
+                <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                  {room.role_category && (
+                    <span className="inline-flex items-center rounded-md bg-[#f1f3f5] px-2 py-0.5 text-[10px] font-bold text-[#526072]">
+                      {room.role_category}
+                    </span>
+                  )}
+                  {room.experience_level && (
+                    <span className="inline-flex items-center rounded-md bg-[#f5f1e6] px-2 py-0.5 text-[10px] font-bold text-[#253142]">
+                      {room.experience_level}
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Description Snippet */}
               <p className="mt-3 text-xs text-[#687382] line-clamp-2 leading-relaxed">
                 {room.description || 'No job description provided.'}
               </p>
 
+              {/* Required Skills & Tag Pill Display (US-19) */}
+              <div className="mt-3.5 rounded-xl bg-[#fbfaf5] p-2.5 border border-[#eef0e7]">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] font-bold text-[#526072] flex items-center gap-1">
+                    <Tag size={12} className="text-[#277254]" /> Required Skills:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setRequirementsRoom(room)}
+                    data-testid={`button-configure-requirements-${room.id}`}
+                    className="text-[11px] font-bold text-[#277254] hover:text-[#1f5b43] hover:underline transition"
+                  >
+                    Configure
+                  </button>
+                </div>
+                <div
+                  data-testid={`room-skills-list-${room.id}`}
+                  className="flex flex-wrap gap-1 min-h-[22px]"
+                >
+                  {getRoomSkillNames(room).length > 0 ? (
+                    <>
+                      {getRoomSkillNames(room).slice(0, 4).map((sk, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center rounded-md bg-[#e2f0e9] border border-[#c4e3d3] px-2 py-0.5 text-[10px] font-semibold text-[#1f5b43]"
+                        >
+                          {sk}
+                        </span>
+                      ))}
+                      {getRoomSkillNames(room).length > 4 && (
+                        <span className="inline-flex items-center rounded-md bg-[#f1f3f5] px-1.5 py-0.5 text-[10px] font-medium text-[#687382]">
+                          +{getRoomSkillNames(room).length - 4} more
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-[11px] text-[#98a09c] italic">No skills defined yet</span>
+                  )}
+                </div>
+              </div>
+
               {/* Evaluation Weights Indicator */}
-              <div className="mt-4 flex items-center justify-between rounded-xl bg-[#fbfaf5] p-2.5 border border-[#eef0e7] text-xs">
+              <div className="mt-3.5 flex items-center justify-between rounded-xl bg-[#fbfaf5] p-2.5 border border-[#eef0e7] text-xs">
                 <div className="flex items-center gap-1.5 text-[#526072] font-medium">
                   <Sliders size={13} className="text-[#277254]" />
                   <span>Evaluation Weights:</span>
@@ -256,6 +326,7 @@ export function RoomList({
                 <span>Created {new Date(room.created_at).toLocaleDateString()}</span>
               </div>
             </div>
+
 
             {/* Bottom Actions */}
             <div className="mt-5 pt-3 border-t border-[#eef0e7] flex items-center justify-between gap-2">
@@ -287,6 +358,15 @@ export function RoomList({
                   className="rounded-lg p-1.5 text-[#7b8490] hover:bg-[#eef0e7] hover:text-[#253142] transition"
                 >
                   {room.status === 'ACTIVE' ? <PauseCircle size={16} /> : <PlayCircle size={16} />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRequirementsRoom(room)}
+                  title="Configure Role & Skills (US-19)"
+                  data-testid={`button-action-requirements-${room.id}`}
+                  className="rounded-lg p-1.5 text-[#277254] hover:bg-[#e2f0e9] transition"
+                >
+                  <Tag size={16} />
                 </button>
                 <button
                   type="button"
@@ -405,6 +485,19 @@ export function RoomList({
           </div>
         </div>
       )}
+
+      {/* Job Role & Requirements Modal (US-19) */}
+      <JobRequirementsForm
+        room={requirementsRoom}
+        isOpen={!!requirementsRoom}
+        onClose={() => setRequirementsRoom(null)}
+        onRoomUpdated={(updated) => {
+          onRoomUpdated(updated);
+          setRequirementsRoom(null);
+        }}
+        notify={notify}
+      />
     </div>
   );
 }
+

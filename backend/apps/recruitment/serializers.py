@@ -5,6 +5,7 @@ from .models import RecruitmentRoom
 class RecruitmentRoomSerializer(serializers.ModelSerializer):
     created_by_name = serializers.ReadOnlyField(source='created_by.full_name')
     created_by_email = serializers.ReadOnlyField(source='created_by.email')
+    experience_level_display = serializers.CharField(source='get_experience_level_display', read_only=True)
     share_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -14,6 +15,9 @@ class RecruitmentRoomSerializer(serializers.ModelSerializer):
             'title',
             'company_name',
             'department',
+            'role_category',
+            'experience_level',
+            'experience_level_display',
             'description',
             'status',
             'requirements_text',
@@ -72,3 +76,77 @@ class RecruitmentRoomSerializer(serializers.ModelSerializer):
                     "weights": f"CV weight ({cv_w}%) and Video weight ({vid_w}%) must total exactly 100%."
                 })
         return attrs
+
+
+class RoomRequirementsSerializer(serializers.ModelSerializer):
+    """
+    Dedicated serializer for defining job role, seniority level,
+    detailed requirements text, and skill tags (US-19-T2 & US-19-T4).
+    """
+    class Meta:
+        model = RecruitmentRoom
+        fields = [
+            'id',
+            'title',
+            'role_category',
+            'experience_level',
+            'requirements_text',
+            'skills_required',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'title', 'updated_at']
+
+    def validate_skills_required(self, value):
+        """
+        Enforce US-19-T4 skill validation:
+        1. Must contain at least 1 skill
+        2. No blank or whitespace-only skill names
+        3. No duplicate skills (case-insensitive)
+        4. Max character length per skill
+        """
+        if not isinstance(value, list) or len(value) == 0:
+            raise serializers.ValidationError("At least one required skill must be defined.")
+
+        clean_skills = []
+        seen_lower = set()
+
+        for item in value:
+            name = ""
+            importance = "REQUIRED"
+            category = "Technical"
+
+            if isinstance(item, str):
+                name = item.strip()
+            elif isinstance(item, dict) and 'name' in item:
+                name = str(item['name']).strip()
+                importance = item.get('importance', 'REQUIRED')
+                category = item.get('category', 'Technical')
+            else:
+                raise serializers.ValidationError("Invalid skill entry format.")
+
+            if not name:
+                raise serializers.ValidationError("Skill name cannot be blank.")
+
+            if len(name) < 2:
+                raise serializers.ValidationError(f"Skill name '{name}' is too short (minimum 2 characters).")
+
+            if len(name) > 60:
+                raise serializers.ValidationError(f"Skill name '{name}' exceeds maximum limit of 60 characters.")
+
+            lowered = name.lower()
+            if lowered in seen_lower:
+                raise serializers.ValidationError(f"Duplicate skill tag '{name}' is not allowed.")
+            seen_lower.add(lowered)
+
+            clean_skills.append({
+                "name": name,
+                "importance": importance,
+                "category": category,
+            })
+
+        return clean_skills
+
+    def validate_requirements_text(self, value):
+        if value and len(value) > 10000:
+            raise serializers.ValidationError("Requirements text cannot exceed 10,000 characters.")
+        return value

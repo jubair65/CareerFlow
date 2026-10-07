@@ -1,13 +1,15 @@
 from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import RecruitmentRoom
-from .serializers import RecruitmentRoomSerializer
+from .serializers import RecruitmentRoomSerializer, RoomRequirementsSerializer
 from .permissions import IsHRManager, IsRoomOwner
+from .services.matcher_bridge import sync_room_to_job_requirement
 
 
 class RecruitmentRoomViewSet(viewsets.ModelViewSet):
     """
-    CRUD API for HR Recruitment Rooms (US-18).
+    CRUD API for HR Recruitment Rooms (US-18 & US-19).
     Strictly isolated so HR Managers can only view and manage their own rooms.
     """
     serializer_class = RecruitmentRoomSerializer
@@ -46,6 +48,49 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
             {
                 "message": "Recruitment room updated successfully.",
                 "room": serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
+
+    @action(detail=True, methods=['get', 'put', 'patch'], url_path='requirements')
+    def requirements(self, request, pk=None):
+        """
+        US-19-T2: Manage job role details, experience level, requirements text,
+        and required skill tags for a Room.
+        """
+        room = self.get_object()
+
+        if request.method == 'GET':
+            serializer = RoomRequirementsSerializer(room)
+            return Response(
+                {
+                    "room_id": room.id,
+                    "title": room.title,
+                    "company_name": room.company_name,
+                    "requirements": serializer.data,
+                    "skill_names": room.get_skill_names(),
+                },
+                status=status.HTTP_200_OK
+            )
+
+        partial = (request.method == 'PATCH')
+        serializer = RoomRequirementsSerializer(room, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        updated_room = serializer.save()
+
+        # US-19-T5: Synchronize with CV semantic matching module
+        try:
+            sync_room_to_job_requirement(updated_room)
+        except Exception as e:
+            # Non-blocking sync log
+            pass
+
+        full_serializer = RecruitmentRoomSerializer(updated_room, context={'request': request})
+        return Response(
+            {
+                "message": "Job role and requirements updated successfully.",
+                "room": full_serializer.data,
+                "requirements": serializer.data,
             },
             status=status.HTTP_200_OK
         )
