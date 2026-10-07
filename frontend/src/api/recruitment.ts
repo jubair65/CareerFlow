@@ -1,14 +1,23 @@
 import { apiClient } from './auth';
 
+export interface SkillItem {
+  name: string;
+  importance?: 'REQUIRED' | 'PREFERRED';
+  category?: string;
+}
+
 export interface RecruitmentRoom {
   id: number;
   title: string;
   company_name: string;
   department: string;
+  role_category?: string;
+  experience_level?: 'ENTRY' | 'MID' | 'SENIOR' | 'LEAD';
+  experience_level_display?: string;
   description: string;
   status: 'ACTIVE' | 'PAUSED' | 'CLOSED';
   requirements_text: string;
-  skills_required: string[];
+  skills_required: (string | SkillItem)[];
   cv_weight: number;
   video_weight: number;
   share_token: string;
@@ -35,6 +44,43 @@ export interface UpdateRoomPayload {
   department?: string;
   description?: string;
   status?: 'ACTIVE' | 'PAUSED' | 'CLOSED';
+}
+
+export interface RoomRequirementsPayload {
+  role_category?: string;
+  experience_level?: 'ENTRY' | 'MID' | 'SENIOR' | 'LEAD';
+  requirements_text?: string;
+  skills_required: (string | SkillItem)[];
+}
+
+export interface RoomRequirementsResponse {
+  message: string;
+  room: RecruitmentRoom;
+  requirements: {
+    id: number;
+    title: string;
+    role_category: string;
+    experience_level: 'ENTRY' | 'MID' | 'SENIOR' | 'LEAD';
+    requirements_text: string;
+    skills_required: SkillItem[];
+    updated_at: string;
+  };
+}
+
+export interface RoomRequirementsDetailResponse {
+  room_id: number;
+  title: string;
+  company_name: string;
+  requirements: {
+    id: number;
+    title: string;
+    role_category: string;
+    experience_level: 'ENTRY' | 'MID' | 'SENIOR' | 'LEAD';
+    requirements_text: string;
+    skills_required: SkillItem[];
+    updated_at: string;
+  };
+  skill_names: string[];
 }
 
 export interface RoomApiResponse {
@@ -80,3 +126,26 @@ export async function apiUpdateRoom(id: number | string, payload: UpdateRoomPayl
 export async function apiDeleteRoom(id: number | string): Promise<void> {
   await apiClient.delete(`/recruitment/rooms/${id}/`);
 }
+
+/**
+ * Fetch requirements and skills for a room (US-19-T2).
+ */
+export async function apiGetRoomRequirements(id: number | string): Promise<RoomRequirementsDetailResponse> {
+  const response = await apiClient.get<RoomRequirementsDetailResponse>(`/recruitment/rooms/${id}/requirements/`);
+  return response.data;
+}
+
+/**
+ * Update requirements and skills for a room (US-19-T2).
+ */
+export async function apiUpdateRoomRequirements(
+  id: number | string,
+  payload: RoomRequirementsPayload
+): Promise<RoomRequirementsResponse> {
+  const response = await apiClient.patch<RoomRequirementsResponse>(
+    `/recruitment/rooms/${id}/requirements/`,
+    payload
+  );
+  return response.data;
+}
+

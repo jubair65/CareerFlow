@@ -28,7 +28,25 @@ class RecruitmentRoom(models.Model):
         help_text="HR Manager who created and owns this room"
     )
 
+    class ExperienceLevel(models.TextChoices):
+        ENTRY = 'ENTRY', 'Entry Level (0-2 years)'
+        MID = 'MID', 'Mid Level (2-5 years)'
+        SENIOR = 'SENIOR', 'Senior Level (5-8 years)'
+        LEAD = 'LEAD', 'Lead / Principal (8+ years)'
+
     # US-19: Job Role & Skills Foundation
+    role_category = models.CharField(
+        max_length=100,
+        blank=True,
+        default="Engineering",
+        help_text="Job role category (e.g. Engineering, Design, Product, Data)"
+    )
+    experience_level = models.CharField(
+        max_length=20,
+        choices=ExperienceLevel.choices,
+        default=ExperienceLevel.MID,
+        help_text="Target seniority or experience level required for the position"
+    )
     requirements_text = models.TextField(
         blank=True,
         default="",
@@ -83,3 +101,20 @@ class RecruitmentRoom(models.Model):
         if not self.share_token:
             self.share_token = secrets.token_urlsafe(16)
         super().save(*args, **kwargs)
+
+    def get_skill_names(self):
+        """Returns clean list of string skill names from skills_required JSON."""
+        if not self.skills_required or not isinstance(self.skills_required, list):
+            return []
+        names = []
+        for item in self.skills_required:
+            if isinstance(item, str):
+                s = item.strip()
+                if s:
+                    names.append(s)
+            elif isinstance(item, dict) and 'name' in item:
+                s = str(item['name']).strip()
+                if s:
+                    names.append(s)
+        return names
+
