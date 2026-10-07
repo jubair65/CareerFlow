@@ -119,7 +119,7 @@ class RecruitmentRoom(models.Model):
     def save(self, *args, **kwargs):
         # Auto-generate a secure non-guessable share token if not set
         if not self.share_token:
-            self.share_token = secrets.token_urlsafe(16)
+            self.share_token = secrets.token_urlsafe(32)
         self.clean()
         super().save(*args, **kwargs)
 
