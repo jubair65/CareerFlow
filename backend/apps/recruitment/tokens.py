@@ -11,10 +11,10 @@ from django.conf import settings
 from .models import RecruitmentRoom
 
 
-def generate_secure_share_token(nbytes: int = 16) -> str:
+def generate_secure_share_token(nbytes: int = 32) -> str:
     """
     Generates a cryptographically secure, URL-safe random token.
-    Uses 16 bytes by default, producing ~22 URL-safe characters.
+    Uses 32 bytes by default, producing ~43 URL-safe characters.
     """
     return secrets.token_urlsafe(nbytes)
 

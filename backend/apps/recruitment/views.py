@@ -156,7 +156,7 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
         # If room does not have a token yet, generate one
         if not room.share_token:
             room.share_token = generate_secure_share_token()
-            room.save(update_fields=['share_token'])
+            room.save(update_fields=['share_token', 'updated_at'])
 
         serializer = RoomShareLinkSerializer(room, context={'request': request})
         return Response(
@@ -175,7 +175,7 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
         """
         room = self.get_object()
         room.link_is_active = False
-        room.save(update_fields=['link_is_active'])
+        room.save(update_fields=['link_is_active', 'updated_at'])
 
         serializer = RoomShareLinkSerializer(room, context={'request': request})
         return Response(
@@ -194,7 +194,7 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
         """
         room = self.get_object()
         room.link_is_active = True
-        room.save(update_fields=['link_is_active'])
+        room.save(update_fields=['link_is_active', 'updated_at'])
 
         serializer = RoomShareLinkSerializer(room, context={'request': request})
         return Response(
@@ -215,7 +215,7 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
         room = self.get_object()
         room.share_token = generate_secure_share_token()
         room.link_is_active = True
-        room.save(update_fields=['share_token', 'link_is_active'])
+        room.save(update_fields=['share_token', 'link_is_active', 'updated_at'])
 
         serializer = RoomShareLinkSerializer(room, context={'request': request})
         return Response(
@@ -243,9 +243,14 @@ class PublicApplicationView(APIView):
         is_valid, room, error_message, status_code = validate_share_token(token)
 
         if not is_valid:
-            error_code = "LINK_NOT_FOUND" if status_code == 404 else (
-                "LINK_EXPIRED" if room and is_token_expired(room) else "LINK_DEACTIVATED"
-            )
+            if status_code == 404:
+                error_code = "LINK_NOT_FOUND"
+            elif room and room.status == 'CLOSED':
+                error_code = "ROOM_CLOSED"
+            elif room and is_token_expired(room):
+                error_code = "LINK_EXPIRED"
+            else:
+                error_code = "LINK_DEACTIVATED"
             return Response(
                 {
                     "error": error_message,
