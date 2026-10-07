@@ -23,7 +23,6 @@
 | **Backend Unit Tests** | **25 / 25 Passed (100%)** (`backend/apps/recruitment/tests/test_job_requirements.py` & `test_room_management.py`) |
 | **Execution Duration** | **86.31 seconds** |
 | **Automated Suite Status** | 🟢 **PASSED & VERIFIED** |
-| **HTML Report Generated** | 🟢 **YES** (`tests/reports/sprint4_us19_report.html`) |
 | **Overall Recommendation** | 🟢 **APPROVED FOR MERGE INTO `develop`** |
 
 ---
@@ -55,7 +54,6 @@
 ## 4. Test Environment & Artifacts
 
 - **Automated UI Test Suite:** [`tests/test_us19_job_requirements_ui.py`](file:///d:/Study/3.2/CSE-314/CareerFlow/tests/test_us19_job_requirements_ui.py)
-- **HTML Test Report:** [`tests/reports/sprint4_us19_report.html`](file:///d:/Study/3.2/CSE-314/CareerFlow/tests/reports/sprint4_us19_report.html)
 - **Backend Unit Tests:** [`backend/apps/recruitment/tests/test_job_requirements.py`](file:///d:/Study/3.2/CSE-314/CareerFlow/backend/apps/recruitment/tests/test_job_requirements.py) (14/14 passed, 25/25 recruitment suite passing)
 - **Captured UI Screenshots:**
   - Modal Mounting & Context: [`tests/reports/screenshots/us19_01_requirements_modal_opened.png`](file:///d:/Study/3.2/CSE-314/CareerFlow/tests/reports/screenshots/us19_01_requirements_modal_opened.png)
