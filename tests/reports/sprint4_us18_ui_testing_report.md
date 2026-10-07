@@ -90,9 +90,8 @@ Developer MD. Jubair Bin Hasan updated `frontend/src/components/layout/AppShell.
 
 ## 5. Test Environment & Artifacts
 
-- **UI Test Suite:** [`tests/test_us18_room_creation_ui.py`](file:///Users/nafisatabassummaria/Study/3.2/Project/CareerFlow/tests/test_us18_room_creation_ui.py)
-- **HTML Report:** [`tests/reports/sprint4_us18_report.html`](file:///Users/nafisatabassummaria/Study/3.2/Project/CareerFlow/tests/reports/sprint4_us18_report.html)
-- **Backend Unit Tests:** [`backend/apps/recruitment/tests/test_room_management.py`](file:///Users/nafisatabassummaria/Study/3.2/Project/CareerFlow/backend/apps/recruitment/tests/test_room_management.py) (11/11 passed)
+- **UI Test Suite:** [`tests/test_us18_room_creation_ui.py`](file:///d:/Study/3.2/CSE-314/CareerFlow/tests/test_us18_room_creation_ui.py)
+- **Backend Unit Tests:** [`backend/apps/recruitment/tests/test_room_management.py`](file:///d:/Study/3.2/CSE-314/CareerFlow/backend/apps/recruitment/tests/test_room_management.py) (11/11 passed)
 - **Screenshots:**
   - Validation: [`tests/reports/screenshots/us18_01_modal_validation.png`](file:///Users/nafisatabassummaria/Study/3.2/Project/CareerFlow/tests/reports/screenshots/us18_01_modal_validation.png)
   - Card Created: [`tests/reports/screenshots/us18_02_room_card_created.png`](file:///Users/nafisatabassummaria/Study/3.2/Project/CareerFlow/tests/reports/screenshots/us18_02_room_card_created.png)
