@@ -18,6 +18,15 @@ from .tokens import (
     build_share_url,
     is_token_expired,
 )
+from rest_framework.parsers import MultiPartParser, FormParser
+from django.contrib.auth import get_user_model
+from apps.cv.models import CandidateCV, ParsedCV
+from apps.presentation.models import PresentationVideo
+from apps.cv.services.pipeline import default_pipeline
+from apps.presentation.services.pipeline_manager import PipelineManager
+from .models import CandidateApplication
+
+User = get_user_model()
 
 
 class RecruitmentRoomViewSet(viewsets.ModelViewSet):
@@ -265,4 +274,99 @@ class PublicApplicationView(APIView):
         serializer = PublicRoomDetailsSerializer(room, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+class PublicApplicationSubmitView(APIView):
+    """
+    US-22: Candidate Submission Flow (CV & Video ingestion)
+    POST /api/recruitment/apply/{token}/submit/
+    """
+    permission_classes = [permissions.AllowAny]
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request, token):
+        is_valid, room, error_message, status_code = validate_share_token(token)
+        if not is_valid:
+            return Response({"error": error_message}, status=status_code)
+
+        full_name = request.data.get('full_name')
+        email = request.data.get('email')
+        cv_file = request.FILES.get('cv_file')
+        video_file = request.FILES.get('video_file')
+
+        if not all([full_name, email, cv_file, video_file]):
+            return Response({"error": "Full name, email, CV file, and video file are all required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 1. Get or create candidate user
+        candidate, created = User.objects.get_or_create(
+            email=email,
+            defaults={
+                'username': email,
+                'full_name': full_name,
+                'role': 'STUDENT',
+            }
+        )
+        if created:
+            candidate.set_unusable_password()
+            candidate.save()
+        elif full_name and candidate.full_name != full_name:
+            candidate.full_name = full_name
+            candidate.save(update_fields=['full_name'])
+
+        # Check if already applied
+        if CandidateApplication.objects.filter(room=room, candidate=candidate).exists():
+            return Response({"error": "You have already submitted an application for this role."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 2. Ingest CV
+        cv_ext = cv_file.name.split('.')[-1].lower() if '.' in cv_file.name else 'pdf'
+        candidate_cv = CandidateCV.objects.create(
+            user=candidate,
+            file=cv_file,
+            original_filename=cv_file.name,
+            file_size=cv_file.size,
+            file_type=cv_ext
+        )
+
+        # Trigger CV Pipeline
+        extraction = default_pipeline.process_candidate_cv(candidate_cv)
+        if extraction.success:
+            ParsedCV.objects.create(
+                cv=candidate_cv,
+                raw_text=extraction.raw_text,
+                skills=extraction.skills,
+                education=extraction.education,
+                experience=extraction.experience
+            )
+
+        # 3. Ingest Video
+        vid_ext = video_file.name.split('.')[-1].lower() if '.' in video_file.name else 'mp4'
+        video = PresentationVideo.objects.create(
+            user=candidate,
+            file=video_file,
+            original_filename=video_file.name,
+            raw_file_size=video_file.size,
+            compressed_file_size=video_file.size,
+            file_type=vid_ext,
+            status='READY_FOR_ANALYSIS'
+        )
+
+        # Trigger Presentation Pipeline (synchronous execution, although normally async)
+        # We start it to trigger the analysis as per "triggering pipeline"
+        PipelineManager.run_pipeline(video)
+
+        # 4. Create Application record
+        application = CandidateApplication.objects.create(
+            room=room,
+            candidate=candidate,
+            cv=candidate_cv,
+            video=video,
+            status='COMPLETED' # Could be PENDING if async
+        )
+
+        return Response(
+            {
+                "message": "Application submitted successfully.",
+                "application_id": application.id
+            },
+            status=status.HTTP_201_CREATED
+        )
 
