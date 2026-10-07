@@ -150,3 +150,60 @@ class RoomRequirementsSerializer(serializers.ModelSerializer):
         if value and len(value) > 10000:
             raise serializers.ValidationError("Requirements text cannot exceed 10,000 characters.")
         return value
+
+
+class RoomWeightingSerializer(serializers.ModelSerializer):
+    """
+    Dedicated serializer for configuring CV and Video score weights (US-20-T2 & US-20-T4).
+    Enforces that weights are integers between 0 and 100, and their sum equals exactly 100%.
+    """
+    class Meta:
+        model = RecruitmentRoom
+        fields = [
+            'id',
+            'title',
+            'company_name',
+            'cv_weight',
+            'video_weight',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'title', 'company_name', 'updated_at']
+
+    def validate_cv_weight(self, value):
+        if value is None:
+            raise serializers.ValidationError("CV weight cannot be empty.")
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise serializers.ValidationError("CV weight must be an integer.")
+        if value < 0 or value > 100:
+            raise serializers.ValidationError("CV weight must be between 0 and 100.")
+        return value
+
+    def validate_video_weight(self, value):
+        if value is None:
+            raise serializers.ValidationError("Video weight cannot be empty.")
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise serializers.ValidationError("Video weight must be an integer.")
+        if value < 0 or value > 100:
+            raise serializers.ValidationError("Video weight must be between 0 and 100.")
+        return value
+
+    def validate(self, attrs):
+        # In partial updates, default to instance values if not provided
+        cv_weight = attrs.get(
+            'cv_weight',
+            self.instance.cv_weight if self.instance else 50
+        )
+        video_weight = attrs.get(
+            'video_weight',
+            self.instance.video_weight if self.instance else 50
+        )
+
+        if cv_weight + video_weight != 100:
+            raise serializers.ValidationError({
+                "weights": f"CV weight ({cv_weight}%) and Video weight ({video_weight}%) must total exactly 100% (currently {cv_weight + video_weight}%)."
+            })
+
+        attrs['cv_weight'] = cv_weight
+        attrs['video_weight'] = video_weight
+        return attrs
+

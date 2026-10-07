@@ -20,6 +20,8 @@ import {
 import type { RecruitmentRoom } from '../../api/recruitment';
 import { apiUpdateRoom, apiDeleteRoom } from '../../api/recruitment';
 import { JobRequirementsForm } from './JobRequirementsForm';
+import { WeightingConfigCard } from './WeightingConfigCard';
+
 
 
 interface RoomListProps {
@@ -52,6 +54,10 @@ export function RoomList({
 
   // US-19 Job Requirements Modal State
   const [requirementsRoom, setRequirementsRoom] = useState<RecruitmentRoom | null>(null);
+
+  // US-20 Weighting Configuration Modal State
+  const [weightingRoom, setWeightingRoom] = useState<RecruitmentRoom | null>(null);
+
 
   const getRoomSkillNames = (room: RecruitmentRoom): string[] => {
     if (!room.skills_required || !Array.isArray(room.skills_required)) return [];
@@ -309,16 +315,25 @@ export function RoomList({
                 </div>
               </div>
 
-              {/* Evaluation Weights Indicator */}
-              <div className="mt-3.5 flex items-center justify-between rounded-xl bg-[#fbfaf5] p-2.5 border border-[#eef0e7] text-xs">
-                <div className="flex items-center gap-1.5 text-[#526072] font-medium">
+              {/* Evaluation Weights Indicator (US-20) */}
+              <button
+                type="button"
+                onClick={() => setWeightingRoom(room)}
+                data-testid={`badge-weighting-config-${room.id}`}
+                className="mt-3.5 w-full flex items-center justify-between rounded-xl bg-[#fbfaf5] p-2.5 border border-[#eef0e7] text-xs hover:border-[#277254] hover:bg-[#e2f0e9]/30 transition group text-left"
+                title="Click to configure evaluation weighting formula"
+              >
+                <div className="flex items-center gap-1.5 text-[#526072] font-medium group-hover:text-[#277254]">
                   <Sliders size={13} className="text-[#277254]" />
                   <span>Evaluation Weights:</span>
                 </div>
-                <div className="font-bold text-[#253142]">
-                  CV {room.cv_weight || 50}% / Video {room.video_weight || 50}%
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-[#253142] group-hover:text-[#277254]">
+                    CV {room.cv_weight ?? 50}% / Video {room.video_weight ?? 50}%
+                  </span>
+                  <Edit2 size={11} className="text-[#7b8490] opacity-0 group-hover:opacity-100 transition" />
                 </div>
-              </div>
+              </button>
 
               {/* Date Metadata */}
               <div className="mt-3 flex items-center gap-1.5 text-[11px] text-[#98a09c]">
@@ -367,6 +382,15 @@ export function RoomList({
                   className="rounded-lg p-1.5 text-[#277254] hover:bg-[#e2f0e9] transition"
                 >
                   <Tag size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWeightingRoom(room)}
+                  title="Configure Evaluation Weights (US-20)"
+                  data-testid={`button-action-weighting-${room.id}`}
+                  className="rounded-lg p-1.5 text-[#277254] hover:bg-[#e2f0e9] transition"
+                >
+                  <Sliders size={16} />
                 </button>
                 <button
                   type="button"
@@ -497,7 +521,21 @@ export function RoomList({
         }}
         notify={notify}
       />
+
+      {/* Evaluation Weighting Modal (US-20) */}
+      {weightingRoom && (
+        <WeightingConfigCard
+          room={weightingRoom}
+          onClose={() => setWeightingRoom(null)}
+          onWeightingSaved={(updated) => {
+            onRoomUpdated(updated);
+            setWeightingRoom(null);
+          }}
+          notify={notify}
+        />
+      )}
     </div>
   );
 }
+
 

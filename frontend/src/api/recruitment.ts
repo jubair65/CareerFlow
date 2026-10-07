@@ -149,3 +149,60 @@ export async function apiUpdateRoomRequirements(
   return response.data;
 }
 
+export interface RoomWeightingPayload {
+  cv_weight: number;
+  video_weight: number;
+}
+
+export interface RoomWeightingDetailResponse {
+  room_id: number;
+  title: string;
+  company_name: string;
+  cv_weight: number;
+  video_weight: number;
+  weighting: {
+    id: number;
+    title: string;
+    company_name: string;
+    cv_weight: number;
+    video_weight: number;
+    updated_at: string;
+  };
+}
+
+export interface RoomWeightingResponse {
+  message: string;
+  room: RecruitmentRoom;
+  weighting: {
+    id: number;
+    title: string;
+    company_name: string;
+    cv_weight: number;
+    video_weight: number;
+    updated_at: string;
+  };
+}
+
+/**
+ * Fetch evaluation weighting for a room (US-20-T2).
+ */
+export async function apiGetRoomWeighting(id: number | string): Promise<RoomWeightingDetailResponse> {
+  const response = await apiClient.get<RoomWeightingDetailResponse>(`/recruitment/rooms/${id}/weighting/`);
+  return response.data;
+}
+
+/**
+ * Update evaluation weighting for a room (US-20-T2).
+ */
+export async function apiUpdateRoomWeighting(
+  id: number | string,
+  payload: RoomWeightingPayload
+): Promise<RoomWeightingResponse> {
+  const response = await apiClient.patch<RoomWeightingResponse>(
+    `/recruitment/rooms/${id}/weighting/`,
+    payload
+  );
+  return response.data;
+}
+
+

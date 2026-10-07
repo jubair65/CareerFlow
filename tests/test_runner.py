@@ -61,6 +61,15 @@ class ResultCollector:
             elif "us36" in test_file:
                 story_id = "US-36"
                 story_title = "Data Access Control"
+            elif "us18" in test_file:
+                story_id = "US-18"
+                story_title = "Create Recruitment Room"
+            elif "us19" in test_file:
+                story_id = "US-19"
+                story_title = "Job Role & Required Skills"
+            elif "us20" in test_file:
+                story_id = "US-20"
+                story_title = "CV-to-Video Weighting Configuration"
 
             status = "PASSED" if report.passed else "FAILED" if report.failed else "SKIPPED"
             error_message = ""
