@@ -139,3 +139,57 @@ class RecruitmentRoom(models.Model):
                     names.append(s)
         return names
 
+
+class CandidateApplication(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending Analysis'
+        ANALYZING = 'ANALYZING', 'Analyzing'
+        COMPLETED = 'COMPLETED', 'Completed'
+        FAILED = 'FAILED', 'Failed'
+
+    room = models.ForeignKey(
+        RecruitmentRoom,
+        on_delete=models.CASCADE,
+        related_name='applications',
+        help_text="The recruitment room applied to"
+    )
+    candidate = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='applications',
+        help_text="The candidate applying"
+    )
+    cv = models.OneToOneField(
+        'cv.CandidateCV',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="The CV uploaded for this application"
+    )
+    video = models.OneToOneField(
+        'presentation.PresentationVideo',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="The Video uploaded for this application"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        help_text="Current processing status"
+    )
+    final_score = models.FloatField(
+        null=True, 
+        blank=True,
+        help_text="Calculated weighted score based on room criteria"
+    )
+    applied_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'careerflow_candidate_applications'
+        ordering = ['-applied_at']
+        unique_together = ('room', 'candidate')
+
+    def __str__(self):
+        return f"{self.candidate.email} -> {self.room.title} ({self.get_status_display()})"

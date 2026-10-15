@@ -289,5 +289,26 @@ export async function apiGetPublicRoomByToken(token: string): Promise<PublicRoom
   return response.data;
 }
 
+export interface ApplicationSubmissionResponse {
+  message: string;
+  application_id: number;
+}
 
-
+/**
+ * Submit candidate application (US-22).
+ */
+export async function apiSubmitApplication(
+  token: string,
+  formData: FormData
+): Promise<ApplicationSubmissionResponse> {
+  const response = await apiClient.post<ApplicationSubmissionResponse>(
+    `/recruitment/apply/${token}/submit/`,
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }
+  );
+  return response.data;
+}

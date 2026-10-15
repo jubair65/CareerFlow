@@ -17,8 +17,7 @@ import {
   Shield,
   HelpCircle,
 } from 'lucide-react';
-import { apiGetPublicRoomByToken, type PublicRoomDetails } from '../api/recruitment';
-
+import { apiGetPublicRoomByToken, apiSubmitApplication, type PublicRoomDetails } from '../api/recruitment';
 export function PublicApplicationPage({
   notify,
 }: {
@@ -37,6 +36,12 @@ export function PublicApplicationPage({
     company?: string;
   } | null>(null);
 
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   useEffect(() => {
     if (!token) {
       setErrorStatus({
@@ -275,62 +280,146 @@ export function PublicApplicationPage({
             </div>
 
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                notify?.('Submission will be available in US-22 (Candidate Submission Flow).', 'info');
+                if (!cvFile || !videoFile) {
+                  notify?.('Please upload both a CV and a Video Presentation.', 'error');
+                  return;
+                }
+                try {
+                  setSubmitting(true);
+                  const formData = new FormData();
+                  formData.append('full_name', fullName);
+                  formData.append('email', email);
+                  formData.append('cv_file', cvFile);
+                  formData.append('video_file', videoFile);
+                  
+                  await apiSubmitApplication(token, formData);
+                  setSubmitted(true);
+                  notify?.('Application submitted successfully!', 'success');
+                } catch (err: any) {
+                  const errorMsg = err.response?.data?.error || 'Failed to submit application. Please try again.';
+                  notify?.(errorMsg, 'error');
+                } finally {
+                  setSubmitting(false);
+                }
               }}
               className="space-y-4"
             >
-              <div>
-                <label className="block text-xs font-bold text-[#253142] mb-1">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Alex Johnson"
-                  data-testid="input-candidate-name"
-                  className="w-full rounded-xl border border-[#d9dbd1] bg-[#fbfaf5] px-3.5 py-2.5 text-xs text-[#253142] focus:outline-none focus:ring-2 focus:ring-[#277254]/30"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#253142] mb-1">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="alex.johnson@example.com"
-                  data-testid="input-candidate-email"
-                  className="w-full rounded-xl border border-[#d9dbd1] bg-[#fbfaf5] px-3.5 py-2.5 text-xs text-[#253142] focus:outline-none focus:ring-2 focus:ring-[#277254]/30"
-                />
-              </div>
-
-              {/* CV Upload Dropzone */}
-              <div>
-                <label className="block text-xs font-bold text-[#253142] mb-1">CV / Resume (PDF or DOCX)</label>
-                <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#d9dbd1] bg-[#fbfaf5] p-5 text-center hover:border-[#277254] transition cursor-pointer">
-                  <Upload size={22} className="text-[#277254] mb-1.5" />
-                  <span className="text-xs font-bold text-[#253142]">Upload CV Document</span>
-                  <span className="text-[10px] text-[#7b8490] mt-0.5">PDF or DOCX up to 10MB</span>
+              {submitted ? (
+                <div className="rounded-2xl bg-[#edfdf4] border border-[#bcf0da] p-8 text-center space-y-4">
+                  <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-[#c4e3d3] text-[#277254]">
+                    <CheckCircle2 size={32} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-[#03543f]">Application Received</h3>
+                    <p className="text-sm text-[#277254] mt-2">
+                      Thank you for applying! Your profile, CV, and video presentation are now being processed by our AI pipeline. The hiring team will be in touch shortly.
+                    </p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-[#253142] mb-1">Full Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="e.g. Alex Johnson"
+                      data-testid="input-candidate-name"
+                      className="w-full rounded-xl border border-[#d9dbd1] bg-[#fbfaf5] px-3.5 py-2.5 text-xs text-[#253142] focus:outline-none focus:ring-2 focus:ring-[#277254]/30"
+                    />
+                  </div>
 
-              {/* Video Presentation Dropzone */}
-              <div>
-                <label className="block text-xs font-bold text-[#253142] mb-1">Video Presentation (MP4 or WebM)</label>
-                <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#d9dbd1] bg-[#fbfaf5] p-5 text-center hover:border-[#4f46e5] transition cursor-pointer">
-                  <Video size={22} className="text-[#4f46e5] mb-1.5" />
-                  <span className="text-xs font-bold text-[#253142]">Upload or Record Video</span>
-                  <span className="text-[10px] text-[#7b8490] mt-0.5">MP4 or WebM presentation clip</span>
-                </div>
-              </div>
+                  <div>
+                    <label className="block text-xs font-bold text-[#253142] mb-1">Email Address</label>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="alex.johnson@example.com"
+                      data-testid="input-candidate-email"
+                      className="w-full rounded-xl border border-[#d9dbd1] bg-[#fbfaf5] px-3.5 py-2.5 text-xs text-[#253142] focus:outline-none focus:ring-2 focus:ring-[#277254]/30"
+                    />
+                  </div>
 
-              <button
-                type="submit"
-                data-testid="button-submit-application"
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#277254] py-3 text-xs font-bold text-white shadow-md hover:bg-[#1f5b43] transition"
-              >
-                <span>Submit Candidate Application</span>
-                <ArrowRight size={15} />
-              </button>
+                  {/* CV Upload Dropzone */}
+                  <div>
+                    <label className="block text-xs font-bold text-[#253142] mb-1">CV / Resume (PDF or DOCX)</label>
+                    <div className="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#d9dbd1] bg-[#fbfaf5] p-5 text-center hover:border-[#277254] transition cursor-pointer">
+                      <input 
+                        type="file" 
+                        accept=".pdf,.docx" 
+                        onChange={(e) => setCvFile(e.target.files?.[0] || null)}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        required
+                      />
+                      {cvFile ? (
+                        <>
+                          <FileText size={22} className="text-[#277254] mb-1.5" />
+                          <span className="text-xs font-bold text-[#253142]">{cvFile.name}</span>
+                          <span className="text-[10px] text-[#7b8490] mt-0.5">{(cvFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload size={22} className="text-[#277254] mb-1.5" />
+                          <span className="text-xs font-bold text-[#253142]">Upload CV Document</span>
+                          <span className="text-[10px] text-[#7b8490] mt-0.5">PDF or DOCX up to 10MB</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Video Presentation Dropzone */}
+                  <div>
+                    <label className="block text-xs font-bold text-[#253142] mb-1">Video Presentation (MP4 or WebM)</label>
+                    <div className="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#d9dbd1] bg-[#fbfaf5] p-5 text-center hover:border-[#4f46e5] transition cursor-pointer">
+                      <input 
+                        type="file" 
+                        accept=".mp4,.webm,.mov" 
+                        onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        required
+                      />
+                      {videoFile ? (
+                        <>
+                          <Video size={22} className="text-[#4f46e5] mb-1.5" />
+                          <span className="text-xs font-bold text-[#253142]">{videoFile.name}</span>
+                          <span className="text-[10px] text-[#7b8490] mt-0.5">{(videoFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                        </>
+                      ) : (
+                        <>
+                          <Video size={22} className="text-[#4f46e5] mb-1.5" />
+                          <span className="text-xs font-bold text-[#253142]">Upload or Record Video</span>
+                          <span className="text-[10px] text-[#7b8490] mt-0.5">MP4 or WebM presentation clip</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    data-testid="button-submit-application"
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#277254] py-3 text-xs font-bold text-white shadow-md hover:bg-[#1f5b43] transition disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 size={15} className="animate-spin" />
+                        <span>Submitting Application...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Submit Candidate Application</span>
+                        <ArrowRight size={15} />
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
             </form>
           </div>
         </div>
