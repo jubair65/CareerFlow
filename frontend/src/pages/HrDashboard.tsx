@@ -13,6 +13,7 @@ import {
   XCircle,
   FileText,
   X,
+  Award,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import {
@@ -28,6 +29,7 @@ import { getStoredUser } from '../api/auth';
 import { apiGetHRMatches, type CVJobMatch } from '../api/cv';
 import { apiGetRooms, type RecruitmentRoom } from '../api/recruitment';
 import { RoomCreateModal } from '../components/recruitment/RoomCreateModal';
+import { RoomCvScoresModal } from '../components/recruitment/RoomCvScoresModal';
 
 export function HrDashboard({ notify }: { notify: Notify }) {
   const [, setLocation] = useLocation();
@@ -35,6 +37,7 @@ export function HrDashboard({ notify }: { notify: Notify }) {
   const [selectedMatch, setSelectedMatch] = useState<CVJobMatch | null>(null);
   const [rooms, setRooms] = useState<RecruitmentRoom[]>([]);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [selectedRoomForCvScores, setSelectedRoomForCvScores] = useState<RecruitmentRoom | null>(null);
 
   const user = useMemo(() => {
     try {
@@ -174,19 +177,45 @@ export function HrDashboard({ notify }: { notify: Notify }) {
 
       {/* Recent Applications Table with US-09 CV Match Scores */}
       <section className="cf-card mt-5 overflow-hidden rounded-2xl bg-white border border-[#d9dbd1] shadow-sm">
-        <div className="flex items-center justify-between p-5 border-b border-[#eef0e7]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 border-b border-[#eef0e7] gap-3">
           <div>
-            <h2 className="font-bold text-[#253142] text-lg">Candidate CV Match Scores (US-09)</h2>
-            <p className="text-xs text-[#7b8490]">Real-time semantic similarity and skill coverage evaluation</p>
+            <div className="flex items-center gap-2">
+              <h2 className="font-bold text-[#253142] text-lg">Candidate CV Match Scores (US-10)</h2>
+              <span className="rounded-md bg-[#e2f0e9] border border-[#a7d7c1] px-2 py-0.5 text-[10px] font-bold text-[#1f5b43]">
+                US-10 Active
+              </span>
+            </div>
+            <p className="text-xs text-[#7b8490]">Real-time semantic similarity and skill coverage evaluation across your rooms</p>
           </div>
-          <button
-            type="button"
-            onClick={() => handleAction('View all applicants')}
-            data-testid="link-hr-applicants"
-            className="flex items-center gap-1 text-xs font-bold text-[#277254] hover:underline"
-          >
-            View all <ChevronRight size={14} />
-          </button>
+          <div className="flex items-center gap-2">
+            {rooms.length > 0 && (
+              <select
+                onChange={(e) => {
+                  const r = rooms.find((x) => x.id === Number(e.target.value));
+                  if (r) setSelectedRoomForCvScores(r);
+                }}
+                defaultValue=""
+                data-testid="select-room-cv-scores-dashboard"
+                className="rounded-xl border border-[#d9dbd1] bg-[#fbfaf5] px-3 py-1.5 text-xs font-semibold text-[#253142] focus:outline-none focus:ring-2 focus:ring-[#277254]/30"
+              >
+                <option value="" disabled>Inspect Room CV Scores...</option>
+                {rooms.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.title} ({r.company_name})
+                  </option>
+                ))}
+              </select>
+            )}
+            <button
+              type="button"
+              onClick={() => setLocation('/hr/rooms')}
+              data-testid="link-hr-rooms-all"
+              className="flex items-center gap-1 rounded-xl bg-[#277254] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#1f5b43] transition shadow-2xs"
+            >
+              <span>Manage Rooms</span>
+              <ChevronRight size={14} />
+            </button>
+          </div>
         </div>
 
         <div className="cf-table-wrap overflow-x-auto">
@@ -383,6 +412,16 @@ export function HrDashboard({ notify }: { notify: Notify }) {
         }}
         notify={notify}
       />
+
+      {/* US-10 Room CV Scores Modal */}
+      {selectedRoomForCvScores && (
+        <RoomCvScoresModal
+          isOpen={Boolean(selectedRoomForCvScores)}
+          onClose={() => setSelectedRoomForCvScores(null)}
+          room={selectedRoomForCvScores}
+          notify={notify}
+        />
+      )}
     </AppShell>
   );
 }

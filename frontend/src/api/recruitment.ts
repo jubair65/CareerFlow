@@ -312,3 +312,82 @@ export async function apiSubmitApplication(
   );
   return response.data;
 }
+
+// ==========================================
+// US-10: Applicant CV Match Scores APIs
+// ==========================================
+
+export interface ApplicantCvScoreItem {
+  application_id: number;
+  candidate_id: number;
+  candidate_name: string;
+  candidate_email: string;
+  cv_id: number | null;
+  cv_filename: string | null;
+  cv_file_url: string | null;
+  has_cv: boolean;
+  has_score: boolean;
+  match_score: number | null;
+  keyword_coverage: number;
+  category_scores: {
+    domain_craft?: number;
+    collaboration?: number;
+    leadership?: number;
+    accessibility?: number;
+    [key: string]: number | undefined;
+  };
+  skills_matched: string[];
+  skills_missing: string[];
+  strengths: string[];
+  gaps: string[];
+  recommendations: string[];
+  applied_at: string;
+  status: string;
+}
+
+export interface RoomCvScoresResponse {
+  room_id: number;
+  room_title: string;
+  company_name: string;
+  department: string;
+  total_applicants: number;
+  scored_applicants: number;
+  average_cv_score: number | null;
+  highest_cv_score: number | null;
+  lowest_cv_score: number | null;
+  results: ApplicantCvScoreItem[];
+}
+
+/**
+ * US-10-T2: Fetch applicants' CV Match Scores for a specific Room.
+ */
+export async function apiGetRoomCvScores(
+  roomId: number | string,
+  params?: { search?: string; min_score?: number }
+): Promise<RoomCvScoresResponse> {
+  const queryParts: string[] = [];
+  if (params?.search) {
+    queryParts.push(`search=${encodeURIComponent(params.search)}`);
+  }
+  if (params?.min_score !== undefined) {
+    queryParts.push(`min_score=${params.min_score}`);
+  }
+  const queryString = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
+  const response = await apiClient.get<RoomCvScoresResponse>(
+    `/recruitment/rooms/${roomId}/cv-scores/${queryString}`
+  );
+  return response.data;
+}
+
+/**
+ * US-10-T4: Fetch detailed CV score and skill breakdown for a single applicant in a room.
+ */
+export async function apiGetApplicantCvScoreDetail(
+  roomId: number | string,
+  applicationId: number | string
+): Promise<ApplicantCvScoreItem> {
+  const response = await apiClient.get<ApplicantCvScoreItem>(
+    `/recruitment/rooms/${roomId}/cv-scores/${applicationId}/`
+  );
+  return response.data;
+}
