@@ -17,12 +17,14 @@ import {
   Loader2,
   Tag,
   Link2,
+  Award,
 } from 'lucide-react';
 import type { RecruitmentRoom } from '../../api/recruitment';
 import { apiUpdateRoom, apiDeleteRoom } from '../../api/recruitment';
 import { JobRequirementsForm } from './JobRequirementsForm';
 import { WeightingConfigCard } from './WeightingConfigCard';
 import { ShareableLinkCard } from './ShareableLinkCard';
+import { RoomCvScoresModal } from './RoomCvScoresModal';
 
 
 
@@ -62,6 +64,9 @@ export function RoomList({
 
   // US-21 Shareable Application Link Modal State
   const [shareLinkRoom, setShareLinkRoom] = useState<RecruitmentRoom | null>(null);
+
+  // US-10 Applicant CV Match Scores Modal State
+  const [cvScoresRoom, setCvScoresRoom] = useState<RecruitmentRoom | null>(null);
 
 
   const getRoomSkillNames = (room: RecruitmentRoom): string[] => {
@@ -350,24 +355,36 @@ export function RoomList({
 
             {/* Bottom Actions */}
             <div className="mt-5 pt-3 border-t border-[#eef0e7] flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => handleCopyLink(room)}
-                data-testid={`button-copy-room-link-${room.id}`}
-                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#277254] hover:bg-[#e2f0e9] transition"
-              >
-                {copiedId === room.id ? (
-                  <>
-                    <Check size={14} className="text-[#277254]" />
-                    <span>Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy size={14} />
-                    <span>Copy Link</span>
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleCopyLink(room)}
+                  data-testid={`button-copy-room-link-${room.id}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#277254] hover:bg-[#e2f0e9] transition"
+                >
+                  {copiedId === room.id ? (
+                    <>
+                      <Check size={14} className="text-[#277254]" />
+                      <span>Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={14} />
+                      <span>Copy Link</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCvScoresRoom(room)}
+                  title="View Applicant CV Match Scores (US-10)"
+                  data-testid={`button-action-cv-scores-${room.id}`}
+                  className="inline-flex items-center gap-1 rounded-lg bg-[#e2f0e9] border border-[#a7d7c1] px-2.5 py-1.5 text-xs font-bold text-[#1f5b43] hover:bg-[#d0e8dc] transition shadow-2xs"
+                >
+                  <Award size={13} />
+                  <span>CV Scores</span>
+                </button>
+              </div>
 
               <div className="flex items-center gap-1">
                 <button
@@ -558,6 +575,16 @@ export function RoomList({
             onRoomUpdated(updated);
             setShareLinkRoom(updated);
           }}
+          notify={notify}
+        />
+      )}
+
+      {/* Applicant CV Match Scores Modal (US-10) */}
+      {cvScoresRoom && (
+        <RoomCvScoresModal
+          isOpen={Boolean(cvScoresRoom)}
+          onClose={() => setCvScoresRoom(null)}
+          room={cvScoresRoom}
           notify={notify}
         />
       )}

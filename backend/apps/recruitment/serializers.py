@@ -285,3 +285,44 @@ class PublicRoomDetailsSerializer(serializers.ModelSerializer):
         return obj.get_skill_names()
 
 
+class ApplicantCvScoreSerializer(serializers.Serializer):
+    """
+    US-10-T2: Serializer for individual applicant CV match scores and skill breakdown.
+    """
+    application_id = serializers.IntegerField()
+    candidate_id = serializers.IntegerField()
+    candidate_name = serializers.CharField(allow_blank=True)
+    candidate_email = serializers.EmailField()
+    cv_id = serializers.IntegerField(allow_null=True)
+    cv_filename = serializers.CharField(allow_null=True, allow_blank=True)
+    cv_file_url = serializers.CharField(allow_null=True, allow_blank=True)
+    has_cv = serializers.BooleanField()
+    has_score = serializers.BooleanField()
+    match_score = serializers.IntegerField(allow_null=True)
+    keyword_coverage = serializers.IntegerField()
+    category_scores = serializers.DictField(child=serializers.IntegerField(), default=dict)
+    skills_matched = serializers.ListField(child=serializers.CharField(), default=list)
+    skills_missing = serializers.ListField(child=serializers.CharField(), default=list)
+    strengths = serializers.ListField(child=serializers.CharField(), default=list)
+    gaps = serializers.ListField(child=serializers.CharField(), default=list)
+    recommendations = serializers.ListField(child=serializers.CharField(), default=list)
+    applied_at = serializers.DateTimeField()
+    status = serializers.CharField()
+
+
+class RoomCvScoresResponseSerializer(serializers.Serializer):
+    """
+    US-10-T2: Serializer for room-level applicant CV match scores view.
+    """
+    room_id = serializers.IntegerField()
+    room_title = serializers.CharField()
+    company_name = serializers.CharField()
+    department = serializers.CharField(allow_blank=True)
+    total_applicants = serializers.IntegerField()
+    scored_applicants = serializers.IntegerField()
+    average_cv_score = serializers.FloatField(allow_null=True)
+    highest_cv_score = serializers.IntegerField(allow_null=True)
+    lowest_cv_score = serializers.IntegerField(allow_null=True)
+    results = ApplicantCvScoreSerializer(many=True)
+
+

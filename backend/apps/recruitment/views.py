@@ -9,9 +9,15 @@ from .serializers import (
     RoomWeightingSerializer,
     RoomShareLinkSerializer,
     PublicRoomDetailsSerializer,
+    ApplicantCvScoreSerializer,
+    RoomCvScoresResponseSerializer,
 )
 from .permissions import IsHRManager, IsRoomOwner
-from .services.matcher_bridge import sync_room_to_job_requirement
+from .services.matcher_bridge import (
+    sync_room_to_job_requirement,
+    get_room_applicants_cv_scores,
+    get_applicant_cv_score_data,
+)
 from .tokens import (
     generate_secure_share_token,
     validate_share_token,
@@ -234,6 +240,57 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_200_OK
         )
+
+    @action(detail=True, methods=['get'], url_path='cv-scores')
+    def cv_scores(self, request, pk=None):
+        """
+        US-10-T2 & US-10-T5: View applicants' CV Match Scores and breakdown for this Room.
+        Strictly enforces HR ownership (only the room owner HR manager can access).
+        Query params:
+          - search: filter by candidate name, email, or skill
+          - min_score: filter candidates by minimum match score
+        """
+        room = self.get_object()
+        search_query = request.query_params.get('search')
+        min_score_param = request.query_params.get('min_score')
+        min_score = int(min_score_param) if min_score_param and min_score_param.isdigit() else None
+
+        data = get_room_applicants_cv_scores(
+            room=room,
+            search_query=search_query,
+            min_score=min_score,
+            request=request
+        )
+        serializer = RoomCvScoresResponseSerializer(data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'], url_path='applicant-cv-scores')
+    def applicant_cv_scores(self, request, pk=None):
+        """
+        Alias for cv-scores endpoint (US-10-T2).
+        """
+        return self.cv_scores(request, pk=pk)
+
+    @action(detail=True, methods=['get'], url_path=r'cv-scores/(?P<application_id>\d+)')
+    def applicant_cv_score_detail(self, request, pk=None, application_id=None):
+        """
+        US-10-T4: Detailed CV score and skill breakdown for a single applicant in this room.
+        """
+        room = self.get_object()
+        try:
+            application = CandidateApplication.objects.select_related('candidate', 'cv').get(
+                id=application_id,
+                room=room
+            )
+        except CandidateApplication.DoesNotExist:
+            return Response(
+                {"error": "Candidate application not found in this room."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        data = get_applicant_cv_score_data(room, application, request=request)
+        serializer = ApplicantCvScoreSerializer(data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class PublicApplicationView(APIView):
