@@ -16,11 +16,13 @@ import {
   X,
   Loader2,
   Tag,
+  Link2,
 } from 'lucide-react';
 import type { RecruitmentRoom } from '../../api/recruitment';
 import { apiUpdateRoom, apiDeleteRoom } from '../../api/recruitment';
 import { JobRequirementsForm } from './JobRequirementsForm';
 import { WeightingConfigCard } from './WeightingConfigCard';
+import { ShareableLinkCard } from './ShareableLinkCard';
 
 
 
@@ -57,6 +59,9 @@ export function RoomList({
 
   // US-20 Weighting Configuration Modal State
   const [weightingRoom, setWeightingRoom] = useState<RecruitmentRoom | null>(null);
+
+  // US-21 Shareable Application Link Modal State
+  const [shareLinkRoom, setShareLinkRoom] = useState<RecruitmentRoom | null>(null);
 
 
   const getRoomSkillNames = (room: RecruitmentRoom): string[] => {
@@ -394,6 +399,15 @@ export function RoomList({
                 </button>
                 <button
                   type="button"
+                  onClick={() => setShareLinkRoom(room)}
+                  title="Manage Shareable Application Link (US-21)"
+                  data-testid={`button-action-share-link-${room.id}`}
+                  className="rounded-lg p-1.5 text-[#277254] hover:bg-[#e2f0e9] transition"
+                >
+                  <Link2 size={16} />
+                </button>
+                <button
+                  type="button"
                   onClick={() => openEditModal(room)}
                   title="Edit Room"
                   data-testid={`button-edit-room-${room.id}`}
@@ -530,6 +544,19 @@ export function RoomList({
           onWeightingSaved={(updated) => {
             onRoomUpdated(updated);
             setWeightingRoom(null);
+          }}
+          notify={notify}
+        />
+      )}
+
+      {/* Shareable Application Link Modal (US-21) */}
+      {shareLinkRoom && (
+        <ShareableLinkCard
+          room={shareLinkRoom}
+          onClose={() => setShareLinkRoom(null)}
+          onRoomUpdated={(updated) => {
+            onRoomUpdated(updated);
+            setShareLinkRoom(updated);
           }}
           notify={notify}
         />

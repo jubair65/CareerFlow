@@ -205,4 +205,89 @@ export async function apiUpdateRoomWeighting(
   return response.data;
 }
 
+// ==========================================
+// US-21: Shareable Application Link APIs
+// ==========================================
+
+export interface RoomShareLinkData {
+  id: number;
+  title: string;
+  company_name: string;
+  share_token: string;
+  share_url: string;
+  link_is_active: boolean;
+  link_expires_at: string | null;
+  is_expired: boolean;
+  status: 'ACTIVE' | 'PAUSED' | 'CLOSED';
+  updated_at: string;
+}
+
+export interface RoomShareLinkResponse {
+  message: string;
+  link: RoomShareLinkData;
+}
+
+export interface PublicRoomDetails {
+  id: number;
+  title: string;
+  company_name: string;
+  department: string;
+  role_category?: string;
+  experience_level?: 'ENTRY' | 'MID' | 'SENIOR' | 'LEAD';
+  experience_level_display?: string;
+  description: string;
+  requirements_text: string;
+  skills_required: (string | SkillItem)[];
+  skill_names: string[];
+  cv_weight: number;
+  video_weight: number;
+  share_token: string;
+  share_url: string;
+  link_is_active: boolean;
+  link_expires_at: string | null;
+  status: 'ACTIVE' | 'PAUSED' | 'CLOSED';
+  created_at: string;
+}
+
+/**
+ * Retrieve or generate share link information for a room (US-21-T2).
+ */
+export async function apiGetRoomShareLink(roomId: number | string): Promise<RoomShareLinkResponse> {
+  const response = await apiClient.get<RoomShareLinkResponse>(`/recruitment/rooms/${roomId}/link/`);
+  return response.data;
+}
+
+/**
+ * Deactivate a room share link, preventing public submissions (US-21-T5).
+ */
+export async function apiDeactivateRoomShareLink(roomId: number | string): Promise<RoomShareLinkResponse> {
+  const response = await apiClient.post<RoomShareLinkResponse>(`/recruitment/rooms/${roomId}/link/deactivate/`);
+  return response.data;
+}
+
+/**
+ * Reactivate a room share link (US-21-T5).
+ */
+export async function apiActivateRoomShareLink(roomId: number | string): Promise<RoomShareLinkResponse> {
+  const response = await apiClient.post<RoomShareLinkResponse>(`/recruitment/rooms/${roomId}/link/activate/`);
+  return response.data;
+}
+
+/**
+ * Regenerate a new secure token, invalidating the previous link (US-21-T5).
+ */
+export async function apiRegenerateRoomShareLink(roomId: number | string): Promise<RoomShareLinkResponse> {
+  const response = await apiClient.post<RoomShareLinkResponse>(`/recruitment/rooms/${roomId}/link/regenerate/`);
+  return response.data;
+}
+
+/**
+ * Resolve a public application token without authentication (US-21-T3).
+ */
+export async function apiGetPublicRoomByToken(token: string): Promise<PublicRoomDetails> {
+  const response = await apiClient.get<PublicRoomDetails>(`/recruitment/apply/${token}/`);
+  return response.data;
+}
+
+
 

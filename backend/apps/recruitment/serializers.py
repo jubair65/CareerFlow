@@ -207,3 +207,81 @@ class RoomWeightingSerializer(serializers.ModelSerializer):
         attrs['video_weight'] = video_weight
         return attrs
 
+
+class RoomShareLinkSerializer(serializers.ModelSerializer):
+    """
+    US-21-T2 & US-21-T5: Serializer for HR shareable application link management.
+    Handles link status, secure token, generated URL, and optional expiration.
+    """
+    share_url = serializers.SerializerMethodField()
+    is_expired = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RecruitmentRoom
+        fields = [
+            'id',
+            'title',
+            'company_name',
+            'share_token',
+            'share_url',
+            'link_is_active',
+            'link_expires_at',
+            'is_expired',
+            'status',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'title', 'company_name', 'share_token', 'share_url', 'is_expired', 'updated_at']
+
+    def get_share_url(self, obj):
+        request = self.context.get('request')
+        from .tokens import build_share_url
+        return build_share_url(obj.share_token, request=request)
+
+    def get_is_expired(self, obj):
+        from .tokens import is_token_expired
+        return is_token_expired(obj)
+
+
+class PublicRoomDetailsSerializer(serializers.ModelSerializer):
+    """
+    US-21-T3: Public unauthenticated serializer for candidate application page.
+    Returns opening details, requirements, and evaluation weighting formula without exposing sensitive internal metadata.
+    """
+    share_url = serializers.SerializerMethodField()
+    skill_names = serializers.SerializerMethodField()
+    experience_level_display = serializers.CharField(source='get_experience_level_display', read_only=True)
+
+    class Meta:
+        model = RecruitmentRoom
+        fields = [
+            'id',
+            'title',
+            'company_name',
+            'department',
+            'role_category',
+            'experience_level',
+            'experience_level_display',
+            'description',
+            'requirements_text',
+            'skills_required',
+            'skill_names',
+            'cv_weight',
+            'video_weight',
+            'share_token',
+            'share_url',
+            'link_is_active',
+            'link_expires_at',
+            'status',
+            'created_at',
+        ]
+        read_only_fields = fields
+
+    def get_share_url(self, obj):
+        request = self.context.get('request')
+        from .tokens import build_share_url
+        return build_share_url(obj.share_token, request=request)
+
+    def get_skill_names(self, obj):
+        return obj.get_skill_names()
+
+
