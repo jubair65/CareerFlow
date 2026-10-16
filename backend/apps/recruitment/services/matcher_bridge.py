@@ -166,6 +166,11 @@ def get_applicant_cv_score_data(
             "recommendations": ["Prompt candidate to submit an updated CV."],
             "applied_at": applied_at,
             "status": status_str,
+            "final_score": application.final_score,
+            "cv_score": application.cv_score,
+            "video_score": application.video_score,
+            "is_partial_score": application.is_partial_score,
+            "score_calculated_at": application.score_calculated_at,
         }
 
     cv = application.cv
@@ -233,6 +238,11 @@ def get_applicant_cv_score_data(
             "recommendations": match_record.recommendations or [],
             "applied_at": applied_at,
             "status": status_str,
+            "final_score": application.final_score,
+            "cv_score": application.cv_score,
+            "video_score": application.video_score,
+            "is_partial_score": application.is_partial_score,
+            "score_calculated_at": application.score_calculated_at,
         }
 
     return {
@@ -255,6 +265,11 @@ def get_applicant_cv_score_data(
         "recommendations": [],
         "applied_at": applied_at,
         "status": status_str,
+        "final_score": application.final_score,
+        "cv_score": application.cv_score,
+        "video_score": application.video_score,
+        "is_partial_score": application.is_partial_score,
+        "score_calculated_at": application.score_calculated_at,
     }
 
 

@@ -11,12 +11,18 @@ from .serializers import (
     PublicRoomDetailsSerializer,
     ApplicantCvScoreSerializer,
     RoomCvScoresResponseSerializer,
+    CalculateScoresResponseSerializer,
+    CandidateApplicationScoreSerializer,
 )
 from .permissions import IsHRManager, IsRoomOwner
 from .services.matcher_bridge import (
     sync_room_to_job_requirement,
     get_room_applicants_cv_scores,
     get_applicant_cv_score_data,
+)
+from .services.scoring_service import (
+    calculate_application_score,
+    calculate_room_applicant_scores,
 )
 from .tokens import (
     generate_secure_share_token,
@@ -149,6 +155,12 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
         serializer = RoomWeightingSerializer(room, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         updated_room = serializer.save()
+
+        # US-23-T5: Recalculate applicant scores with the newly configured weights
+        try:
+            calculate_room_applicant_scores(updated_room)
+        except Exception:
+            pass
 
         full_serializer = RecruitmentRoomSerializer(updated_room, context={'request': request})
         return Response(
@@ -292,6 +304,18 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
         serializer = ApplicantCvScoreSerializer(data)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['post'], url_path='calculate-scores')
+    def calculate_scores(self, request, pk=None):
+        """
+        US-23-T5: Batch recalculate Final Applicant Scores for all candidates in this Room.
+        Permissions: Authenticated, Room Owner or Admin.
+        POST /api/recruitment/rooms/{id}/calculate-scores/
+        """
+        room = self.get_object()
+        result = calculate_room_applicant_scores(room)
+        serializer = CalculateScoresResponseSerializer(result)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class PublicApplicationView(APIView):
     """
@@ -418,6 +442,12 @@ class PublicApplicationSubmitView(APIView):
             video=video,
             status='COMPLETED' # Could be PENDING if async
         )
+
+        # US-23: Calculate initial weighted Applicant Score
+        try:
+            calculate_application_score(application, persist=True)
+        except Exception:
+            pass
 
         return Response(
             {

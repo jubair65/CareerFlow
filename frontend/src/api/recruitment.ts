@@ -343,6 +343,12 @@ export interface ApplicantCvScoreItem {
   recommendations: string[];
   applied_at: string;
   status: string;
+  // US-23: Calculated scores
+  final_score?: number | null;
+  cv_score?: number | null;
+  video_score?: number | null;
+  is_partial_score?: boolean;
+  score_calculated_at?: string | null;
 }
 
 export interface RoomCvScoresResponse {
@@ -388,6 +394,33 @@ export async function apiGetApplicantCvScoreDetail(
 ): Promise<ApplicantCvScoreItem> {
   const response = await apiClient.get<ApplicantCvScoreItem>(
     `/recruitment/rooms/${roomId}/cv-scores/${applicationId}/`
+  );
+  return response.data;
+}
+
+// ==========================================
+// US-23: Final Applicant Score Calculation APIs
+// ==========================================
+
+export interface CalculateScoresResponse {
+  message: string;
+  room_id: number;
+  weights_used: {
+    cv_weight: number;
+    video_weight: number;
+  };
+  processed_count: number;
+  updated_count: number;
+}
+
+/**
+ * US-23-T5: Batch recalculate Final Applicant Scores for all candidates in a Room.
+ */
+export async function apiCalculateRoomScores(
+  roomId: number | string
+): Promise<CalculateScoresResponse> {
+  const response = await apiClient.post<CalculateScoresResponse>(
+    `/recruitment/rooms/${roomId}/calculate-scores/`
   );
   return response.data;
 }
