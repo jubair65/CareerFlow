@@ -308,6 +308,12 @@ class ApplicantCvScoreSerializer(serializers.Serializer):
     recommendations = serializers.ListField(child=serializers.CharField(), default=list)
     applied_at = serializers.DateTimeField()
     status = serializers.CharField()
+    # US-23 Final Score fields
+    cv_score = serializers.FloatField(allow_null=True, required=False)
+    video_score = serializers.FloatField(allow_null=True, required=False)
+    final_score = serializers.FloatField(allow_null=True, required=False)
+    is_partial_score = serializers.BooleanField(default=False, required=False)
+    score_calculated_at = serializers.DateTimeField(allow_null=True, required=False)
 
 
 class RoomCvScoresResponseSerializer(serializers.Serializer):
@@ -324,5 +330,44 @@ class RoomCvScoresResponseSerializer(serializers.Serializer):
     highest_cv_score = serializers.IntegerField(allow_null=True)
     lowest_cv_score = serializers.IntegerField(allow_null=True)
     results = ApplicantCvScoreSerializer(many=True)
+
+
+class CalculateScoresResponseSerializer(serializers.Serializer):
+    """
+    US-23-T5: Serializer for calculate-scores batch calculation response.
+    """
+    message = serializers.CharField()
+    room_id = serializers.IntegerField()
+    weights_used = serializers.DictField(child=serializers.IntegerField())
+    processed_count = serializers.IntegerField()
+    updated_count = serializers.IntegerField()
+
+
+class CandidateApplicationScoreSerializer(serializers.ModelSerializer):
+    """
+    US-23-T6: Detailed score serializer for a CandidateApplication.
+    """
+    candidate_name = serializers.CharField(source='candidate.full_name', read_only=True)
+    candidate_email = serializers.EmailField(source='candidate.email', read_only=True)
+
+    class Meta:
+        from .models import CandidateApplication
+        model = CandidateApplication
+        fields = [
+            'id',
+            'room',
+            'candidate',
+            'candidate_name',
+            'candidate_email',
+            'cv_score',
+            'video_score',
+            'final_score',
+            'is_partial_score',
+            'score_calculated_at',
+            'status',
+            'applied_at',
+        ]
+        read_only_fields = fields
+
 
 

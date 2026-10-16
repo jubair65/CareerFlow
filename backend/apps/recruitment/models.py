@@ -179,10 +179,31 @@ class CandidateApplication(models.Model):
         default=Status.PENDING,
         help_text="Current processing status"
     )
+    # --- SPRINT 5 ENHANCEMENTS: US-23 Score Storage & Component Cache ---
+    cv_score = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Cached CV match score (0-100)"
+    )
+    video_score = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Cached Video presentation score (0-100)"
+    )
     final_score = models.FloatField(
         null=True, 
         blank=True,
+        db_index=True,
         help_text="Calculated weighted score based on room criteria"
+    )
+    is_partial_score = models.BooleanField(
+        default=False,
+        help_text="True if calculated with missing CV or video"
+    )
+    score_calculated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp when final score was last computed"
     )
     applied_at = models.DateTimeField(auto_now_add=True)
     
