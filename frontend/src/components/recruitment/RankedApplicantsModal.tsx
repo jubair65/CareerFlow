@@ -228,26 +228,26 @@ export function RankedApplicantsModal({
 
         {/* Statistical Summary Row */}
         {data && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-6 py-3 bg-gray-50/40 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-800 text-xs">
+          <div data-testid="row-statistical-summary" className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-6 py-3 bg-gray-50/40 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-800 text-xs">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-blue-500" />
               <span className="text-gray-500 dark:text-gray-400">Total Applicants:</span>
-              <span className="font-bold text-gray-900 dark:text-white">{data.total_applicants}</span>
+              <span data-testid="stat-ranked-total" className="font-bold text-gray-900 dark:text-white">{data.total_applicants}</span>
             </div>
             <div className="flex items-center gap-2">
               <Trophy className="w-4 h-4 text-emerald-500" />
               <span className="text-gray-500 dark:text-gray-400">Ranked Candidates:</span>
-              <span className="font-bold text-emerald-600 dark:text-emerald-400">{data.ranked_count}</span>
+              <span data-testid="stat-ranked-count" className="font-bold text-emerald-600 dark:text-emerald-400">{data.ranked_count}</span>
             </div>
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-amber-500" />
               <span className="text-gray-500 dark:text-gray-400">Incomplete / Pending:</span>
-              <span className="font-bold text-amber-600 dark:text-amber-400">{data.unranked_count}</span>
+              <span data-testid="stat-unranked-count" className="font-bold text-amber-600 dark:text-amber-400">{data.unranked_count}</span>
             </div>
             <div className="flex items-center gap-2">
               <Gauge className="w-4 h-4 text-purple-500" />
               <span className="text-gray-500 dark:text-gray-400">Top Score:</span>
-              <span className="font-bold text-purple-600 dark:text-purple-400">
+              <span data-testid="stat-top-score" className="font-bold text-purple-600 dark:text-purple-400">
                 {data.results.length > 0 ? `${data.results[0].final_score.toFixed(1)}/100` : '—'}
               </span>
             </div>

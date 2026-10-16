@@ -69,8 +69,24 @@ except ImportError:
 
 CHROMEDRIVER_PATH = None
 
+def find_local_chromedriver():
+    if os.environ.get("CHROMEDRIVER_PATH") and Path(os.environ["CHROMEDRIVER_PATH"]).exists():
+        return os.environ["CHROMEDRIVER_PATH"]
+    wdm_dir = Path.home() / ".wdm" / "drivers" / "chromedriver"
+    if wdm_dir.exists():
+        executables = list(wdm_dir.glob("**/chromedriver.exe")) or list(wdm_dir.glob("**/chromedriver"))
+        if executables:
+            executables.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+            return str(executables[0])
+    which_driver = shutil.which("chromedriver") or shutil.which("chromedriver.exe")
+    if which_driver:
+        return which_driver
+    return None
+
 def get_chromedriver_service():
     global CHROMEDRIVER_PATH
+    if not CHROMEDRIVER_PATH:
+        CHROMEDRIVER_PATH = find_local_chromedriver()
     if not CHROMEDRIVER_PATH and ChromeDriverManager is not None:
         try:
             CHROMEDRIVER_PATH = ChromeDriverManager().install()
