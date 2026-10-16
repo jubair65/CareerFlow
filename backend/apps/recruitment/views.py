@@ -13,6 +13,7 @@ from .serializers import (
     RoomCvScoresResponseSerializer,
     CalculateScoresResponseSerializer,
     CandidateApplicationScoreSerializer,
+    RankedApplicantsResponseSerializer,
 )
 from .permissions import IsHRManager, IsRoomOwner
 from .services.matcher_bridge import (
@@ -24,6 +25,7 @@ from .services.scoring_service import (
     calculate_application_score,
     calculate_room_applicant_scores,
 )
+from .services.ranking_service import get_ranked_room_applicants
 from .tokens import (
     generate_secure_share_token,
     validate_share_token,
@@ -314,6 +316,42 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
         room = self.get_object()
         result = calculate_room_applicant_scores(room)
         serializer = CalculateScoresResponseSerializer(result)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'], url_path='ranked-applicants')
+    def ranked_applicants(self, request, pk=None):
+        """
+        US-24-T2 & US-24-T4 & US-24-T5: Retrieve ranked candidates for this Room.
+        Query params:
+          - min_score: float
+          - max_score: float
+          - search: string
+          - status: string
+          - ordering: string (default '-final_score')
+          - include_unranked: bool (default True)
+        """
+        room = self.get_object()
+        min_score_param = request.query_params.get('min_score')
+        max_score_param = request.query_params.get('max_score')
+        search = request.query_params.get('search')
+        status_filter = request.query_params.get('status')
+        ordering = request.query_params.get('ordering', '-final_score')
+        include_unranked_param = request.query_params.get('include_unranked', 'true')
+        include_unranked = include_unranked_param.lower() not in ['false', '0', 'no']
+
+        min_score = float(min_score_param) if min_score_param and min_score_param.replace('.', '', 1).isdigit() else None
+        max_score = float(max_score_param) if max_score_param and max_score_param.replace('.', '', 1).isdigit() else None
+
+        data = get_ranked_room_applicants(
+            room_or_id=room,
+            min_score=min_score,
+            max_score=max_score,
+            search=search,
+            status_filter=status_filter,
+            ordering=ordering,
+            include_unranked=include_unranked,
+        )
+        serializer = RankedApplicantsResponseSerializer(data)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 

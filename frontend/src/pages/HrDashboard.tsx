@@ -30,6 +30,7 @@ import { apiGetHRMatches, type CVJobMatch } from '../api/cv';
 import { apiGetRooms, type RecruitmentRoom } from '../api/recruitment';
 import { RoomCreateModal } from '../components/recruitment/RoomCreateModal';
 import { RoomCvScoresModal } from '../components/recruitment/RoomCvScoresModal';
+import { RankedApplicantsModal } from '../components/recruitment/RankedApplicantsModal';
 
 export function HrDashboard({ notify }: { notify: Notify }) {
   const [, setLocation] = useLocation();
@@ -38,6 +39,7 @@ export function HrDashboard({ notify }: { notify: Notify }) {
   const [rooms, setRooms] = useState<RecruitmentRoom[]>([]);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [selectedRoomForCvScores, setSelectedRoomForCvScores] = useState<RecruitmentRoom | null>(null);
+  const [selectedRoomForRanking, setSelectedRoomForRanking] = useState<RecruitmentRoom | null>(null);
 
   const user = useMemo(() => {
     try {
@@ -189,22 +191,40 @@ export function HrDashboard({ notify }: { notify: Notify }) {
           </div>
           <div className="flex items-center gap-2">
             {rooms.length > 0 && (
-              <select
-                onChange={(e) => {
-                  const r = rooms.find((x) => x.id === Number(e.target.value));
-                  if (r) setSelectedRoomForCvScores(r);
-                }}
-                defaultValue=""
-                data-testid="select-room-cv-scores-dashboard"
-                className="rounded-xl border border-[#d9dbd1] bg-[#fbfaf5] px-3 py-1.5 text-xs font-semibold text-[#253142] focus:outline-none focus:ring-2 focus:ring-[#277254]/30"
-              >
-                <option value="" disabled>Inspect Room CV Scores...</option>
-                {rooms.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.title} ({r.company_name})
-                  </option>
-                ))}
-              </select>
+              <>
+                <select
+                  onChange={(e) => {
+                    const r = rooms.find((x) => x.id === Number(e.target.value));
+                    if (r) setSelectedRoomForCvScores(r);
+                  }}
+                  defaultValue=""
+                  data-testid="select-room-cv-scores-dashboard"
+                  className="rounded-xl border border-[#d9dbd1] bg-[#fbfaf5] px-3 py-1.5 text-xs font-semibold text-[#253142] focus:outline-none focus:ring-2 focus:ring-[#277254]/30"
+                >
+                  <option value="" disabled>Inspect Room CV Scores...</option>
+                  {rooms.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.title} ({r.company_name})
+                    </option>
+                  ))}
+                </select>
+                <select
+                  onChange={(e) => {
+                    const r = rooms.find((x) => x.id === Number(e.target.value));
+                    if (r) setSelectedRoomForRanking(r);
+                  }}
+                  defaultValue=""
+                  data-testid="select-room-rankings-dashboard"
+                  className="rounded-xl border border-[#fde68a] bg-[#fef3c7]/60 px-3 py-1.5 text-xs font-bold text-[#92400e] focus:outline-none focus:ring-2 focus:ring-[#d97706]/30"
+                >
+                  <option value="" disabled>🏆 View Room Leaderboard...</option>
+                  {rooms.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      🏆 {r.title} Leaderboard
+                    </option>
+                  ))}
+                </select>
+              </>
             )}
             <button
               type="button"
@@ -419,6 +439,16 @@ export function HrDashboard({ notify }: { notify: Notify }) {
           isOpen={Boolean(selectedRoomForCvScores)}
           onClose={() => setSelectedRoomForCvScores(null)}
           room={selectedRoomForCvScores}
+          notify={notify}
+        />
+      )}
+
+      {/* US-24 Room Ranked Applicants Leaderboard Modal */}
+      {selectedRoomForRanking && (
+        <RankedApplicantsModal
+          isOpen={Boolean(selectedRoomForRanking)}
+          onClose={() => setSelectedRoomForRanking(null)}
+          room={selectedRoomForRanking}
           notify={notify}
         />
       )}
