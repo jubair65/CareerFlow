@@ -18,6 +18,7 @@ import {
   Tag,
   Link2,
   Award,
+  Trophy,
 } from 'lucide-react';
 import type { RecruitmentRoom } from '../../api/recruitment';
 import { apiUpdateRoom, apiDeleteRoom } from '../../api/recruitment';
@@ -25,6 +26,7 @@ import { JobRequirementsForm } from './JobRequirementsForm';
 import { WeightingConfigCard } from './WeightingConfigCard';
 import { ShareableLinkCard } from './ShareableLinkCard';
 import { RoomCvScoresModal } from './RoomCvScoresModal';
+import { RankedApplicantsModal } from './RankedApplicantsModal';
 
 
 
@@ -67,6 +69,9 @@ export function RoomList({
 
   // US-10 Applicant CV Match Scores Modal State
   const [cvScoresRoom, setCvScoresRoom] = useState<RecruitmentRoom | null>(null);
+
+  // US-24 Applicant Rankings & Leaderboard Modal State
+  const [rankedRoom, setRankedRoom] = useState<RecruitmentRoom | null>(null);
 
 
   const getRoomSkillNames = (room: RecruitmentRoom): string[] => {
@@ -384,6 +389,16 @@ export function RoomList({
                   <Award size={13} />
                   <span>CV Scores</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setRankedRoom(room)}
+                  title="View Applicant Leaderboard & Rankings (US-24)"
+                  data-testid={`button-action-ranking-${room.id}`}
+                  className="inline-flex items-center gap-1 rounded-lg bg-[#fef3c7] border border-[#fde68a] px-2.5 py-1.5 text-xs font-bold text-[#92400e] hover:bg-[#fde68a] transition shadow-2xs"
+                >
+                  <Trophy size={13} className="text-[#d97706]" />
+                  <span>Rankings</span>
+                </button>
               </div>
 
               <div className="flex items-center gap-1">
@@ -585,6 +600,16 @@ export function RoomList({
           isOpen={Boolean(cvScoresRoom)}
           onClose={() => setCvScoresRoom(null)}
           room={cvScoresRoom}
+          notify={notify}
+        />
+      )}
+
+      {/* Applicant Leaderboard & Rankings Modal (US-24) */}
+      {rankedRoom && (
+        <RankedApplicantsModal
+          isOpen={Boolean(rankedRoom)}
+          onClose={() => setRankedRoom(null)}
+          room={rankedRoom}
           notify={notify}
         />
       )}

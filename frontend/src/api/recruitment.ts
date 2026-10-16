@@ -424,3 +424,96 @@ export async function apiCalculateRoomScores(
   );
   return response.data;
 }
+
+// ==========================================
+// US-24: Applicant Ranking APIs
+// ==========================================
+
+export interface RankedApplicantItem {
+  rank: number;
+  badge: 'GOLD' | 'SILVER' | 'BRONZE' | 'STANDARD';
+  application_id: number;
+  candidate_id: number;
+  candidate_name: string;
+  candidate_email: string;
+  final_score: number;
+  score_tier: 'TIER_HIGH' | 'TIER_MEDIUM' | 'TIER_LOW' | 'TIER_PENDING';
+  cv_score: number | null;
+  video_score: number | null;
+  is_partial_score: boolean;
+  score_calculated_at: string | null;
+  status: string;
+  applied_at: string;
+}
+
+export interface UnrankedApplicantItem {
+  application_id: number;
+  candidate_id: number;
+  candidate_name: string;
+  candidate_email: string;
+  final_score: null;
+  score_tier: 'TIER_PENDING';
+  cv_score: number | null;
+  video_score: number | null;
+  is_partial_score: boolean;
+  status: string;
+  applied_at: string;
+  pending_reason: string;
+}
+
+export interface RankedApplicantsResponse {
+  room_id: number;
+  room_title: string;
+  company_name: string;
+  department: string;
+  cv_weight: number;
+  video_weight: number;
+  total_applicants: number;
+  ranked_count: number;
+  unranked_count: number;
+  results: RankedApplicantItem[];
+  unranked: UnrankedApplicantItem[];
+}
+
+export interface RankedApplicantsQueryParams {
+  min_score?: number;
+  max_score?: number;
+  search?: string;
+  status?: string;
+  ordering?: string;
+  include_unranked?: boolean;
+}
+
+/**
+ * US-24-T2: Fetch ranked applicant leaderboard for a Room.
+ */
+export async function apiGetRankedApplicants(
+  roomId: number | string,
+  params?: RankedApplicantsQueryParams
+): Promise<RankedApplicantsResponse> {
+  const queryParts: string[] = [];
+  if (params?.min_score !== undefined) {
+    queryParts.push(`min_score=${params.min_score}`);
+  }
+  if (params?.max_score !== undefined) {
+    queryParts.push(`max_score=${params.max_score}`);
+  }
+  if (params?.search) {
+    queryParts.push(`search=${encodeURIComponent(params.search)}`);
+  }
+  if (params?.status) {
+    queryParts.push(`status=${encodeURIComponent(params.status)}`);
+  }
+  if (params?.ordering) {
+    queryParts.push(`ordering=${encodeURIComponent(params.ordering)}`);
+  }
+  if (params?.include_unranked !== undefined) {
+    queryParts.push(`include_unranked=${params.include_unranked}`);
+  }
+  const queryString = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
+  const response = await apiClient.get<RankedApplicantsResponse>(
+    `/recruitment/rooms/${roomId}/ranked-applicants/${queryString}`
+  );
+  return response.data;
+}
+

@@ -370,4 +370,60 @@ class CandidateApplicationScoreSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class RankedApplicantItemSerializer(serializers.Serializer):
+    """
+    US-24-T2: Serializer for a ranked applicant on the room leaderboard.
+    """
+    rank = serializers.IntegerField()
+    badge = serializers.CharField()
+    application_id = serializers.IntegerField()
+    candidate_id = serializers.IntegerField()
+    candidate_name = serializers.CharField(allow_blank=True)
+    candidate_email = serializers.EmailField()
+    final_score = serializers.FloatField()
+    score_tier = serializers.CharField()
+    cv_score = serializers.FloatField(allow_null=True)
+    video_score = serializers.FloatField(allow_null=True)
+    is_partial_score = serializers.BooleanField()
+    score_calculated_at = serializers.DateTimeField(allow_null=True)
+    status = serializers.CharField()
+    applied_at = serializers.DateTimeField()
+
+
+class UnrankedApplicantItemSerializer(serializers.Serializer):
+    """
+    US-24-T5: Serializer for an incomplete/unranked applicant.
+    """
+    application_id = serializers.IntegerField()
+    candidate_id = serializers.IntegerField()
+    candidate_name = serializers.CharField(allow_blank=True)
+    candidate_email = serializers.EmailField()
+    final_score = serializers.FloatField(allow_null=True)
+    score_tier = serializers.CharField()
+    cv_score = serializers.FloatField(allow_null=True)
+    video_score = serializers.FloatField(allow_null=True)
+    is_partial_score = serializers.BooleanField()
+    status = serializers.CharField()
+    applied_at = serializers.DateTimeField()
+    pending_reason = serializers.CharField()
+
+
+class RankedApplicantsResponseSerializer(serializers.Serializer):
+    """
+    US-24-T2: Serializer for the complete ranked leaderboard response.
+    """
+    room_id = serializers.IntegerField()
+    room_title = serializers.CharField()
+    company_name = serializers.CharField()
+    department = serializers.CharField(allow_blank=True)
+    cv_weight = serializers.IntegerField()
+    video_weight = serializers.IntegerField()
+    total_applicants = serializers.IntegerField()
+    ranked_count = serializers.IntegerField()
+    unranked_count = serializers.IntegerField()
+    results = RankedApplicantItemSerializer(many=True)
+    unranked = UnrankedApplicantItemSerializer(many=True)
+
+
+
 
