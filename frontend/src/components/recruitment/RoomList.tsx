@@ -1,9 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   FolderOpen,
   Plus,
   Search,
-  ExternalLink,
   Copy,
   Check,
   Edit2,
@@ -19,6 +18,7 @@ import {
   Link2,
   Award,
   Trophy,
+  MoreVertical,
 } from 'lucide-react';
 import type { RecruitmentRoom } from '../../api/recruitment';
 import { apiUpdateRoom, apiDeleteRoom } from '../../api/recruitment';
@@ -48,6 +48,19 @@ export function RoomList({
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'PAUSED' | 'CLOSED'>('ALL');
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close three-dot menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   // Edit Modal State
   const [editingRoom, setEditingRoom] = useState<RecruitmentRoom | null>(null);
@@ -172,7 +185,8 @@ export function RoomList({
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+        {/* FIX #3: Removed duplicate Create Room button — kept only the page-header one */}
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-start sm:justify-end">
           <div className="flex items-center gap-1 bg-[#f5f1e6] p-1 rounded-xl">
             {(['ALL', 'ACTIVE', 'PAUSED', 'CLOSED'] as const).map((st) => (
               <button
@@ -190,15 +204,6 @@ export function RoomList({
               </button>
             ))}
           </div>
-
-          <button
-            type="button"
-            onClick={onOpenCreateModal}
-            data-testid="button-create-room-header"
-            className="inline-flex items-center gap-2 rounded-xl bg-[#277254] px-4 py-2 text-xs font-bold text-white hover:bg-[#1f5b43] transition shadow-xs"
-          >
-            <Plus size={15} /> Create Room
-          </button>
         </div>
       </div>
 
@@ -247,9 +252,11 @@ export function RoomList({
                       <span className="text-[11px] text-[#9aabb5]">• {room.department}</span>
                     )}
                   </div>
+                  {/* FIX #4: line-clamp-2 so long titles wrap instead of being cut off; title attr for tooltip */}
                   <h3
                     data-testid={`room-title-${room.id}`}
-                    className="mt-1 text-base font-bold text-[#253142] line-clamp-1"
+                    className="mt-1 text-base font-bold text-[#253142] line-clamp-2 leading-snug"
+                    title={room.title}
                   >
                     {room.title}
                   </h3>
@@ -330,23 +337,31 @@ export function RoomList({
                 </div>
               </div>
 
-              {/* Evaluation Weights Indicator (US-20) */}
+              {/* FIX #5: Evaluation Weights — pill layout prevents wrapping */}
               <button
                 type="button"
                 onClick={() => setWeightingRoom(room)}
                 data-testid={`badge-weighting-config-${room.id}`}
-                className="mt-3.5 w-full flex items-center justify-between rounded-xl bg-[#fbfaf5] p-2.5 border border-[#eef0e7] text-xs hover:border-[#277254] hover:bg-[#e2f0e9]/30 transition group text-left"
+                className="mt-3.5 w-full rounded-xl bg-[#fbfaf5] p-2.5 border border-[#eef0e7] text-xs hover:border-[#277254] hover:bg-[#e2f0e9]/30 transition group text-left"
                 title="Click to configure evaluation weighting formula"
               >
-                <div className="flex items-center gap-1.5 text-[#526072] font-medium group-hover:text-[#277254]">
-                  <Sliders size={13} className="text-[#277254]" />
-                  <span>Evaluation Weights:</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-[#253142] group-hover:text-[#277254]">
-                    CV {room.cv_weight ?? 50}% / Video {room.video_weight ?? 50}%
-                  </span>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5 text-[#526072] font-bold group-hover:text-[#277254]">
+                    <Sliders size={12} className="text-[#277254]" />
+                    <span>Evaluation Weights</span>
+                  </div>
                   <Edit2 size={11} className="text-[#7b8490] opacity-0 group-hover:opacity-100 transition" />
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-[#e2f0e9] border border-[#c4e3d3] px-2 py-0.5 text-[10px] font-bold text-[#1f5b43] whitespace-nowrap">
+                    CV · {room.cv_weight ?? 50}%
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-md bg-[#f0f4ff] border border-[#c5d5f7] px-2 py-0.5 text-[10px] font-bold text-[#3b4fa0] whitespace-nowrap">
+                    Video · {room.video_weight ?? 50}%
+                  </span>
+                  <span className="text-[10px] text-[#98a09c] ml-auto">
+                    {(room.cv_weight ?? 50) + (room.video_weight ?? 50)}% total
+                  </span>
                 </div>
               </button>
 
@@ -358,41 +373,45 @@ export function RoomList({
             </div>
 
 
-            {/* Bottom Actions */}
+            {/* FIX #1: Redesigned bottom action toolbar — 3 primary labeled buttons + three-dot menu */}
             <div className="mt-5 pt-3 border-t border-[#eef0e7] flex items-center justify-between gap-2">
+              {/* Primary actions — always visible, labeled */}
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => handleCopyLink(room)}
                   data-testid={`button-copy-room-link-${room.id}`}
+                  title="Copy application link"
                   className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#277254] hover:bg-[#e2f0e9] transition"
                 >
                   {copiedId === room.id ? (
                     <>
-                      <Check size={14} className="text-[#277254]" />
+                      <Check size={13} className="text-[#277254]" />
                       <span>Copied!</span>
                     </>
                   ) : (
                     <>
-                      <Copy size={14} />
+                      <Copy size={13} />
                       <span>Copy Link</span>
                     </>
                   )}
                 </button>
+
                 <button
                   type="button"
                   onClick={() => setCvScoresRoom(room)}
-                  title="View Applicant CV Match Scores (US-10)"
+                  title="View Applicant CV Match Scores"
                   data-testid={`button-action-cv-scores-${room.id}`}
                   className="inline-flex items-center gap-1 rounded-lg bg-[#e2f0e9] border border-[#a7d7c1] px-2.5 py-1.5 text-xs font-bold text-[#1f5b43] hover:bg-[#d0e8dc] transition shadow-2xs"
                 >
                   <Award size={13} />
                   <span>CV Scores</span>
                 </button>
+
                 <button
                   type="button"
                   onClick={() => setRankedRoom(room)}
-                  title="View Applicant Leaderboard & Rankings (US-24)"
+                  title="View Applicant Leaderboard & Rankings"
                   data-testid={`button-action-ranking-${room.id}`}
                   className="inline-flex items-center gap-1 rounded-lg bg-[#fef3c7] border border-[#fde68a] px-2.5 py-1.5 text-xs font-bold text-[#92400e] hover:bg-[#fde68a] transition shadow-2xs"
                 >
@@ -401,61 +420,94 @@ export function RoomList({
                 </button>
               </div>
 
-              <div className="flex items-center gap-1">
+              {/* Secondary actions — collapsed into three-dot dropdown */}
+              <div className="relative" ref={openMenuId === room.id ? menuRef : undefined}>
                 <button
                   type="button"
-                  onClick={() => handleToggleStatus(room)}
-                  title={room.status === 'ACTIVE' ? 'Pause room' : 'Activate room'}
-                  data-testid={`button-toggle-status-${room.id}`}
+                  aria-label="More actions"
+                  data-testid={`button-more-actions-${room.id}`}
+                  onClick={() => setOpenMenuId(openMenuId === room.id ? null : room.id)}
                   className="rounded-lg p-1.5 text-[#7b8490] hover:bg-[#eef0e7] hover:text-[#253142] transition"
                 >
-                  {room.status === 'ACTIVE' ? <PauseCircle size={16} /> : <PlayCircle size={16} />}
+                  <MoreVertical size={16} />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setRequirementsRoom(room)}
-                  title="Configure Role & Skills (US-19)"
-                  data-testid={`button-action-requirements-${room.id}`}
-                  className="rounded-lg p-1.5 text-[#277254] hover:bg-[#e2f0e9] transition"
-                >
-                  <Tag size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWeightingRoom(room)}
-                  title="Configure Evaluation Weights (US-20)"
-                  data-testid={`button-action-weighting-${room.id}`}
-                  className="rounded-lg p-1.5 text-[#277254] hover:bg-[#e2f0e9] transition"
-                >
-                  <Sliders size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShareLinkRoom(room)}
-                  title="Manage Shareable Application Link (US-21)"
-                  data-testid={`button-action-share-link-${room.id}`}
-                  className="rounded-lg p-1.5 text-[#277254] hover:bg-[#e2f0e9] transition"
-                >
-                  <Link2 size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openEditModal(room)}
-                  title="Edit Room"
-                  data-testid={`button-edit-room-${room.id}`}
-                  className="rounded-lg p-1.5 text-[#7b8490] hover:bg-[#eef0e7] hover:text-[#253142] transition"
-                >
-                  <Edit2 size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(room)}
-                  title="Delete Room"
-                  data-testid={`button-delete-room-${room.id}`}
-                  className="rounded-lg p-1.5 text-[#b34a40] hover:bg-[#f7e5e1] transition"
-                >
-                  <Trash2 size={16} />
-                </button>
+
+                {openMenuId === room.id && (
+                  <div
+                    className="absolute right-0 bottom-full mb-1.5 z-20 w-52 rounded-xl border border-[#d9dbd1] bg-white shadow-xl py-1 animate-in fade-in slide-in-from-bottom-2"
+                    data-testid={`menu-more-actions-${room.id}`}
+                  >
+                    {/* Toggle Status */}
+                    <button
+                      type="button"
+                      onClick={() => { handleToggleStatus(room); setOpenMenuId(null); }}
+                      data-testid={`button-toggle-status-${room.id}`}
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition"
+                    >
+                      {room.status === 'ACTIVE'
+                        ? <PauseCircle size={14} className="text-[#92400e]" />
+                        : <PlayCircle size={14} className="text-[#277254]" />}
+                      {room.status === 'ACTIVE' ? 'Pause Room' : 'Activate Room'}
+                    </button>
+
+                    {/* Configure Skills */}
+                    <button
+                      type="button"
+                      onClick={() => { setRequirementsRoom(room); setOpenMenuId(null); }}
+                      data-testid={`button-action-requirements-${room.id}`}
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition"
+                    >
+                      <Tag size={14} className="text-[#277254]" />
+                      Configure Skills
+                    </button>
+
+                    {/* Evaluation Weights */}
+                    <button
+                      type="button"
+                      onClick={() => { setWeightingRoom(room); setOpenMenuId(null); }}
+                      data-testid={`button-action-weighting-${room.id}`}
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition"
+                    >
+                      <Sliders size={14} className="text-[#277254]" />
+                      Evaluation Weights
+                    </button>
+
+                    {/* Shareable Link */}
+                    <button
+                      type="button"
+                      onClick={() => { setShareLinkRoom(room); setOpenMenuId(null); }}
+                      data-testid={`button-action-share-link-${room.id}`}
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition"
+                    >
+                      <Link2 size={14} className="text-[#277254]" />
+                      Manage Share Link
+                    </button>
+
+                    <div className="my-1 border-t border-[#eef0e7]" />
+
+                    {/* Edit */}
+                    <button
+                      type="button"
+                      onClick={() => { openEditModal(room); setOpenMenuId(null); }}
+                      data-testid={`button-edit-room-${room.id}`}
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition"
+                    >
+                      <Edit2 size={14} className="text-[#526072]" />
+                      Edit Room
+                    </button>
+
+                    {/* Delete */}
+                    <button
+                      type="button"
+                      onClick={() => { handleDelete(room); setOpenMenuId(null); }}
+                      data-testid={`button-delete-room-${room.id}`}
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#b34a40] hover:bg-[#f7e5e1] transition"
+                    >
+                      <Trash2 size={14} />
+                      Delete Room
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

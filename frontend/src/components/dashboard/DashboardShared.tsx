@@ -162,10 +162,12 @@ export function Chart({
   values,
   labels,
   color = '#f5c84b',
+  unit = '',
 }: {
   values: number[];
   labels: string[];
   color?: string;
+  unit?: string;
 }) {
   return (
     <div className="flex h-44 items-end gap-2 border-b border-l border-[#d9dbd1] px-3 pb-0 pt-5">
@@ -174,7 +176,7 @@ export function Chart({
           <div
             className="cf-bar"
             style={{ height: `${v}%`, background: color }}
-            title={`${v} points`}
+            title={`${v}${unit}`}
           />
           <span className="text-center text-[10px] font-semibold text-[#8b929a]">
             {labels[i]}

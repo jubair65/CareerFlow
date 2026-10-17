@@ -285,7 +285,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .cf-rise { animation: cfRise .55s cubic-bezier(.2,.75,.25,1) both; }
 @keyframes cfFade { from { opacity:0 } to { opacity:1 } }
 @keyframes cfRise { from { opacity:0; transform:translateY(10px) } to { opacity:1; transform:translateY(0) } }
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .cf-table-wrap { overflow-x:auto; }
   .cf-table { min-width: 700px; }
 }

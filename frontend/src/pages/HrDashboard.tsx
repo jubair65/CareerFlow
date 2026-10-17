@@ -21,7 +21,6 @@ import {
   StatCard,
   Chart,
   Badge,
-  DataAccessCard,
   candidatesSeed,
   type Notify,
 } from '../components/dashboard/DashboardShared';
@@ -67,6 +66,18 @@ export function HrDashboard({ notify }: { notify: Notify }) {
 
   const activeRoomsCount = rooms.filter((r) => r.status === 'ACTIVE').length;
 
+  // Derive live stats from real API data; fall back to seed values only when data hasn't loaded
+  const applicantsCount = hrMatches.length > 0 ? hrMatches.length : 48;
+  const shortlistedCount = hrMatches.length > 0
+    ? hrMatches.filter((m) => m.match_score >= 80).length
+    : 11;
+  const shortlistedPct = applicantsCount > 0
+    ? Math.round((shortlistedCount / applicantsCount) * 100)
+    : 23;
+  const avgCvMatch = hrMatches.length > 0
+    ? Math.round(hrMatches.reduce((acc, m) => acc + m.match_score, 0) / hrMatches.length)
+    : 82;
+
   return (
     <AppShell role="hr" notify={notify}>
       <PageHeading
@@ -98,25 +109,21 @@ export function HrDashboard({ notify }: { notify: Notify }) {
         </div>
         <StatCard
           label="Applicants"
-          value={hrMatches.length > 0 ? `${hrMatches.length}` : "48"}
+          value={`${applicantsCount}`}
           detail="+12 this week"
           icon={Users}
           accent="blue"
         />
         <StatCard
           label="Shortlisted"
-          value="11"
-          detail="23% of applicants"
+          value={`${shortlistedCount}`}
+          detail={`${shortlistedPct}% of applicants`}
           icon={Star}
           accent="green"
         />
         <StatCard
           label="Average CV Match"
-          value={
-            hrMatches.length > 0
-              ? `${Math.round(hrMatches.reduce((acc, m) => acc + m.match_score, 0) / hrMatches.length)}`
-              : "82.4"
-          }
+          value={`${avgCvMatch}`}
           detail="US-09 Semantic score"
           icon={Gauge}
           accent="coral"
@@ -141,10 +148,12 @@ export function HrDashboard({ notify }: { notify: Notify }) {
             </button>
           </div>
           <div className="mt-6">
+            {/* FIX #6: values are daily applicant counts; Chart bars already carry title tooltips */}
             <Chart
               values={[32, 47, 41, 66, 57, 78, 92]}
               labels={['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']}
               color="#277254"
+              unit=" applicants"
             />
           </div>
         </section>
@@ -178,67 +187,75 @@ export function HrDashboard({ notify }: { notify: Notify }) {
       </div>
 
       {/* Recent Applications Table with US-09 CV Match Scores */}
+      {/* FIX #2: Two-row header — title row + controls row — prevents clipping on narrow screens */}
       <section className="cf-card mt-5 overflow-hidden rounded-2xl bg-white border border-[#d9dbd1] shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 border-b border-[#eef0e7] gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-bold text-[#253142] text-lg">Candidate CV Match Scores (US-10)</h2>
-              <span className="rounded-md bg-[#e2f0e9] border border-[#a7d7c1] px-2 py-0.5 text-[10px] font-bold text-[#1f5b43]">
-                US-10 Active
-              </span>
+        <div className="p-5 border-b border-[#eef0e7] space-y-3">
+          {/* Row 1: Title + badge */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-bold text-[#253142] text-lg leading-tight">Candidate CV Match Scores</h2>
+                <span className="shrink-0 rounded-md bg-[#e2f0e9] border border-[#a7d7c1] px-2 py-0.5 text-[10px] font-bold text-[#1f5b43]">
+                  US-10 Active
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-[#7b8490] leading-5">
+                Real-time semantic similarity and skill coverage evaluation across your rooms
+              </p>
             </div>
-            <p className="text-xs text-[#7b8490]">Real-time semantic similarity and skill coverage evaluation across your rooms</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {rooms.length > 0 && (
-              <>
-                <select
-                  onChange={(e) => {
-                    const r = rooms.find((x) => x.id === Number(e.target.value));
-                    if (r) setSelectedRoomForCvScores(r);
-                  }}
-                  defaultValue=""
-                  data-testid="select-room-cv-scores-dashboard"
-                  className="rounded-xl border border-[#d9dbd1] bg-[#fbfaf5] px-3 py-1.5 text-xs font-semibold text-[#253142] focus:outline-none focus:ring-2 focus:ring-[#277254]/30"
-                >
-                  <option value="" disabled>Inspect Room CV Scores...</option>
-                  {rooms.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.title} ({r.company_name})
-                    </option>
-                  ))}
-                </select>
-                <select
-                  onChange={(e) => {
-                    const r = rooms.find((x) => x.id === Number(e.target.value));
-                    if (r) setSelectedRoomForRanking(r);
-                  }}
-                  defaultValue=""
-                  data-testid="select-room-rankings-dashboard"
-                  className="rounded-xl border border-[#fde68a] bg-[#fef3c7]/60 px-3 py-1.5 text-xs font-bold text-[#92400e] focus:outline-none focus:ring-2 focus:ring-[#d97706]/30"
-                >
-                  <option value="" disabled>🏆 View Room Leaderboard...</option>
-                  {rooms.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      🏆 {r.title} Leaderboard
-                    </option>
-                  ))}
-                </select>
-              </>
-            )}
+            {/* FIX #1: Manage Rooms button always fully visible — lives in its own column */}
             <button
               type="button"
               onClick={() => setLocation('/hr/rooms')}
               data-testid="link-hr-rooms-all"
-              className="flex items-center gap-1 rounded-xl bg-[#277254] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#1f5b43] transition shadow-2xs"
+              className="shrink-0 flex items-center gap-1 rounded-xl bg-[#277254] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#1f5b43] transition shadow-2xs"
             >
               <span>Manage Rooms</span>
               <ChevronRight size={14} />
             </button>
           </div>
+
+          {/* Row 2: Room selectors (only when rooms exist) */}
+          {rooms.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                onChange={(e) => {
+                  const r = rooms.find((x) => x.id === Number(e.target.value));
+                  if (r) setSelectedRoomForCvScores(r);
+                }}
+                defaultValue=""
+                data-testid="select-room-cv-scores-dashboard"
+                className="min-w-0 flex-1 sm:flex-none rounded-xl border border-[#d9dbd1] bg-[#fbfaf5] px-3 py-1.5 text-xs font-semibold text-[#253142] focus:outline-none focus:ring-2 focus:ring-[#277254]/30"
+              >
+                <option value="" disabled>Inspect Room CV Scores…</option>
+                {rooms.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.title} ({r.company_name})
+                  </option>
+                ))}
+              </select>
+              <select
+                onChange={(e) => {
+                  const r = rooms.find((x) => x.id === Number(e.target.value));
+                  if (r) setSelectedRoomForRanking(r);
+                }}
+                defaultValue=""
+                data-testid="select-room-rankings-dashboard"
+                className="min-w-0 flex-1 sm:flex-none rounded-xl border border-[#fde68a] bg-[#fef3c7]/60 px-3 py-1.5 text-xs font-bold text-[#92400e] focus:outline-none focus:ring-2 focus:ring-[#d97706]/30"
+              >
+                <option value="" disabled>🏆 View Room Leaderboard…</option>
+                {rooms.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    🏆 {r.title} Leaderboard
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
-        <div className="cf-table-wrap overflow-x-auto">
+        {/* FIX #3 & #4: always overflow-x-auto so table never clips on tablet or mobile */}
+        <div className="overflow-x-auto">
           <table className="cf-table w-full text-left text-sm" data-testid="table-hr-applicants">
             <thead className="bg-[#fbfaf5] border-b border-[#eef0e7] text-xs font-semibold text-[#7b8490] uppercase tracking-wider">
               <tr>
@@ -420,8 +437,6 @@ export function HrDashboard({ notify }: { notify: Notify }) {
           </div>
         </div>
       )}
-
-      <DataAccessCard />
 
       <RoomCreateModal
         isOpen={createModalOpen}
