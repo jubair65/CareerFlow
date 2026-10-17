@@ -20,6 +20,10 @@ export interface RecruitmentRoom {
   skills_required: (string | SkillItem)[];
   cv_weight: number;
   video_weight: number;
+  shortlist_strategy?: 'NONE' | 'MIN_SCORE' | 'TOP_N' | 'COMBINED';
+  shortlist_strategy_display?: string;
+  shortlist_min_score?: number | null;
+  shortlist_top_n?: number | null;
   share_token: string;
   share_url: string;
   link_is_active: boolean;
@@ -516,4 +520,113 @@ export async function apiGetRankedApplicants(
   );
   return response.data;
 }
+
+// ==========================================
+// US-25: Automatic Candidate Shortlisting APIs
+// ==========================================
+
+export type ShortlistStrategyType = 'NONE' | 'MIN_SCORE' | 'TOP_N' | 'COMBINED';
+
+export interface RoomShortlistCriteriaPayload {
+  shortlist_strategy: ShortlistStrategyType;
+  shortlist_min_score?: number | null;
+  shortlist_top_n?: number | null;
+}
+
+export interface RoomShortlistCriteriaResponse {
+  room_id: number;
+  title: string;
+  company_name: string;
+  criteria: {
+    id: number;
+    title: string;
+    company_name: string;
+    shortlist_strategy: ShortlistStrategyType;
+    shortlist_strategy_display: string;
+    shortlist_min_score: number | null;
+    shortlist_top_n: number | null;
+    updated_at: string;
+  };
+  shortlisted_count: number;
+  total_applicants: number;
+}
+
+export interface ShortlistedApplicantItem {
+  application_id: number;
+  candidate_id: number;
+  candidate_name: string;
+  candidate_email: string;
+  rank: number | null;
+  final_score: number | null;
+  cv_score: number | null;
+  video_score: number | null;
+  is_shortlisted: boolean;
+  shortlist_reason: string;
+  shortlisted_at: string | null;
+}
+
+export interface RoomShortlistResponse {
+  room_id: number;
+  room_title: string;
+  strategy: ShortlistStrategyType;
+  min_score: number | null;
+  top_n: number | null;
+  total_applicants: number;
+  shortlisted_count: number;
+  non_shortlisted_count: number;
+  shortlisted_applicants: ShortlistedApplicantItem[];
+  all_applicants: ShortlistedApplicantItem[];
+}
+
+/**
+ * US-25-T2: Fetch current shortlisting criteria and summary for a Room.
+ */
+export async function apiGetRoomShortlistCriteria(
+  roomId: number | string
+): Promise<RoomShortlistCriteriaResponse> {
+  const response = await apiClient.get<RoomShortlistCriteriaResponse>(
+    `/recruitment/rooms/${roomId}/shortlist-criteria/`
+  );
+  return response.data;
+}
+
+/**
+ * US-25-T2: Configure shortlisting criteria (min score, top N, combined) for a Room.
+ */
+export async function apiUpdateRoomShortlistCriteria(
+  roomId: number | string,
+  payload: RoomShortlistCriteriaPayload
+): Promise<{ message: string; criteria: any; shortlist_summary: any }> {
+  const response = await apiClient.patch<{ message: string; criteria: any; shortlist_summary: any }>(
+    `/recruitment/rooms/${roomId}/shortlist-criteria/`,
+    payload
+  );
+  return response.data;
+}
+
+/**
+ * US-25-T3: Explicitly re-evaluate automatic candidate shortlisting for a Room.
+ */
+export async function apiEvaluateRoomShortlist(
+  roomId: number | string
+): Promise<{ message: string; evaluation: RoomShortlistResponse }> {
+  const response = await apiClient.post<{ message: string; evaluation: RoomShortlistResponse }>(
+    `/recruitment/rooms/${roomId}/shortlist-evaluate/`
+  );
+  return response.data;
+}
+
+/**
+ * US-25-T4: Retrieve shortlisted applicants and full shortlist results for a Room.
+ */
+export async function apiGetShortlistedApplicants(
+  roomId: number | string,
+  includeAll: boolean = true
+): Promise<RoomShortlistResponse> {
+  const response = await apiClient.get<RoomShortlistResponse>(
+    `/recruitment/rooms/${roomId}/shortlisted-applicants/?include_all=${includeAll}`
+  );
+  return response.data;
+}
+
 

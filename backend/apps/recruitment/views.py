@@ -14,6 +14,9 @@ from .serializers import (
     CalculateScoresResponseSerializer,
     CandidateApplicationScoreSerializer,
     RankedApplicantsResponseSerializer,
+    RoomShortlistCriteriaSerializer,
+    ShortlistedApplicantItemSerializer,
+    RoomShortlistResponseSerializer,
 )
 from .permissions import IsHRManager, IsRoomOwner
 from .services.matcher_bridge import (
@@ -26,6 +29,10 @@ from .services.scoring_service import (
     calculate_room_applicant_scores,
 )
 from .services.ranking_service import get_ranked_room_applicants
+from .services.shortlisting_service import (
+    evaluate_room_shortlist,
+    validate_shortlisting_criteria,
+)
 from .tokens import (
     generate_secure_share_token,
     validate_share_token,
@@ -353,6 +360,86 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
         )
         serializer = RankedApplicantsResponseSerializer(data)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get', 'put', 'patch'], url_path='shortlist-criteria')
+    def shortlist_criteria(self, request, pk=None):
+        """
+        US-25-T2: Configure and view automatic shortlisting criteria for this Room.
+        GET: Returns current criteria and evaluated shortlist statistics.
+        PUT / PATCH: Validates criteria (min score, top N, combined), persists changes,
+        and automatically re-evaluates all applicants in the room.
+        """
+        room = self.get_object()
+
+        if request.method == 'GET':
+            criteria_serializer = RoomShortlistCriteriaSerializer(room)
+            eval_data = evaluate_room_shortlist(room, persist=False)
+            return Response(
+                {
+                    "room_id": room.id,
+                    "title": room.title,
+                    "company_name": room.company_name,
+                    "criteria": criteria_serializer.data,
+                    "shortlisted_count": eval_data["shortlisted_count"],
+                    "total_applicants": eval_data["total_applicants"],
+                },
+                status=status.HTTP_200_OK
+            )
+
+        partial = (request.method == 'PATCH')
+        serializer = RoomShortlistCriteriaSerializer(room, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        updated_room = serializer.save()
+
+        # US-25 AC#5: Automatically recalculate shortlist when criteria change
+        eval_data = evaluate_room_shortlist(updated_room, persist=True)
+
+        return Response(
+            {
+                "message": "Shortlisting criteria configured successfully and applicants evaluated.",
+                "criteria": serializer.data,
+                "shortlist_summary": {
+                    "strategy": updated_room.shortlist_strategy,
+                    "min_score": updated_room.shortlist_min_score,
+                    "top_n": updated_room.shortlist_top_n,
+                    "total_applicants": eval_data["total_applicants"],
+                    "shortlisted_count": eval_data["shortlisted_count"],
+                    "non_shortlisted_count": eval_data["non_shortlisted_count"],
+                },
+            },
+            status=status.HTTP_200_OK
+        )
+
+    @action(detail=True, methods=['post'], url_path='shortlist-evaluate')
+    def shortlist_evaluate(self, request, pk=None):
+        """
+        US-25-T3: Explicitly trigger automatic candidate shortlisting re-evaluation.
+        POST /api/recruitment/rooms/{id}/shortlist-evaluate/
+        """
+        room = self.get_object()
+        eval_data = evaluate_room_shortlist(room, persist=True)
+        serializer = RoomShortlistResponseSerializer(eval_data)
+        return Response(
+            {
+                "message": f"Successfully evaluated shortlisting for {eval_data['total_applicants']} applicants.",
+                "evaluation": serializer.data,
+            },
+            status=status.HTTP_200_OK
+        )
+
+    @action(detail=True, methods=['get'], url_path='shortlisted-applicants')
+    def shortlisted_applicants(self, request, pk=None):
+        """
+        US-25-T4: Retrieve shortlisted applicants and complete shortlist results for this Room.
+        GET /api/recruitment/rooms/{id}/shortlisted-applicants/
+        Query params:
+          - include_all: bool (default True, includes non-shortlisted candidates with explanation reasons)
+        """
+        room = self.get_object()
+        eval_data = evaluate_room_shortlist(room, persist=False)
+        serializer = RoomShortlistResponseSerializer(eval_data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 
 class PublicApplicationView(APIView):

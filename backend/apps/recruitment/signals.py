@@ -26,13 +26,15 @@ def on_room_weight_or_update(sender, instance, created, update_fields, **kwargs)
     if created:
         return
 
-    # Check if update_fields was specified and weights are in it, or update_fields is None (full save)
-    if update_fields is None or 'cv_weight' in update_fields or 'video_weight' in update_fields:
-        try:
-            calculate_room_applicant_scores(instance)
-            logger.info(f"Recalculated scores for room #{instance.id} due to weight update.")
-        except Exception as e:
-            logger.warning(f"Error recalculating scores for room #{instance.id}: {e}")
+    # If specific fields were updated and weights are not among them, do not re-score
+    if update_fields is not None and 'cv_weight' not in update_fields and 'video_weight' not in update_fields:
+        return
+
+    try:
+        calculate_room_applicant_scores(instance)
+        logger.info(f"Recalculated scores for room #{instance.id} due to weight update.")
+    except Exception as e:
+        logger.warning(f"Error recalculating scores for room #{instance.id}: {e}")
 
 
 @receiver(post_save, sender=PresentationScore)
