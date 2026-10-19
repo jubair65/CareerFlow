@@ -19,6 +19,7 @@ import {
   Award,
   Trophy,
   MoreVertical,
+  Star,
 } from 'lucide-react';
 import type { RecruitmentRoom } from '../../api/recruitment';
 import { apiUpdateRoom, apiDeleteRoom } from '../../api/recruitment';
@@ -27,6 +28,7 @@ import { WeightingConfigCard } from './WeightingConfigCard';
 import { ShareableLinkCard } from './ShareableLinkCard';
 import { RoomCvScoresModal } from './RoomCvScoresModal';
 import { RankedApplicantsModal } from './RankedApplicantsModal';
+import { ShortlistConfigModal } from './ShortlistConfigModal';
 
 
 
@@ -85,6 +87,9 @@ export function RoomList({
 
   // US-24 Applicant Rankings & Leaderboard Modal State
   const [rankedRoom, setRankedRoom] = useState<RecruitmentRoom | null>(null);
+
+  // US-25 Automatic Shortlisting Modal State
+  const [shortlistRoom, setShortlistRoom] = useState<RecruitmentRoom | null>(null);
 
 
   const getRoomSkillNames = (room: RecruitmentRoom): string[] => {
@@ -418,6 +423,17 @@ export function RoomList({
                   <Trophy size={13} className="text-[#d97706]" />
                   <span>Rankings</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShortlistRoom(room)}
+                  title="Configure & View Candidate Shortlist (US-25)"
+                  data-testid={`button-action-shortlist-${room.id}`}
+                  className="inline-flex items-center gap-1 rounded-lg bg-[#e2f0e9] border border-[#a7d7c1] px-2.5 py-1.5 text-xs font-bold text-[#1f5b43] hover:bg-[#d0e8dc] transition shadow-2xs"
+                >
+                  <Star size={13} className="fill-[#1f5b43]" />
+                  <span>Shortlist</span>
+                </button>
               </div>
 
               {/* Secondary actions — collapsed into three-dot dropdown */}
@@ -481,6 +497,17 @@ export function RoomList({
                     >
                       <Link2 size={14} className="text-[#277254]" />
                       Manage Share Link
+                    </button>
+
+                    {/* Configure Shortlisting (US-25) */}
+                    <button
+                      type="button"
+                      onClick={() => { setShortlistRoom(room); setOpenMenuId(null); }}
+                      data-testid={`button-action-shortlist-menu-${room.id}`}
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition"
+                    >
+                      <Star size={14} className="text-[#277254]" />
+                      Shortlisting Rules
                     </button>
 
                     <div className="my-1 border-t border-[#eef0e7]" />
@@ -662,6 +689,20 @@ export function RoomList({
           isOpen={Boolean(rankedRoom)}
           onClose={() => setRankedRoom(null)}
           room={rankedRoom}
+          notify={notify}
+        />
+      )}
+
+      {/* Automatic Shortlisting Modal (US-25) */}
+      {shortlistRoom && (
+        <ShortlistConfigModal
+          isOpen={Boolean(shortlistRoom)}
+          onClose={() => setShortlistRoom(null)}
+          room={shortlistRoom}
+          onShortlistSaved={(updated) => {
+            onRoomUpdated(updated);
+            setShortlistRoom(updated);
+          }}
           notify={notify}
         />
       )}

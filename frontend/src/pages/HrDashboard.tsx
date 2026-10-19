@@ -30,6 +30,7 @@ import { apiGetRooms, type RecruitmentRoom } from '../api/recruitment';
 import { RoomCreateModal } from '../components/recruitment/RoomCreateModal';
 import { RoomCvScoresModal } from '../components/recruitment/RoomCvScoresModal';
 import { RankedApplicantsModal } from '../components/recruitment/RankedApplicantsModal';
+import { ShortlistConfigModal } from '../components/recruitment/ShortlistConfigModal';
 
 export function HrDashboard({ notify }: { notify: Notify }) {
   const [, setLocation] = useLocation();
@@ -39,6 +40,7 @@ export function HrDashboard({ notify }: { notify: Notify }) {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [selectedRoomForCvScores, setSelectedRoomForCvScores] = useState<RecruitmentRoom | null>(null);
   const [selectedRoomForRanking, setSelectedRoomForRanking] = useState<RecruitmentRoom | null>(null);
+  const [selectedRoomForShortlist, setSelectedRoomForShortlist] = useState<RecruitmentRoom | null>(null);
 
   const user = useMemo(() => {
     try {
@@ -177,7 +179,13 @@ export function HrDashboard({ notify }: { notify: Notify }) {
           </div>
           <button
             type="button"
-            onClick={() => handleAction('Review Shortlist')}
+            onClick={() => {
+              if (rooms.length > 0) {
+                setSelectedRoomForShortlist(rooms[0]);
+              } else {
+                handleAction('Review Shortlist');
+              }
+            }}
             data-testid="button-view-shortlisted-dashboard"
             className="mt-5 inline-flex w-fit items-center gap-2 rounded-xl bg-[#303e50] px-4 py-2.5 text-xs font-bold text-[#f5c84b] hover:bg-[#3b4c62] transition"
           >
@@ -247,6 +255,22 @@ export function HrDashboard({ notify }: { notify: Notify }) {
                 {rooms.map((r) => (
                   <option key={r.id} value={r.id}>
                     🏆 {r.title} Leaderboard
+                  </option>
+                ))}
+              </select>
+              <select
+                onChange={(e) => {
+                  const r = rooms.find((x) => x.id === Number(e.target.value));
+                  if (r) setSelectedRoomForShortlist(r);
+                }}
+                defaultValue=""
+                data-testid="select-room-shortlist-dashboard"
+                className="min-w-0 flex-1 sm:flex-none rounded-xl border border-[#a7d7c1] bg-[#e2f0e9]/60 px-3 py-1.5 text-xs font-bold text-[#1f5b43] focus:outline-none focus:ring-2 focus:ring-[#277254]/30"
+              >
+                <option value="" disabled>⭐ View Room Shortlist…</option>
+                {rooms.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    ⭐ {r.title} Shortlist
                   </option>
                 ))}
               </select>
@@ -464,6 +488,20 @@ export function HrDashboard({ notify }: { notify: Notify }) {
           isOpen={Boolean(selectedRoomForRanking)}
           onClose={() => setSelectedRoomForRanking(null)}
           room={selectedRoomForRanking}
+          notify={notify}
+        />
+      )}
+
+      {/* US-25 Room Automatic Shortlisting Modal */}
+      {selectedRoomForShortlist && (
+        <ShortlistConfigModal
+          isOpen={Boolean(selectedRoomForShortlist)}
+          onClose={() => setSelectedRoomForShortlist(null)}
+          room={selectedRoomForShortlist}
+          onShortlistSaved={(updated) => {
+            setRooms((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+            setSelectedRoomForShortlist(updated);
+          }}
           notify={notify}
         />
       )}

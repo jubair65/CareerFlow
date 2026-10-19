@@ -70,9 +70,10 @@ def extract_cv_match_score(application: CandidateApplication) -> Optional[float]
     US-23-T3: Integrates CV match score (US-09/US-10) for an application.
     Leverages matcher_bridge.get_applicant_cv_score_data to resolve or compute
     the match score against the room's job requirements.
+    Falls back to cached cv_score if available.
     """
     if not application.cv:
-        return None
+        return application.cv_score
 
     try:
         from apps.recruitment.services.matcher_bridge import get_applicant_cv_score_data
@@ -83,16 +84,17 @@ def extract_cv_match_score(application: CandidateApplication) -> Optional[float]
     except Exception as e:
         logger.warning(f"Failed to extract CV match score for application #{application.id}: {e}")
 
-    return None
+    return application.cv_score
 
 
 def extract_video_presentation_score(application: CandidateApplication) -> Optional[float]:
     """
     US-23-T3: Integrates Video presentation score (US-14) for an application.
     Extracts overall_score from PresentationScore associated with application.video.
+    Falls back to cached video_score if available.
     """
     if not application.video:
-        return None
+        return application.video_score
 
     try:
         video = application.video
@@ -108,7 +110,7 @@ def extract_video_presentation_score(application: CandidateApplication) -> Optio
     except Exception as e:
         logger.warning(f"Failed to extract video presentation score for application #{application.id}: {e}")
 
-    return None
+    return application.video_score
 
 
 def compute_weighted_score(
@@ -247,6 +249,14 @@ def calculate_room_applicant_scores(
         res = calculate_application_score(app, persist=True)
         if res.get("final_score") is not None:
             updated_count += 1
+
+    # US-25: Recalculate automatic shortlisting if active
+    if getattr(room, 'shortlist_strategy', None) and room.shortlist_strategy != RecruitmentRoom.ShortlistStrategy.NONE:
+        try:
+            from apps.recruitment.services.shortlisting_service import evaluate_room_shortlist
+            evaluate_room_shortlist(room, persist=True)
+        except Exception as e:
+            logger.warning(f"Failed to auto-evaluate shortlist for room #{room.id} after score calculation: {e}")
 
     return {
         "message": "Scores successfully calculated for all room applicants",

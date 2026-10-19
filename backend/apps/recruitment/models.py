@@ -86,6 +86,30 @@ class RecruitmentRoom(models.Model):
         help_text="Optional expiration timestamp for the shareable link"
     )
 
+    # US-25: Automatic Candidate Shortlisting Foundation
+    class ShortlistStrategy(models.TextChoices):
+        NONE = 'NONE', 'None (Disabled)'
+        MIN_SCORE = 'MIN_SCORE', 'Minimum Score Threshold'
+        TOP_N = 'TOP_N', 'Top Candidates (Top N)'
+        COMBINED = 'COMBINED', 'Top N meeting Minimum Score'
+
+    shortlist_strategy = models.CharField(
+        max_length=20,
+        choices=ShortlistStrategy.choices,
+        default=ShortlistStrategy.NONE,
+        help_text="Configured automatic shortlisting strategy"
+    )
+    shortlist_min_score = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Minimum final score required for shortlisting (0.0 - 100.0)"
+    )
+    shortlist_top_n = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Required candidate count / top N applicants to shortlist"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -204,6 +228,23 @@ class CandidateApplication(models.Model):
         null=True,
         blank=True,
         help_text="Timestamp when final score was last computed"
+    )
+    # --- SPRINT 5 ENHANCEMENTS: US-25 Automatic Candidate Shortlisting ---
+    is_shortlisted = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Whether candidate is currently shortlisted"
+    )
+    shortlist_reason = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Reason or criteria match explanation for shortlist status"
+    )
+    shortlisted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp when candidate was shortlisted"
     )
     applied_at = models.DateTimeField(auto_now_add=True)
     

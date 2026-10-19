@@ -24,6 +24,9 @@ class RecruitmentRoomSerializer(serializers.ModelSerializer):
             'skills_required',
             'cv_weight',
             'video_weight',
+            'shortlist_strategy',
+            'shortlist_min_score',
+            'shortlist_top_n',
             'share_token',
             'share_url',
             'link_is_active',
@@ -364,6 +367,9 @@ class CandidateApplicationScoreSerializer(serializers.ModelSerializer):
             'final_score',
             'is_partial_score',
             'score_calculated_at',
+            'is_shortlisted',
+            'shortlist_reason',
+            'shortlisted_at',
             'status',
             'applied_at',
         ]
@@ -386,6 +392,9 @@ class RankedApplicantItemSerializer(serializers.Serializer):
     video_score = serializers.FloatField(allow_null=True)
     is_partial_score = serializers.BooleanField()
     score_calculated_at = serializers.DateTimeField(allow_null=True)
+    is_shortlisted = serializers.BooleanField(default=False)
+    shortlist_reason = serializers.CharField(allow_blank=True, default='')
+    shortlisted_at = serializers.DateTimeField(allow_null=True, required=False)
     status = serializers.CharField()
     applied_at = serializers.DateTimeField()
 
@@ -423,6 +432,83 @@ class RankedApplicantsResponseSerializer(serializers.Serializer):
     unranked_count = serializers.IntegerField()
     results = RankedApplicantItemSerializer(many=True)
     unranked = UnrankedApplicantItemSerializer(many=True)
+
+
+class RoomShortlistCriteriaSerializer(serializers.ModelSerializer):
+    """
+    US-25-T2: Serializer for configuring and viewing automatic shortlisting criteria for a Room.
+    Enforces validation on strategy choices, min_score (0-100), and top_n (>=1).
+    """
+    shortlist_strategy_display = serializers.CharField(source='get_shortlist_strategy_display', read_only=True)
+
+    class Meta:
+        model = RecruitmentRoom
+        fields = [
+            'id',
+            'title',
+            'company_name',
+            'shortlist_strategy',
+            'shortlist_strategy_display',
+            'shortlist_min_score',
+            'shortlist_top_n',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'title', 'company_name', 'shortlist_strategy_display', 'updated_at']
+
+    def validate(self, attrs):
+        strategy = attrs.get(
+            'shortlist_strategy',
+            self.instance.shortlist_strategy if self.instance else RecruitmentRoom.ShortlistStrategy.NONE
+        )
+        min_score = attrs.get(
+            'shortlist_min_score',
+            self.instance.shortlist_min_score if self.instance else None
+        )
+        top_n = attrs.get(
+            'shortlist_top_n',
+            self.instance.shortlist_top_n if self.instance else None
+        )
+
+        from .services.shortlisting_service import validate_shortlisting_criteria
+        is_valid, errors = validate_shortlisting_criteria(strategy, min_score, top_n)
+        if not is_valid:
+            raise serializers.ValidationError(errors)
+
+        return attrs
+
+
+class ShortlistedApplicantItemSerializer(serializers.Serializer):
+    """
+    US-25-T2 & US-25-T4: Serializer for candidates evaluated in the room shortlist.
+    """
+    application_id = serializers.IntegerField()
+    candidate_id = serializers.IntegerField()
+    candidate_name = serializers.CharField(allow_blank=True)
+    candidate_email = serializers.EmailField()
+    rank = serializers.IntegerField(allow_null=True)
+    final_score = serializers.FloatField(allow_null=True)
+    cv_score = serializers.FloatField(allow_null=True)
+    video_score = serializers.FloatField(allow_null=True)
+    is_shortlisted = serializers.BooleanField()
+    shortlist_reason = serializers.CharField(allow_blank=True)
+    shortlisted_at = serializers.DateTimeField(allow_null=True)
+
+
+class RoomShortlistResponseSerializer(serializers.Serializer):
+    """
+    US-25-T2: Complete response serializer for Room Shortlist configuration & evaluated applicants.
+    """
+    room_id = serializers.IntegerField()
+    room_title = serializers.CharField()
+    strategy = serializers.CharField()
+    min_score = serializers.FloatField(allow_null=True)
+    top_n = serializers.IntegerField(allow_null=True)
+    total_applicants = serializers.IntegerField()
+    shortlisted_count = serializers.IntegerField()
+    non_shortlisted_count = serializers.IntegerField()
+    shortlisted_applicants = ShortlistedApplicantItemSerializer(many=True)
+    all_applicants = ShortlistedApplicantItemSerializer(many=True)
+
 
 
 
