@@ -30,6 +30,7 @@ import {
   apiEvaluateRoomShortlist,
   apiGetShortlistedApplicants,
 } from '../../api/recruitment';
+import { CandidateReviewModal } from './CandidateReviewModal';
 
 interface ShortlistConfigModalProps {
   isOpen: boolean;
@@ -64,6 +65,7 @@ export function ShortlistConfigModal({
   const [shortlistData, setShortlistData] = useState<RoomShortlistResponse | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [applicantFilter, setApplicantFilter] = useState<ApplicantFilter>('ALL');
+  const [selectedAppForReview, setSelectedAppForReview] = useState<number | null>(null);
 
   // Load criteria and candidates on open
   useEffect(() => {
@@ -674,6 +676,7 @@ export function ShortlistConfigModal({
                         <th className="px-4 py-3">Final Score</th>
                         <th className="px-4 py-3">Status</th>
                         <th className="px-4 py-3">Shortlist Reason / Criteria Explanation</th>
+                        <th className="px-4 py-3 text-right">Human Review</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#eef0e7]">
@@ -764,11 +767,23 @@ export function ShortlistConfigModal({
                                 </div>
                               )}
                             </td>
+
+                            {/* Human Review Button (US-26) */}
+                            <td className="px-4 py-3.5 text-right">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedAppForReview(app.application_id)}
+                                data-testid={`btn-review-applicant-${app.application_id}`}
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-[#d9dbd1] bg-white px-2.5 py-1 text-xs font-bold text-[#253142] hover:bg-[#253142] hover:text-white transition shadow-2xs"
+                              >
+                                <span>Review</span>
+                              </button>
+                            </td>
                           </tr>
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={4} className="p-8 text-center text-xs text-[#7b8490]">
+                          <td colSpan={5} className="p-8 text-center text-xs text-[#7b8490]">
                             {searchQuery || applicantFilter !== 'ALL'
                               ? 'No candidates match your current search or status filter.'
                               : 'No applicants found in this room yet.'}
@@ -800,6 +815,20 @@ export function ShortlistConfigModal({
           </button>
         </div>
       </div>
+
+      {/* US-26: Candidate Review and Human Decision Modal */}
+      {selectedAppForReview && (
+        <CandidateReviewModal
+          isOpen={Boolean(selectedAppForReview)}
+          onClose={() => setSelectedAppForReview(null)}
+          applicationId={selectedAppForReview}
+          onDecisionRecorded={(_appId, _decision) => {
+            fetchShortlistData(false);
+          }}
+          notify={notify}
+        />
+      )}
     </div>
   );
 }
+

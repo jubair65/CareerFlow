@@ -1,6 +1,12 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import RecruitmentRoomViewSet, PublicApplicationView, PublicApplicationSubmitView
+from .views import (
+    RecruitmentRoomViewSet,
+    PublicApplicationView,
+    PublicApplicationSubmitView,
+    CandidateApplicationDecisionView,
+    CandidateApplicationReviewDetailView,
+)
 
 app_name = 'recruitment'
 
@@ -8,8 +14,13 @@ router = DefaultRouter()
 router.register(r'rooms', RecruitmentRoomViewSet, basename='room')
 
 urlpatterns = [
+    # US-26: HR Candidate Review & Decision Endpoints
+    path('applications/<int:application_id>/decision/', CandidateApplicationDecisionView.as_view(), name='application-decision'),
+    path('applications/<int:application_id>/review/', CandidateApplicationReviewDetailView.as_view(), name='application-review-detail'),
+
     path('apply/<str:token>/submit/', PublicApplicationSubmitView.as_view(), name='public-apply-submit'),
     path('apply/<str:token>/', PublicApplicationView.as_view(), name='public-apply'),
     path('', include(router.urls)),
 ]
+
 

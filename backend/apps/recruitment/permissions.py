@@ -28,3 +28,22 @@ class IsRoomOwner(BasePermission):
             request.user.is_authenticated and
             obj.created_by == request.user
         )
+
+
+class IsApplicationRoomOwner(BasePermission):
+    """
+    US-26-T5: Object-level permission to ensure only the HR Manager who owns
+    the RecruitmentRoom can view applicant details and record human decisions.
+    """
+    message = "Access forbidden: Only the HR Manager who owns this recruitment room can review or record decisions."
+
+    def has_object_permission(self, request, view, obj):
+        room = getattr(obj, 'room', None)
+        room_owner = getattr(room, 'created_by', None) if room else None
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            request.user.role == User.Role.HR_MANAGER and
+            room_owner == request.user
+        )
+

@@ -246,6 +246,39 @@ class CandidateApplication(models.Model):
         blank=True,
         help_text="Timestamp when candidate was shortlisted"
     )
+    # --- SPRINT 5 ENHANCEMENTS: US-26 HR Review of AI Results & Audit Trail ---
+    class HrDecision(models.TextChoices):
+        UNDECIDED = 'UNDECIDED', 'Pending HR Review'
+        CONFIRMED = 'CONFIRMED', 'Shortlist Confirmed'
+        OVERRIDDEN = 'OVERRIDDEN', 'AI Recommendation Overridden'
+        REJECTED = 'REJECTED', 'Candidate Rejected'
+        ON_HOLD = 'ON_HOLD', 'Application On Hold'
+
+    hr_decision = models.CharField(
+        max_length=25,
+        choices=HrDecision.choices,
+        default=HrDecision.UNDECIDED,
+        db_index=True,
+        help_text="Human HR Manager final decision"
+    )
+    hr_decision_notes = models.TextField(
+        blank=True,
+        default="",
+        help_text="Reason or audit notes from HR reviewer"
+    )
+    hr_decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='hr_reviewed_applications',
+        help_text="HR user who recorded the review decision"
+    )
+    hr_decided_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp when HR review decision was recorded"
+    )
     applied_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:

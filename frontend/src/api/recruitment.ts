@@ -630,3 +630,108 @@ export async function apiGetShortlistedApplicants(
 }
 
 
+// ============================================================================
+// US-26: HR Candidate Review of AI Results & Human Decision APIs
+// ============================================================================
+
+export type HrDecisionType = 'UNDECIDED' | 'CONFIRMED' | 'OVERRIDDEN' | 'REJECTED' | 'ON_HOLD';
+
+export interface CandidateReviewCvSummary {
+  has_cv: boolean;
+  cv_filename: string | null;
+  cv_score: number | null;
+  skills_matched: string[];
+  skills_missing: string[];
+  match_score: number | null;
+  keyword_coverage?: number;
+}
+
+export interface CandidateReviewVideoSummary {
+  has_video: boolean;
+  video_score: number | null;
+  grade_label: string;
+  speech_score: number | null;
+  visual_score: number | null;
+  filler_words_count: number;
+  wpm: number;
+  summary: string;
+  strengths: string[];
+  improvements: { category?: string; observation?: string; actionable_drill?: string }[];
+}
+
+export interface CandidateReviewDetail {
+  application_id: number;
+  room_id: number;
+  room_title: string;
+  candidate_id: number;
+  candidate_name: string;
+  candidate_email: string;
+  status: string;
+  applied_at: string;
+  final_score: number | null;
+  cv_score: number | null;
+  video_score: number | null;
+  cv_weight: number;
+  video_weight: number;
+  is_partial_score: boolean;
+  score_calculated_at: string | null;
+  is_shortlisted: boolean;
+  shortlist_reason: string;
+  shortlisted_at: string | null;
+  ai_recommendation: 'RECOMMENDED_SHORTLIST' | 'NOT_RECOMMENDED';
+  ai_recommendation_label: string;
+  ai_disclaimer: string;
+  cv_summary: CandidateReviewCvSummary;
+  video_summary: CandidateReviewVideoSummary;
+  hr_decision: HrDecisionType;
+  hr_decision_display: string;
+  hr_decision_notes: string;
+  hr_decided_by_email: string | null;
+  hr_decided_by_name: string | null;
+  hr_decided_at: string | null;
+}
+
+export interface CandidateDecisionPayload {
+  decision: 'CONFIRMED' | 'OVERRIDDEN' | 'REJECTED' | 'ON_HOLD';
+  notes?: string;
+}
+
+export interface CandidateDecisionResponse {
+  application_id: number;
+  hr_decision: string;
+  hr_decision_display: string;
+  hr_decision_notes: string;
+  hr_decided_by: string;
+  hr_decided_at: string;
+  is_shortlisted: boolean;
+  message: string;
+}
+
+/**
+ * US-26-T2: Fetch complete candidate review details (CV, video, AI recommendation, and HR decision history).
+ */
+export async function apiGetCandidateReviewDetail(
+  applicationId: number | string
+): Promise<CandidateReviewDetail> {
+  const response = await apiClient.get<CandidateReviewDetail>(
+    `/recruitment/applications/${applicationId}/review/`
+  );
+  return response.data;
+}
+
+/**
+ * US-26-T3: Submit authoritative HR hiring decision (Confirm, Override, Reject, Hold).
+ */
+export async function apiSubmitCandidateDecision(
+  applicationId: number | string,
+  payload: CandidateDecisionPayload
+): Promise<CandidateDecisionResponse> {
+  const response = await apiClient.post<CandidateDecisionResponse>(
+    `/recruitment/applications/${applicationId}/decision/`,
+    payload
+  );
+  return response.data;
+}
+
+
+

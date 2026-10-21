@@ -510,6 +510,98 @@ class RoomShortlistResponseSerializer(serializers.Serializer):
     all_applicants = ShortlistedApplicantItemSerializer(many=True)
 
 
+# ============================================================================
+# US-26: HR Review of AI Results & Human Decision Audit Trail
+# ============================================================================
+
+class CandidateDecisionSubmitSerializer(serializers.Serializer):
+    """
+    US-26-T3: Validates human HR decision submission on a candidate application.
+    Enforces that overriding an AI recommendation strictly requires an explanatory note.
+    """
+    DECISION_CHOICES = [
+        ('CONFIRMED', 'Shortlist Confirmed'),
+        ('OVERRIDDEN', 'AI Recommendation Overridden'),
+        ('REJECTED', 'Candidate Rejected'),
+        ('ON_HOLD', 'Application On Hold'),
+    ]
+
+    decision = serializers.ChoiceField(choices=DECISION_CHOICES)
+    notes = serializers.CharField(required=False, allow_blank=True, default='')
+
+    def validate(self, attrs):
+        decision = attrs.get('decision')
+        notes = (attrs.get('notes') or '').strip()
+
+        # US-26 AC#3 & US-26-T6: Require explanatory note when overriding AI recommendation
+        if decision == 'OVERRIDDEN' and (not notes or len(notes) < 5):
+            raise serializers.ValidationError({
+                "notes": "An explanatory note (minimum 5 characters) is required when overriding the AI recommendation."
+            })
+
+        attrs['notes'] = notes
+        return attrs
+
+
+class CandidateReviewDetailSerializer(serializers.Serializer):
+    """
+    US-26-T2: Comprehensive candidate review serializer combining scores,
+    CV summary, video presentation metrics, AI recommendation, and HR decision audit trail.
+    """
+    application_id = serializers.IntegerField()
+    room_id = serializers.IntegerField()
+    room_title = serializers.CharField()
+    candidate_id = serializers.IntegerField()
+    candidate_name = serializers.CharField(allow_blank=True)
+    candidate_email = serializers.EmailField()
+    status = serializers.CharField()
+    applied_at = serializers.DateTimeField()
+
+    # Scores
+    final_score = serializers.FloatField(allow_null=True)
+    cv_score = serializers.FloatField(allow_null=True)
+    video_score = serializers.FloatField(allow_null=True)
+    cv_weight = serializers.IntegerField()
+    video_weight = serializers.IntegerField()
+    is_partial_score = serializers.BooleanField()
+    score_calculated_at = serializers.DateTimeField(allow_null=True)
+
+    # AI Shortlist Recommendation (Clearly advisory per US-26 AC#5)
+    is_shortlisted = serializers.BooleanField()
+    shortlist_reason = serializers.CharField(allow_blank=True)
+    shortlisted_at = serializers.DateTimeField(allow_null=True)
+    ai_recommendation = serializers.CharField()
+    ai_recommendation_label = serializers.CharField()
+    ai_disclaimer = serializers.CharField()
+
+    # Detailed signals
+    cv_summary = serializers.DictField(default=dict)
+    video_summary = serializers.DictField(default=dict)
+
+    # Human HR Review Decision & Audit Trail (US-26 AC#4)
+    hr_decision = serializers.CharField()
+    hr_decision_display = serializers.CharField()
+    hr_decision_notes = serializers.CharField(allow_blank=True)
+    hr_decided_by_email = serializers.EmailField(allow_null=True)
+    hr_decided_by_name = serializers.CharField(allow_null=True, allow_blank=True)
+    hr_decided_at = serializers.DateTimeField(allow_null=True)
+
+
+class CandidateDecisionResponseSerializer(serializers.Serializer):
+    """
+    US-26-T3: Response serializer after recording human HR review decision.
+    """
+    application_id = serializers.IntegerField()
+    hr_decision = serializers.CharField()
+    hr_decision_display = serializers.CharField()
+    hr_decision_notes = serializers.CharField(allow_blank=True)
+    hr_decided_by = serializers.CharField()
+    hr_decided_at = serializers.DateTimeField()
+    is_shortlisted = serializers.BooleanField()
+    message = serializers.CharField()
+
+
+
 
 
 

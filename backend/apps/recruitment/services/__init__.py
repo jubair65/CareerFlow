@@ -22,6 +22,10 @@ from .shortlisting_service import (
     evaluate_room_shortlist,
     validate_shortlisting_criteria,
 )
+from .review_service import (
+    get_candidate_review_data,
+    record_candidate_review_decision,
+)
 
 __all__ = [
     'extract_room_skills',
@@ -37,4 +41,7 @@ __all__ = [
     'get_rank_badge',
     'evaluate_room_shortlist',
     'validate_shortlisting_criteria',
+    'get_candidate_review_data',
+    'record_candidate_review_decision',
 ]
+
