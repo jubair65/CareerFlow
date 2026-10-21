@@ -17,6 +17,7 @@ import {
   SlidersHorizontal,
   FileText,
   Video,
+  Calculator,
 } from 'lucide-react';
 import type {
   RecruitmentRoom,
@@ -25,6 +26,7 @@ import type {
   RankedApplicantsResponse,
 } from '../../api/recruitment';
 import { apiGetRankedApplicants, apiCalculateRoomScores } from '../../api/recruitment';
+import { ScoreBreakdownModal } from './ScoreBreakdownModal';
 
 interface RankedApplicantsModalProps {
   isOpen: boolean;
@@ -58,6 +60,8 @@ export function RankedApplicantsModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [minScoreFilter, setMinScoreFilter] = useState<number>(0);
   const [sortBy, setSortBy] = useState<SortOption>('-final_score');
+  const [breakdownAppId, setBreakdownAppId] = useState<number | null>(null);
+  const [breakdownCandidateName, setBreakdownCandidateName] = useState<string | undefined>(undefined);
 
   const fetchRankings = async (showLoadingSpinner = true) => {
     if (!room) return;
@@ -441,7 +445,7 @@ export function RankedApplicantsModal({
                       </div>
                     </div>
 
-                    {/* Right: Final Composite Score Meter */}
+                    {/* Right: Final Composite Score Meter & Breakdown Action */}
                     <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
                       <div className="text-right">
                         <div
@@ -462,6 +466,20 @@ export function RankedApplicantsModal({
                           />
                         </div>
                       </div>
+
+                      <button
+                        type="button"
+                        data-testid={`btn-score-breakdown-${applicant.application_id}`}
+                        onClick={() => {
+                          setBreakdownAppId(applicant.application_id);
+                          setBreakdownCandidateName(applicant.candidate_name);
+                        }}
+                        className="px-2.5 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/60 dark:bg-indigo-950/40 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 text-indigo-700 dark:text-indigo-300 font-semibold text-xs transition flex items-center gap-1.5 shadow-xs"
+                        title="View Explainable Score Breakdown"
+                      >
+                        <Calculator className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Breakdown</span>
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -541,6 +559,17 @@ export function RankedApplicantsModal({
           </button>
         </div>
       </div>
+
+      {/* US-27: Explainable Applicant Score Breakdown Modal */}
+      {breakdownAppId && (
+        <ScoreBreakdownModal
+          isOpen={Boolean(breakdownAppId)}
+          onClose={() => setBreakdownAppId(null)}
+          applicationId={breakdownAppId}
+          candidateName={breakdownCandidateName}
+          notify={notify}
+        />
+      )}
     </div>
   );
 }
