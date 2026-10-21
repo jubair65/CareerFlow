@@ -17,8 +17,10 @@ from .serializers import (
     RoomShortlistCriteriaSerializer,
     ShortlistedApplicantItemSerializer,
     RoomShortlistResponseSerializer,
+    ApplicantScoreBreakdownSerializer,
 )
-from .permissions import IsHRManager, IsRoomOwner
+from .permissions import IsHRManager, IsRoomOwner, IsApplicationRoomOwner
+from .services.breakdown_service import get_applicant_score_breakdown
 from .services.matcher_bridge import (
     sync_room_to_job_requirement,
     get_room_applicants_cv_scores,
@@ -581,4 +583,31 @@ class PublicApplicationSubmitView(APIView):
             },
             status=status.HTTP_201_CREATED
         )
+
+
+# ============================================================================
+# US-27: Explainable Applicant Score Breakdown & Transparency API
+# ============================================================================
+
+class ApplicantScoreBreakdownView(APIView):
+    """
+    US-27-T2, US-27-T4, US-27-T5: Retrieve explainable score breakdown for an applicant.
+    Exposes CV and Video point contributions, weights applied, formula representation,
+    and graceful degradation explanations for missing components.
+    GET /api/recruitment/applications/<application_id>/score-breakdown/
+    """
+    permission_classes = [permissions.IsAuthenticated, IsHRManager, IsApplicationRoomOwner]
+
+    def get(self, request, application_id):
+        from django.shortcuts import get_object_or_404
+        from .models import CandidateApplication
+        application = get_object_or_404(
+            CandidateApplication.objects.select_related('room', 'candidate', 'cv', 'video'),
+            id=application_id
+        )
+        self.check_object_permissions(request, application)
+
+        data = get_applicant_score_breakdown(application, request_user=request.user, request=request)
+        serializer = ApplicantScoreBreakdownSerializer(data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 

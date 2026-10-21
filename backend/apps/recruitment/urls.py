@@ -1,6 +1,11 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import RecruitmentRoomViewSet, PublicApplicationView, PublicApplicationSubmitView
+from .views import (
+    RecruitmentRoomViewSet,
+    PublicApplicationView,
+    PublicApplicationSubmitView,
+    ApplicantScoreBreakdownView,
+)
 
 app_name = 'recruitment'
 
@@ -8,6 +13,9 @@ router = DefaultRouter()
 router.register(r'rooms', RecruitmentRoomViewSet, basename='room')
 
 urlpatterns = [
+    # US-27: Explainable Applicant Score Breakdown
+    path('applications/<int:application_id>/score-breakdown/', ApplicantScoreBreakdownView.as_view(), name='applicant-score-breakdown'),
+
     path('apply/<str:token>/submit/', PublicApplicationSubmitView.as_view(), name='public-apply-submit'),
     path('apply/<str:token>/', PublicApplicationView.as_view(), name='public-apply'),
     path('', include(router.urls)),

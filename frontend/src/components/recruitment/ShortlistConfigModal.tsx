@@ -17,6 +17,7 @@ import {
   XCircle,
   Clock,
   Sparkles,
+  Calculator,
 } from 'lucide-react';
 import type {
   RecruitmentRoom,
@@ -30,6 +31,7 @@ import {
   apiEvaluateRoomShortlist,
   apiGetShortlistedApplicants,
 } from '../../api/recruitment';
+import { ScoreBreakdownModal } from './ScoreBreakdownModal';
 
 interface ShortlistConfigModalProps {
   isOpen: boolean;
@@ -64,6 +66,7 @@ export function ShortlistConfigModal({
   const [shortlistData, setShortlistData] = useState<RoomShortlistResponse | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [applicantFilter, setApplicantFilter] = useState<ApplicantFilter>('ALL');
+  const [selectedBreakdownApp, setSelectedBreakdownApp] = useState<{ id: number; name: string } | null>(null);
 
   // Load criteria and candidates on open
   useEffect(() => {
@@ -717,9 +720,26 @@ export function ShortlistConfigModal({
                             <td className="px-4 py-3.5">
                               {app.final_score !== null ? (
                                 <div className="space-y-0.5">
-                                  <span className="inline-flex items-center gap-1 rounded-md bg-[#e2f0e9] px-2 py-0.5 text-xs font-bold text-[#277254]">
-                                    {app.final_score.toFixed(1)}%
-                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-[#e2f0e9] px-2 py-0.5 text-xs font-bold text-[#277254]">
+                                      {app.final_score.toFixed(1)}%
+                                    </span>
+                                    {/* US-27: Score Breakdown Trigger Button */}
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setSelectedBreakdownApp({
+                                          id: app.application_id,
+                                          name: app.candidate_name,
+                                        })
+                                      }
+                                      data-testid={`btn-breakdown-shortlist-${app.application_id}`}
+                                      title="View Explainable Score Breakdown"
+                                      className="p-1 rounded text-[#526072] hover:text-[#253142] hover:bg-[#eef0e7] transition"
+                                    >
+                                      <Calculator size={13} />
+                                    </button>
+                                  </div>
                                   <div className="text-[10px] text-[#7b8490]">
                                     CV: {app.cv_score !== null ? `${app.cv_score}%` : 'N/A'} • Vid:{' '}
                                     {app.video_score !== null ? `${app.video_score}%` : 'N/A'}
@@ -800,6 +820,17 @@ export function ShortlistConfigModal({
           </button>
         </div>
       </div>
+
+      {/* US-27: Transparent Score Breakdown Modal */}
+      {selectedBreakdownApp && (
+        <ScoreBreakdownModal
+          isOpen={Boolean(selectedBreakdownApp)}
+          onClose={() => setSelectedBreakdownApp(null)}
+          applicationId={selectedBreakdownApp.id}
+          candidateName={selectedBreakdownApp.name}
+          notify={notify}
+        />
+      )}
     </div>
   );
 }

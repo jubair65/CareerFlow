@@ -22,6 +22,7 @@ from .shortlisting_service import (
     evaluate_room_shortlist,
     validate_shortlisting_criteria,
 )
+from .breakdown_service import get_applicant_score_breakdown
 
 __all__ = [
     'extract_room_skills',
@@ -37,4 +38,5 @@ __all__ = [
     'get_rank_badge',
     'evaluate_room_shortlist',
     'validate_shortlisting_criteria',
+    'get_applicant_score_breakdown',
 ]

@@ -17,6 +17,7 @@ import {
   SlidersHorizontal,
   FileText,
   Video,
+  Calculator,
 } from 'lucide-react';
 import type {
   RecruitmentRoom,
@@ -25,6 +26,7 @@ import type {
   RankedApplicantsResponse,
 } from '../../api/recruitment';
 import { apiGetRankedApplicants, apiCalculateRoomScores } from '../../api/recruitment';
+import { ScoreBreakdownModal } from './ScoreBreakdownModal';
 
 interface RankedApplicantsModalProps {
   isOpen: boolean;
@@ -58,6 +60,7 @@ export function RankedApplicantsModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [minScoreFilter, setMinScoreFilter] = useState<number>(0);
   const [sortBy, setSortBy] = useState<SortOption>('-final_score');
+  const [selectedBreakdownApp, setSelectedBreakdownApp] = useState<{ id: number; name: string } | null>(null);
 
   const fetchRankings = async (showLoadingSpinner = true) => {
     if (!room) return;
@@ -441,7 +444,7 @@ export function RankedApplicantsModal({
                       </div>
                     </div>
 
-                    {/* Right: Final Composite Score Meter */}
+                    {/* Right: Final Composite Score Meter & Breakdown Trigger */}
                     <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
                       <div className="text-right">
                         <div
@@ -462,6 +465,22 @@ export function RankedApplicantsModal({
                           />
                         </div>
                       </div>
+
+                      {/* US-27: Score Breakdown Trigger Button */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedBreakdownApp({
+                            id: applicant.application_id,
+                            name: applicant.candidate_name,
+                          })
+                        }
+                        data-testid={`btn-breakdown-applicant-${applicant.application_id}`}
+                        title="View Transparent Score Breakdown"
+                        className="p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-500 transition shadow-2xs"
+                      >
+                        <Calculator className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -541,6 +560,17 @@ export function RankedApplicantsModal({
           </button>
         </div>
       </div>
+
+      {/* US-27: Transparent Score Breakdown Modal */}
+      {selectedBreakdownApp && (
+        <ScoreBreakdownModal
+          isOpen={Boolean(selectedBreakdownApp)}
+          onClose={() => setSelectedBreakdownApp(null)}
+          applicationId={selectedBreakdownApp.id}
+          candidateName={selectedBreakdownApp.name}
+          notify={notify}
+        />
+      )}
     </div>
   );
 }
