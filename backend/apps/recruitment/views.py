@@ -17,8 +17,15 @@ from .serializers import (
     RoomShortlistCriteriaSerializer,
     ShortlistedApplicantItemSerializer,
     RoomShortlistResponseSerializer,
+    CandidateDecisionSubmitSerializer,
+    CandidateReviewDetailSerializer,
+    CandidateDecisionResponseSerializer,
 )
-from .permissions import IsHRManager, IsRoomOwner
+from .permissions import IsHRManager, IsRoomOwner, IsApplicationRoomOwner
+from .services.review_service import (
+    get_candidate_review_data,
+    record_candidate_review_decision,
+)
 from .services.matcher_bridge import (
     sync_room_to_job_requirement,
     get_room_applicants_cv_scores,
@@ -581,4 +588,76 @@ class PublicApplicationSubmitView(APIView):
             },
             status=status.HTTP_201_CREATED
         )
+
+
+# ============================================================================
+# US-26: HR Candidate Review of AI Results & Human Decision APIs
+# ============================================================================
+
+class CandidateApplicationReviewDetailView(APIView):
+    """
+    US-26-T2: Retrieve granular review details for an applicant including
+    candidate metadata, CV breakdown, video metrics, advisory AI recommendation,
+    and current HR decision state.
+    GET /api/recruitment/applications/<application_id>/review/
+    """
+    permission_classes = [permissions.IsAuthenticated, IsHRManager, IsApplicationRoomOwner]
+
+    def get(self, request, application_id):
+        from django.shortcuts import get_object_or_404
+        application = get_object_or_404(
+            CandidateApplication.objects.select_related('room', 'candidate', 'cv', 'video', 'hr_decided_by'),
+            id=application_id
+        )
+        self.check_object_permissions(request, application)
+
+        data = get_candidate_review_data(application, request_user=request.user, request=request)
+        serializer = CandidateReviewDetailSerializer(data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CandidateApplicationDecisionView(APIView):
+    """
+    US-26-T3 & US-26-T5: Record human HR Manager hiring decision on a candidate application.
+    Supports CONFIRMED, OVERRIDDEN, REJECTED, and ON_HOLD.
+    Enforces mandatory justification note if overriding the AI recommendation.
+    POST /api/recruitment/applications/<application_id>/decision/
+    GET  /api/recruitment/applications/<application_id>/decision/
+    """
+    permission_classes = [permissions.IsAuthenticated, IsHRManager, IsApplicationRoomOwner]
+
+    def get_object(self, application_id):
+        from django.shortcuts import get_object_or_404
+        application = get_object_or_404(
+            CandidateApplication.objects.select_related('room', 'candidate', 'cv', 'video', 'hr_decided_by'),
+            id=application_id
+        )
+        self.check_object_permissions(self.request, application)
+        return application
+
+    def get(self, request, application_id):
+        application = self.get_object(application_id)
+        data = get_candidate_review_data(application, request_user=request.user, request=request)
+        serializer = CandidateReviewDetailSerializer(data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, application_id):
+        application = self.get_object(application_id)
+
+        serializer = CandidateDecisionSubmitSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        decision = serializer.validated_data['decision']
+        notes = serializer.validated_data.get('notes', '')
+
+        result = record_candidate_review_decision(
+            application=application,
+            decision=decision,
+            notes=notes,
+            request_user=request.user
+        )
+
+        response_serializer = CandidateDecisionResponseSerializer(result)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
 
