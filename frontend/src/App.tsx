@@ -18,6 +18,7 @@ import { CvProcessingPage } from './components/cv/CvProcessingView';
 import { JobMatch } from './pages/JobMatch';
 import { PresentationStudio } from './pages/PresentationStudio';
 import { VideoHistory } from './pages/VideoHistory';
+import { PresentationDetailReportPage } from './pages/PresentationDetailReportPage';
 import { RecruitmentRoomsPage } from './pages/RecruitmentRoomsPage';
 import { PublicApplicationPage } from './pages/PublicApplicationPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
@@ -671,10 +672,18 @@ function RoutedApp({ notify }: { notify: Notify }) {
     );
   }
 
-  if (path === '/student/videos') {
+  if (path === '/student/videos' || path === '/presentation/history' || path === '/student/presentation/history') {
     return (
       <ProtectedRoute allowedRoles={['student']} notify={notify}>
         <VideoHistory notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (path.startsWith('/presentation/history/')) {
+    return (
+      <ProtectedRoute allowedRoles={['student']} notify={notify}>
+        <PresentationDetailReportPage notify={notify} />
       </ProtectedRoute>
     );
   }
