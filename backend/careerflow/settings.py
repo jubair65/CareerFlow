@@ -163,3 +163,4 @@ EMAIL_BACKEND = os.getenv(
     'django.core.mail.backends.console.EmailBackend'
 )
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'CareerFlow <noreply@careerflow.com>')
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
