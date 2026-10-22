@@ -6,7 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { useLocation, Router as WouterRouter } from 'wouter';
 import {
   ArrowRight, BriefcaseBusiness, Building2, Check, CheckCircle2,
-  Home, LockKeyhole, LogOut, Play, ShieldCheck, TrendingUp, X
+  Eye, EyeOff, Home, LockKeyhole, LogOut, Play, ShieldCheck, TrendingUp, X
 } from 'lucide-react';
 import { apiRegister, apiLogin, apiLogout, apiGetCurrentUser, getStoredUser } from '@/api/auth';
 import { StudentDashboard } from './pages/StudentDashboard';
@@ -71,24 +71,64 @@ function Button({
 }
 
 function Field({
-  label, value, onChange, placeholder, type = 'text', error, testId
+  label, value, onChange, placeholder, type = 'text', error, testId, toggleTestId
 }: {
   label: string; value: string; onChange: (v: string) => void; placeholder?: string;
-  type?: string; error?: string; testId: string;
+  type?: string; error?: string; testId: string; toggleTestId?: string;
 }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === 'password';
+  const effectiveType = isPassword ? (showPassword ? 'text' : 'password') : type;
+
+  const resolvedToggleTestId =
+    toggleTestId ||
+    (testId === 'input-login-password'
+      ? 'button-toggle-password'
+      : testId === 'input-register-password'
+      ? 'button-toggle-password'
+      : testId === 'input-register-confirm-password'
+      ? 'button-toggle-confirm-password'
+      : `button-toggle-${testId}`);
+
   return (
-    <label className="block space-y-1.5 text-sm font-semibold text-[#253142]">
-      <span>{label}</span>
-      <input
-        data-testid={testId}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={`w-full rounded-xl border bg-[#fbfaf5] px-3.5 py-3 font-normal outline-none transition placeholder:text-[#98a09c] focus:border-[#253142] focus:ring-2 focus:ring-[#f5c84b]/45 ${error ? 'border-[#b34a40]' : 'border-[#d9dbd1]'}`}
-      />
+    <div className="block space-y-1.5 text-sm font-semibold text-[#253142]">
+      <label htmlFor={testId} className="block cursor-pointer">
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          id={testId}
+          data-testid={testId}
+          type={effectiveType}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={`w-full rounded-xl border bg-[#fbfaf5] ${
+            isPassword ? 'pl-3.5 pr-11' : 'px-3.5'
+          } py-3 font-normal outline-none transition placeholder:text-[#98a09c] focus:border-[#253142] focus:ring-2 focus:ring-[#f5c84b]/45 ${
+            error ? 'border-[#b34a40]' : 'border-[#d9dbd1]'
+          }`}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setShowPassword((prev) => !prev)}
+            data-testid={resolvedToggleTestId}
+            data-toggle-target={testId}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            title={showPassword ? 'Hide password' : 'Show password'}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center justify-center h-8 w-8 rounded-lg text-[#7b8490] hover:text-[#253142] hover:bg-[#eef0e7] transition focus:outline-none"
+          >
+            {showPassword ? (
+              <EyeOff size={18} className="shrink-0" />
+            ) : (
+              <Eye size={18} className="shrink-0" />
+            )}
+          </button>
+        )}
+      </div>
       {error && <span data-testid="field-error" className="text-xs font-medium text-[#b34a40]">{error}</span>}
-    </label>
+    </div>
   );
 }
 

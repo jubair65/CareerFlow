@@ -99,23 +99,23 @@ export function PageHeading({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
+    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between min-w-0 w-full">
+      <div className="min-w-0 flex-1">
         {eyebrow && (
           <div className="mb-2 text-[11px] font-bold uppercase tracking-[.18em] text-[#9a7922]">
             {eyebrow}
           </div>
         )}
-        <h1 className="cf-display text-3xl font-bold text-[#253142] md:text-[2.6rem]" data-testid="page-title">
+        <h1 className="cf-display text-2xl sm:text-3xl md:text-[2.5rem] font-bold text-[#253142] break-words leading-tight" data-testid="page-title">
           {title}
         </h1>
         {description && (
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#687382]">
+          <p className="mt-2 max-w-2xl text-xs sm:text-sm leading-6 text-[#687382]">
             {description}
           </p>
         )}
       </div>
-      {action && <div>{action}</div>}
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }

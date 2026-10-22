@@ -152,10 +152,10 @@ export function AppShell({
       : 'bg-[#e2f0e9] text-[#277254] border-[#277254]';
 
   return (
-    <div className="cf-shell cf-noise flex min-h-screen bg-[#f5f1e6]">
+    <div className="cf-shell cf-noise flex min-h-screen w-full bg-[#f5f1e6]">
       {/* Sidebar Navigation */}
       <aside
-        className={`cf-sidebar fixed inset-y-0 left-0 z-20 flex w-[252px] flex-col border-r border-[#354255] bg-[#253142] px-4 py-5 transition-transform md:sticky md:top-0 md:h-[100dvh] md:translate-x-0 ${
+        className={`cf-sidebar fixed inset-y-0 left-0 z-20 flex w-[252px] shrink-0 flex-col border-r border-[#354255] bg-[#253142] px-4 py-5 transition-transform md:sticky md:top-0 md:h-[100dvh] md:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -266,8 +266,8 @@ export function AppShell({
       )}
 
       {/* Main Content Area */}
-      <main className="min-w-0 flex-1">
-        <header className="cf-appbar sticky top-0 z-10 flex h-[72px] items-center justify-between border-b border-[#dedfd6] bg-[#f5f1e6]/90 px-5 backdrop-blur-md md:px-9">
+      <main className="min-w-0 flex-1 w-full max-w-full">
+        <header className="cf-appbar sticky top-0 z-10 flex h-[72px] items-center justify-between border-b border-[#dedfd6] bg-[#f5f1e6]/90 px-4 sm:px-6 lg:px-8 backdrop-blur-md">
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
@@ -277,7 +277,7 @@ export function AppShell({
             <Menu size={20} />
           </button>
 
-          <div className="hidden text-sm font-semibold text-[#7b8490] md:block">
+          <div className="hidden text-sm font-semibold text-[#7b8490] md:block truncate">
             {role === 'student'
               ? 'Build your next yes.'
               : role === 'hr'
@@ -285,7 +285,7 @@ export function AppShell({
               : 'Move the right people forward.'}
           </div>
 
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-3 shrink-0">
             <button
               type="button"
               onClick={() => notify('Sprint 2 feature: In-app notifications coming soon!', 'info')}
@@ -304,7 +304,7 @@ export function AppShell({
           </div>
         </header>
 
-        <div className="p-5 md:p-9">{children}</div>
+        <div className="p-4 sm:p-6 lg:p-8 min-w-0 w-full max-w-full">{children}</div>
       </main>
     </div>
   );

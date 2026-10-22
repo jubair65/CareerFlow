@@ -52,7 +52,7 @@ export function RecruitmentRoomsPage({ notify }: { notify: Notify }) {
             type="button"
             onClick={() => setCreateModalOpen(true)}
             data-testid="button-create-room-page"
-            className="inline-flex items-center gap-2 rounded-xl bg-[#277254] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#1f5b43] transition shadow-xs"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#277254] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#1f5b43] transition shadow-xs shrink-0 whitespace-nowrap"
           >
             <Plus size={16} /> Create Room
           </button>

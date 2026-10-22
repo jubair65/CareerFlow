@@ -175,10 +175,10 @@ export function RoomList({
   };
 
   return (
-    <div className="space-y-5" data-testid="section-recruitment-rooms">
+    <div className="space-y-5 min-w-0 w-full max-w-full" data-testid="section-recruitment-rooms">
       {/* Top Filter & Search Controls */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-[#d9dbd1] shadow-xs">
-        <div className="relative w-full sm:w-80">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-[#d9dbd1] shadow-xs min-w-0 w-full">
+        <div className="relative w-full sm:flex-1 sm:max-w-md min-w-0">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7b8490]" />
           <input
             type="text"
@@ -190,16 +190,15 @@ export function RoomList({
           />
         </div>
 
-        {/* FIX #3: Removed duplicate Create Room button — kept only the page-header one */}
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-start sm:justify-end">
-          <div className="flex items-center gap-1 bg-[#f5f1e6] p-1 rounded-xl">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-start sm:justify-end min-w-0">
+          <div className="flex items-center gap-1 bg-[#f5f1e6] p-1 rounded-xl shrink-0 overflow-x-auto max-w-full">
             {(['ALL', 'ACTIVE', 'PAUSED', 'CLOSED'] as const).map((st) => (
               <button
                 key={st}
                 type="button"
                 onClick={() => setStatusFilter(st)}
                 data-testid={`filter-status-${st.toLowerCase()}`}
-                className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                className={`rounded-lg px-2.5 py-1 text-xs font-bold transition whitespace-nowrap ${
                   statusFilter === st
                     ? 'bg-[#253142] text-white'
                     : 'text-[#687382] hover:text-[#253142]'
@@ -239,28 +238,30 @@ export function RoomList({
       )}
 
       {/* Grid of Rooms */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="grid-recruitment-rooms">
+      <div className="room-grid" data-testid="grid-recruitment-rooms">
         {filteredRooms.map((room) => (
           <div
             key={room.id}
             data-testid={`card-room-${room.id}`}
-            className="flex flex-col justify-between rounded-2xl bg-white border border-[#d9dbd1] p-5 shadow-xs hover:border-[#277254]/40 hover:shadow-md transition duration-200"
+            className="room-card"
           >
-            <div>
-              {/* Card Header: Company, Title & Status */}
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-[#7b8490]">
-                    <Building2 size={13} />
-                    <span>{room.company_name}</span>
+            <div className="flex-1 min-w-0">
+              {/* 1. Card Header: Company, Title & Status */}
+              <div className="flex items-start justify-between gap-2.5 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-[#7b8490] min-w-0">
+                    <Building2 size={13} className="shrink-0" />
+                    <span className="truncate" title={room.company_name}>{room.company_name}</span>
                     {room.department && (
-                      <span className="text-[11px] text-[#9aabb5]">• {room.department}</span>
+                      <span className="text-[11px] text-[#9aabb5] shrink-0 truncate" title={room.department}>
+                        • {room.department}
+                      </span>
                     )}
                   </div>
-                  {/* FIX #4: line-clamp-2 so long titles wrap instead of being cut off; title attr for tooltip */}
+                  {/* 2. Job Title */}
                   <h3
                     data-testid={`room-title-${room.id}`}
-                    className="mt-1 text-base font-bold text-[#253142] line-clamp-2 leading-snug"
+                    className="mt-1 text-base font-bold text-[#253142] line-clamp-2 leading-snug break-words"
                     title={room.title}
                   >
                     {room.title}
@@ -268,7 +269,7 @@ export function RoomList({
                 </div>
                 <span
                   data-testid={`room-status-${room.id}`}
-                  className={`inline-flex items-center rounded-lg px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider ${
+                  className={`shrink-0 inline-flex items-center rounded-lg px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider whitespace-nowrap ${
                     room.status === 'ACTIVE'
                       ? 'bg-[#e2f0e9] text-[#277254]'
                       : room.status === 'PAUSED'
@@ -280,58 +281,58 @@ export function RoomList({
                 </span>
               </div>
 
-              {/* Role Category & Seniority Badges */}
+              {/* 3. Role Category & Seniority Badges */}
               {(room.role_category || room.experience_level) && (
-                <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                <div className="mt-2.5 flex flex-wrap items-center gap-1.5 min-w-0">
                   {room.role_category && (
-                    <span className="inline-flex items-center rounded-md bg-[#f1f3f5] px-2 py-0.5 text-[10px] font-bold text-[#526072]">
+                    <span className="inline-flex items-center rounded-md bg-[#f1f3f5] px-2 py-0.5 text-[10px] font-bold text-[#526072] max-w-full truncate">
                       {room.role_category}
                     </span>
                   )}
                   {room.experience_level && (
-                    <span className="inline-flex items-center rounded-md bg-[#f5f1e6] px-2 py-0.5 text-[10px] font-bold text-[#253142]">
+                    <span className="inline-flex items-center rounded-md bg-[#f5f1e6] px-2 py-0.5 text-[10px] font-bold text-[#253142] max-w-full truncate">
                       {room.experience_level}
                     </span>
                   )}
                 </div>
               )}
 
-              {/* Description Snippet */}
-              <p className="mt-3 text-xs text-[#687382] line-clamp-2 leading-relaxed">
+              {/* 4. Description Snippet */}
+              <p className="mt-3 text-xs text-[#687382] line-clamp-2 leading-relaxed break-words">
                 {room.description || 'No job description provided.'}
               </p>
 
-              {/* Required Skills & Tag Pill Display (US-19) */}
-              <div className="mt-3.5 rounded-xl bg-[#fbfaf5] p-2.5 border border-[#eef0e7]">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[11px] font-bold text-[#526072] flex items-center gap-1">
+              {/* 5. Required Skills & Tag Pill Display (US-19) */}
+              <div className="mt-3.5 rounded-xl bg-[#fbfaf5] p-2.5 border border-[#eef0e7] min-w-0">
+                <div className="flex items-center justify-between mb-1.5 min-w-0 gap-1">
+                  <span className="text-[11px] font-bold text-[#526072] flex items-center gap-1 shrink-0">
                     <Tag size={12} className="text-[#277254]" /> Required Skills:
                   </span>
                   <button
                     type="button"
                     onClick={() => setRequirementsRoom(room)}
                     data-testid={`button-configure-requirements-${room.id}`}
-                    className="text-[11px] font-bold text-[#277254] hover:text-[#1f5b43] hover:underline transition"
+                    className="text-[11px] font-bold text-[#277254] hover:text-[#1f5b43] hover:underline transition shrink-0"
                   >
                     Configure
                   </button>
                 </div>
                 <div
                   data-testid={`room-skills-list-${room.id}`}
-                  className="flex flex-wrap gap-1 min-h-[22px]"
+                  className="flex flex-wrap gap-1 min-h-[22px] min-w-0"
                 >
                   {getRoomSkillNames(room).length > 0 ? (
                     <>
                       {getRoomSkillNames(room).slice(0, 4).map((sk, idx) => (
                         <span
                           key={idx}
-                          className="inline-flex items-center rounded-md bg-[#e2f0e9] border border-[#c4e3d3] px-2 py-0.5 text-[10px] font-semibold text-[#1f5b43]"
+                          className="inline-flex items-center rounded-md bg-[#e2f0e9] border border-[#c4e3d3] px-2 py-0.5 text-[10px] font-semibold text-[#1f5b43] max-w-full truncate"
                         >
                           {sk}
                         </span>
                       ))}
                       {getRoomSkillNames(room).length > 4 && (
-                        <span className="inline-flex items-center rounded-md bg-[#f1f3f5] px-1.5 py-0.5 text-[10px] font-medium text-[#687382]">
+                        <span className="inline-flex items-center rounded-md bg-[#f1f3f5] px-1.5 py-0.5 text-[10px] font-medium text-[#687382] shrink-0">
                           +{getRoomSkillNames(room).length - 4} more
                         </span>
                       )}
@@ -342,199 +343,225 @@ export function RoomList({
                 </div>
               </div>
 
-              {/* FIX #5: Evaluation Weights — pill layout prevents wrapping */}
+              {/* 6. Evaluation Weights (US-20) */}
               <button
                 type="button"
                 onClick={() => setWeightingRoom(room)}
                 data-testid={`badge-weighting-config-${room.id}`}
-                className="mt-3.5 w-full rounded-xl bg-[#fbfaf5] p-2.5 border border-[#eef0e7] text-xs hover:border-[#277254] hover:bg-[#e2f0e9]/30 transition group text-left"
+                className="mt-3.5 w-full rounded-xl bg-[#fbfaf5] p-2.5 border border-[#eef0e7] text-xs hover:border-[#277254] hover:bg-[#e2f0e9]/30 transition group text-left min-w-0"
                 title="Click to configure evaluation weighting formula"
               >
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center justify-between mb-1.5 min-w-0">
                   <div className="flex items-center gap-1.5 text-[#526072] font-bold group-hover:text-[#277254]">
-                    <Sliders size={12} className="text-[#277254]" />
+                    <Sliders size={12} className="text-[#277254] shrink-0" />
                     <span>Evaluation Weights</span>
                   </div>
-                  <Edit2 size={11} className="text-[#7b8490] opacity-0 group-hover:opacity-100 transition" />
+                  <Edit2 size={11} className="text-[#7b8490] opacity-0 group-hover:opacity-100 transition shrink-0" />
                 </div>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="inline-flex items-center gap-1 rounded-md bg-[#e2f0e9] border border-[#c4e3d3] px-2 py-0.5 text-[10px] font-bold text-[#1f5b43] whitespace-nowrap">
-                    CV · {room.cv_weight ?? 50}%
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-md bg-[#f0f4ff] border border-[#c5d5f7] px-2 py-0.5 text-[10px] font-bold text-[#3b4fa0] whitespace-nowrap">
-                    Video · {room.video_weight ?? 50}%
-                  </span>
-                  <span className="text-[10px] text-[#98a09c] ml-auto">
+                <div className="flex items-center justify-between gap-1.5 flex-wrap min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-[#e2f0e9] border border-[#c4e3d3] px-2 py-0.5 text-[10px] font-bold text-[#1f5b43] whitespace-nowrap">
+                      CV · {room.cv_weight ?? 50}%
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-md bg-[#f0f4ff] border border-[#c5d5f7] px-2 py-0.5 text-[10px] font-bold text-[#3b4fa0] whitespace-nowrap">
+                      Video · {room.video_weight ?? 50}%
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-[#98a09c] shrink-0 font-medium">
                     {(room.cv_weight ?? 50) + (room.video_weight ?? 50)}% total
                   </span>
                 </div>
               </button>
 
-              {/* Date Metadata */}
-              <div className="mt-3 flex items-center gap-1.5 text-[11px] text-[#98a09c]">
-                <Calendar size={12} />
-                <span>Created {new Date(room.created_at).toLocaleDateString()}</span>
+              {/* 7. Creation Date & Options Dropdown */}
+              <div className="mt-3.5 flex items-center justify-between gap-2 text-[11px] text-[#98a09c] min-w-0">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Calendar size={12} className="shrink-0" />
+                  <span>Created {new Date(room.created_at).toLocaleDateString()}</span>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  {/* Quick Status Toggle Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleToggleStatus(room)}
+                    title={room.status === 'ACTIVE' ? 'Pause room' : 'Activate room'}
+                    data-testid={`button-toggle-status-${room.id}`}
+                    className="rounded-lg p-1 text-[#7b8490] hover:bg-[#eef0e7] hover:text-[#253142] transition"
+                  >
+                    {room.status === 'ACTIVE' ? (
+                      <PauseCircle size={15} className="text-[#92400e]" />
+                    ) : (
+                      <PlayCircle size={15} className="text-[#277254]" />
+                    )}
+                  </button>
+
+                  <div className="relative shrink-0" ref={openMenuId === room.id ? menuRef : undefined}>
+                    <button
+                      type="button"
+                      aria-label="More actions"
+                      data-testid={`button-more-actions-${room.id}`}
+                      onClick={() => setOpenMenuId(openMenuId === room.id ? null : room.id)}
+                      className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 text-xs font-semibold text-[#687382] hover:bg-[#eef0e7] hover:text-[#253142] transition"
+                      title="More room options"
+                    >
+                      <MoreVertical size={14} />
+                    </button>
+
+                  {openMenuId === room.id && (
+                    <div
+                      className="absolute right-0 bottom-full mb-1.5 z-30 w-52 rounded-xl border border-[#d9dbd1] bg-white shadow-xl py-1 animate-in fade-in slide-in-from-bottom-2"
+                      data-testid={`menu-more-actions-${room.id}`}
+                    >
+                      {/* Toggle Status */}
+                      <button
+                        type="button"
+                        onClick={() => { handleToggleStatus(room); setOpenMenuId(null); }}
+                        data-testid={`button-toggle-status-${room.id}`}
+                        className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition"
+                      >
+                        {room.status === 'ACTIVE'
+                          ? <PauseCircle size={14} className="text-[#92400e]" />
+                          : <PlayCircle size={14} className="text-[#277254]" />}
+                        {room.status === 'ACTIVE' ? 'Pause Room' : 'Activate Room'}
+                      </button>
+
+                      {/* Configure Skills */}
+                      <button
+                        type="button"
+                        onClick={() => { setRequirementsRoom(room); setOpenMenuId(null); }}
+                        data-testid={`button-action-requirements-${room.id}`}
+                        className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition"
+                      >
+                        <Tag size={14} className="text-[#277254]" />
+                        Configure Skills
+                      </button>
+
+                      {/* Evaluation Weights */}
+                      <button
+                        type="button"
+                        onClick={() => { setWeightingRoom(room); setOpenMenuId(null); }}
+                        data-testid={`button-action-weighting-${room.id}`}
+                        className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition"
+                      >
+                        <Sliders size={14} className="text-[#277254]" />
+                        Evaluation Weights
+                      </button>
+
+                      {/* Shareable Link */}
+                      <button
+                        type="button"
+                        onClick={() => { setShareLinkRoom(room); setOpenMenuId(null); }}
+                        data-testid={`button-action-share-link-${room.id}`}
+                        className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition"
+                      >
+                        <Link2 size={14} className="text-[#277254]" />
+                        Manage Share Link
+                      </button>
+
+                      {/* Configure Shortlisting (US-25) */}
+                      <button
+                        type="button"
+                        onClick={() => { setShortlistRoom(room); setOpenMenuId(null); }}
+                        data-testid={`button-action-shortlist-menu-${room.id}`}
+                        className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition"
+                      >
+                        <Star size={14} className="text-[#277254]" />
+                        Shortlisting Rules
+                      </button>
+
+                      <div className="my-1 border-t border-[#eef0e7]" />
+
+                      {/* Edit */}
+                      <button
+                        type="button"
+                        onClick={() => { openEditModal(room); setOpenMenuId(null); }}
+                        data-testid={`button-edit-room-${room.id}`}
+                        className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition"
+                      >
+                        <Edit2 size={14} className="text-[#526072]" />
+                        Edit Room
+                      </button>
+
+                      {/* Delete */}
+                      <button
+                        type="button"
+                        onClick={() => { handleDelete(room); setOpenMenuId(null); }}
+                        data-testid={`button-delete-room-${room.id}`}
+                        className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#b34a40] hover:bg-[#f7e5e1] transition"
+                      >
+                        <Trash2 size={14} />
+                        Delete Room
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
+            </div>
 
-
-            {/* FIX #1: Redesigned bottom action toolbar — 3 primary labeled buttons + three-dot menu */}
-            <div className="mt-5 pt-3 border-t border-[#eef0e7] flex items-center justify-between gap-2">
-              {/* Primary actions — always visible, labeled */}
-              <div className="flex items-center gap-1.5">
+            {/* 8. Action Buttons Footer */}
+            <div className="mt-4 pt-3.5 border-t border-[#eef0e7] w-full min-w-0">
+              <div
+                className="room-card__actions"
+                data-testid={`card-actions-${room.id}`}
+              >
+                {/* 1) Copy Link */}
                 <button
                   type="button"
                   onClick={() => handleCopyLink(room)}
                   data-testid={`button-copy-room-link-${room.id}`}
                   title="Copy application link"
-                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#277254] hover:bg-[#e2f0e9] transition"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#c4e3d3] bg-[#f5fbf8] px-2 py-2 text-xs font-semibold text-[#1f5b43] hover:bg-[#e2f0e9] hover:border-[#a7d7c1] transition shadow-2xs min-w-0 w-full min-h-[36px]"
                 >
                   {copiedId === room.id ? (
                     <>
-                      <Check size={13} className="text-[#277254]" />
-                      <span>Copied!</span>
+                      <Check size={13} className="shrink-0 text-[#277254]" />
+                      <span className="truncate">Copied!</span>
                     </>
                   ) : (
                     <>
-                      <Copy size={13} />
-                      <span>Copy Link</span>
+                      <Copy size={13} className="shrink-0 text-[#277254]" />
+                      <span className="truncate">Copy Link</span>
                     </>
                   )}
                 </button>
 
+                {/* 2) CV Scores */}
                 <button
                   type="button"
                   onClick={() => setCvScoresRoom(room)}
                   title="View Applicant CV Match Scores"
                   data-testid={`button-action-cv-scores-${room.id}`}
-                  className="inline-flex items-center gap-1 rounded-lg bg-[#e2f0e9] border border-[#a7d7c1] px-2.5 py-1.5 text-xs font-bold text-[#1f5b43] hover:bg-[#d0e8dc] transition shadow-2xs"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#a7d7c1] bg-[#e2f0e9] px-2 py-2 text-xs font-bold text-[#1f5b43] hover:bg-[#d0e8dc] transition shadow-2xs min-w-0 w-full min-h-[36px]"
                 >
-                  <Award size={13} />
-                  <span>CV Scores</span>
+                  <Award size={13} className="shrink-0" />
+                  <span className="truncate">CV Scores</span>
                 </button>
 
+                {/* 3) Rankings */}
                 <button
                   type="button"
                   onClick={() => setRankedRoom(room)}
                   title="View Applicant Leaderboard & Rankings"
                   data-testid={`button-action-ranking-${room.id}`}
-                  className="inline-flex items-center gap-1 rounded-lg bg-[#fef3c7] border border-[#fde68a] px-2.5 py-1.5 text-xs font-bold text-[#92400e] hover:bg-[#fde68a] transition shadow-2xs"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#fde68a] bg-[#fef3c7] px-2 py-2 text-xs font-bold text-[#92400e] hover:bg-[#fde68a] transition shadow-2xs min-w-0 w-full min-h-[36px]"
                 >
-                  <Trophy size={13} className="text-[#d97706]" />
-                  <span>Rankings</span>
+                  <Trophy size={13} className="shrink-0 text-[#d97706]" />
+                  <span className="truncate">Rankings</span>
                 </button>
 
+                {/* 4) Shortlist */}
                 <button
                   type="button"
                   onClick={() => setShortlistRoom(room)}
                   title="Configure & View Candidate Shortlist (US-25)"
                   data-testid={`button-action-shortlist-${room.id}`}
-                  className="inline-flex items-center gap-1 rounded-lg bg-[#e2f0e9] border border-[#a7d7c1] px-2.5 py-1.5 text-xs font-bold text-[#1f5b43] hover:bg-[#d0e8dc] transition shadow-2xs"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#a7d7c1] bg-[#e2f0e9] px-2 py-2 text-xs font-bold text-[#1f5b43] hover:bg-[#d0e8dc] transition shadow-2xs min-w-0 w-full min-h-[36px]"
                 >
-                  <Star size={13} className="fill-[#1f5b43]" />
-                  <span>Shortlist</span>
+                  <Star size={13} className="shrink-0 fill-[#1f5b43] text-[#1f5b43]" />
+                  <span className="truncate">Shortlist</span>
                 </button>
-              </div>
-
-              {/* Secondary actions — collapsed into three-dot dropdown */}
-              <div className="relative" ref={openMenuId === room.id ? menuRef : undefined}>
-                <button
-                  type="button"
-                  aria-label="More actions"
-                  data-testid={`button-more-actions-${room.id}`}
-                  onClick={() => setOpenMenuId(openMenuId === room.id ? null : room.id)}
-                  className="rounded-lg p-1.5 text-[#7b8490] hover:bg-[#eef0e7] hover:text-[#253142] transition"
-                >
-                  <MoreVertical size={16} />
-                </button>
-
-                {openMenuId === room.id && (
-                  <div
-                    className="absolute right-0 bottom-full mb-1.5 z-20 w-52 rounded-xl border border-[#d9dbd1] bg-white shadow-xl py-1 animate-in fade-in slide-in-from-bottom-2"
-                    data-testid={`menu-more-actions-${room.id}`}
-                  >
-                    {/* Toggle Status */}
-                    <button
-                      type="button"
-                      onClick={() => { handleToggleStatus(room); setOpenMenuId(null); }}
-                      data-testid={`button-toggle-status-${room.id}`}
-                      className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition"
-                    >
-                      {room.status === 'ACTIVE'
-                        ? <PauseCircle size={14} className="text-[#92400e]" />
-                        : <PlayCircle size={14} className="text-[#277254]" />}
-                      {room.status === 'ACTIVE' ? 'Pause Room' : 'Activate Room'}
-                    </button>
-
-                    {/* Configure Skills */}
-                    <button
-                      type="button"
-                      onClick={() => { setRequirementsRoom(room); setOpenMenuId(null); }}
-                      data-testid={`button-action-requirements-${room.id}`}
-                      className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition"
-                    >
-                      <Tag size={14} className="text-[#277254]" />
-                      Configure Skills
-                    </button>
-
-                    {/* Evaluation Weights */}
-                    <button
-                      type="button"
-                      onClick={() => { setWeightingRoom(room); setOpenMenuId(null); }}
-                      data-testid={`button-action-weighting-${room.id}`}
-                      className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition"
-                    >
-                      <Sliders size={14} className="text-[#277254]" />
-                      Evaluation Weights
-                    </button>
-
-                    {/* Shareable Link */}
-                    <button
-                      type="button"
-                      onClick={() => { setShareLinkRoom(room); setOpenMenuId(null); }}
-                      data-testid={`button-action-share-link-${room.id}`}
-                      className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition"
-                    >
-                      <Link2 size={14} className="text-[#277254]" />
-                      Manage Share Link
-                    </button>
-
-                    {/* Configure Shortlisting (US-25) */}
-                    <button
-                      type="button"
-                      onClick={() => { setShortlistRoom(room); setOpenMenuId(null); }}
-                      data-testid={`button-action-shortlist-menu-${room.id}`}
-                      className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition"
-                    >
-                      <Star size={14} className="text-[#277254]" />
-                      Shortlisting Rules
-                    </button>
-
-                    <div className="my-1 border-t border-[#eef0e7]" />
-
-                    {/* Edit */}
-                    <button
-                      type="button"
-                      onClick={() => { openEditModal(room); setOpenMenuId(null); }}
-                      data-testid={`button-edit-room-${room.id}`}
-                      className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition"
-                    >
-                      <Edit2 size={14} className="text-[#526072]" />
-                      Edit Room
-                    </button>
-
-                    {/* Delete */}
-                    <button
-                      type="button"
-                      onClick={() => { handleDelete(room); setOpenMenuId(null); }}
-                      data-testid={`button-delete-room-${room.id}`}
-                      className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#b34a40] hover:bg-[#f7e5e1] transition"
-                    >
-                      <Trash2 size={14} />
-                      Delete Room
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
           </div>

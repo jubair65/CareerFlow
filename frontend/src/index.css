@@ -422,3 +422,65 @@ button, a { -webkit-tap-highlight-color: transparent; }
   -webkit-transform: scaleX(-1) !important;
 }
 
+/* ==========================================================================
+   Recruitment Rooms Responsive Grid & Layout
+   ========================================================================== */
+.room-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+@media (min-width: 768px) {
+  .room-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  .room-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.25rem;
+  }
+}
+
+.room-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  background: #ffffff;
+  border: 1px solid #d9dbd1;
+  border-radius: 1rem;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(37, 49, 66, 0.05);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.room-card:hover {
+  border-color: rgba(39, 114, 84, 0.4);
+  box-shadow: 0 4px 14px rgba(37, 49, 66, 0.08);
+}
+
+.room-card__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.room-card__actions > * {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
