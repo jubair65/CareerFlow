@@ -20,6 +20,8 @@ import { PresentationStudio } from './pages/PresentationStudio';
 import { VideoHistory } from './pages/VideoHistory';
 import { RecruitmentRoomsPage } from './pages/RecruitmentRoomsPage';
 import { PublicApplicationPage } from './pages/PublicApplicationPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 
@@ -539,7 +541,7 @@ function Login({ notify }: { notify: Notify }) {
           <div className="mt-1.5 flex justify-end">
             <button
               type="button"
-              onClick={() => notify('Password reset is available in the profile settings.', 'info')}
+              onClick={() => setLocation('/forgot-password')}
               data-testid="link-forgot-password"
               className="text-xs font-bold text-[#277254] hover:underline"
             >
@@ -618,6 +620,8 @@ function RoutedApp({ notify }: { notify: Notify }) {
   if (path === '/') return <Landing />;
   if (path === '/login') return <Login notify={notify} />;
   if (path === '/register') return <Register notify={notify} />;
+  if (path === '/forgot-password') return <ForgotPasswordPage notify={notify} />;
+  if (path === '/reset-password' || path.startsWith('/reset-password')) return <ResetPasswordPage notify={notify} />;
 
   if (path === '/student/dashboard') {
     return (

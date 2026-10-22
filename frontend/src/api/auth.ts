@@ -118,3 +118,26 @@ export async function apiGetCurrentUser() {
     const response = await apiClient.get('/auth/me/');
     return response.data;
 }
+
+export async function apiPasswordResetRequest(email: string) {
+    const response = await apiClient.post('/auth/password-reset-request/', { email });
+    return response.data;
+}
+
+export async function apiPasswordResetVerifyCode(email: string, code: string) {
+    const response = await apiClient.post('/auth/password-reset-verify-code/', { email, code });
+    return response.data;
+}
+
+export async function apiPasswordResetConfirm(data: {
+    uid?: string;
+    token?: string;
+    email?: string;
+    code?: string;
+    new_password: string;
+    confirm_password?: string;
+}) {
+    const response = await apiClient.post('/auth/password-reset-confirm/', data);
+    return response.data;
+}
+

@@ -84,3 +84,109 @@ class LoginSerializer(serializers.Serializer):
             'access': str(refresh.access_token),
             'role': user.role,
         }
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+    def validate_email(self, value):
+        return value.strip().lower()
+
+
+class PasswordResetVerifyCodeSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    code = serializers.CharField(required=True, max_length=10)
+
+    def validate(self, attrs):
+        from .models import PasswordResetToken
+        email = attrs.get('email', '').strip().lower()
+        code = attrs.get('code', '').strip()
+
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            raise serializers.ValidationError({"code": "Invalid verification code or email address."})
+
+        if not PasswordResetToken.verify_code(user, code):
+            raise serializers.ValidationError({"code": "Invalid or expired verification code. Please request a new one."})
+
+        attrs['user'] = user
+        return attrs
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField(required=False, allow_blank=True)
+    token = serializers.CharField(required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True)
+    code = serializers.CharField(required=False, allow_blank=True)
+    new_password = serializers.CharField(write_only=True, required=True)
+    confirm_password = serializers.CharField(write_only=True, required=False)
+
+    def validate(self, attrs):
+        from django.utils.http import urlsafe_base64_decode
+        from django.utils.encoding import force_str
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        from .models import PasswordResetToken
+
+        uid = attrs.get('uid')
+        token = attrs.get('token')
+        email = attrs.get('email')
+        code = attrs.get('code')
+        new_password = attrs.get('new_password')
+        confirm_password = attrs.get('confirm_password')
+
+        if confirm_password and new_password != confirm_password:
+            raise serializers.ValidationError({"confirm_password": "Passwords do not match."})
+
+        user = None
+
+        # Option A: 4-digit code with email
+        if email and code:
+            try:
+                user = User.objects.get(email__iexact=email.strip().lower())
+            except User.DoesNotExist:
+                raise serializers.ValidationError({"error": "Invalid verification code or email address."})
+
+            if not user.is_active:
+                raise serializers.ValidationError({"error": "This account is inactive."})
+
+            if not PasswordResetToken.validate_and_consume_code(user, code):
+                raise serializers.ValidationError({
+                    "error": "The verification code is invalid, already used, or has expired. Please request a new code."
+                })
+
+        # Option B: Cryptographic token with uid
+        elif uid and token:
+            try:
+                user_id = force_str(urlsafe_base64_decode(uid))
+                user = User.objects.get(pk=user_id)
+            except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+                raise serializers.ValidationError({"error": "The password reset link is invalid or has expired."})
+
+            if not user.is_active:
+                raise serializers.ValidationError({"error": "This account is inactive."})
+
+            if not PasswordResetToken.validate_and_consume_token(user, token):
+                raise serializers.ValidationError({
+                    "error": "The password reset link is invalid or has expired. Please request a new one."
+                })
+        else:
+            raise serializers.ValidationError({
+                "error": "Please provide either the 4-digit verification code or the reset token."
+            })
+
+        # Validate password complexity using Django's configured validators
+        try:
+            validate_password(new_password, user=user)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError({"new_password": list(e.messages)})
+
+        attrs['user'] = user
+        return attrs
+
+    def save(self):
+        user = self.validated_data['user']
+        new_password = self.validated_data['new_password']
+        user.set_password(new_password)
+        user.save()
+        return user
