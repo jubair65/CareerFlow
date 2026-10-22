@@ -26,6 +26,9 @@ from .review_service import (
     get_candidate_review_data,
     record_candidate_review_decision,
 )
+from .breakdown_service import (
+    get_applicant_score_breakdown,
+)
 
 __all__ = [
     'extract_room_skills',
@@ -43,5 +46,6 @@ __all__ = [
     'validate_shortlisting_criteria',
     'get_candidate_review_data',
     'record_candidate_review_decision',
+    'get_applicant_score_breakdown',
 ]
 

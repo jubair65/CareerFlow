@@ -601,7 +601,41 @@ class CandidateDecisionResponseSerializer(serializers.Serializer):
     message = serializers.CharField()
 
 
+# ============================================================================
+# US-27: Explainable Applicant Score Breakdown & Transparency
+# ============================================================================
+
+class ScoreComponentContributionSerializer(serializers.Serializer):
+    """
+    US-27-T2 & US-27-T4: Granular contribution details for CV or Video component.
+    """
+    name = serializers.CharField()
+    is_available = serializers.BooleanField()
+    raw_score = serializers.FloatField(allow_null=True)
+    weight_percentage = serializers.IntegerField()
+    points_contributed = serializers.FloatField(allow_null=True)
+    max_points_possible = serializers.FloatField()
+    percentage_of_total = serializers.FloatField(allow_null=True)
+    missing_reason = serializers.CharField(allow_null=True, allow_blank=True, required=False)
+    sub_metrics = serializers.DictField(default=dict)
 
 
-
-
+class ApplicantScoreBreakdownSerializer(serializers.Serializer):
+    """
+    US-27-T2, US-27-T4, US-27-T5: Complete explainable score breakdown serializer.
+    """
+    application_id = serializers.IntegerField()
+    candidate_id = serializers.IntegerField()
+    candidate_name = serializers.CharField(allow_blank=True)
+    candidate_email = serializers.EmailField()
+    room_id = serializers.IntegerField()
+    room_title = serializers.CharField()
+    final_score = serializers.FloatField(allow_null=True)
+    is_partial_score = serializers.BooleanField()
+    score_calculated_at = serializers.DateTimeField(allow_null=True)
+    cv_weight = serializers.IntegerField()
+    video_weight = serializers.IntegerField()
+    formula_display = serializers.CharField()
+    missing_components_explanation = serializers.CharField(allow_null=True, allow_blank=True, required=False)
+    cv_component = ScoreComponentContributionSerializer()
+    video_component = ScoreComponentContributionSerializer()

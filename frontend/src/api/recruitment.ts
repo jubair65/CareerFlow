@@ -733,5 +733,52 @@ export async function apiSubmitCandidateDecision(
   return response.data;
 }
 
+// ============================================================================
+// US-27: Explainable Applicant Score Breakdown & Transparency
+// ============================================================================
+
+export interface ScoreComponentContribution {
+  name: string;
+  is_available: boolean;
+  raw_score: number | null;
+  weight_percentage: number;
+  points_contributed: number | null;
+  max_points_possible: number;
+  percentage_of_total: number | null;
+  missing_reason?: string | null;
+  sub_metrics?: Record<string, any>;
+}
+
+export interface ApplicantScoreBreakdown {
+  application_id: number;
+  candidate_id: number;
+  candidate_name: string;
+  candidate_email: string;
+  room_id: number;
+  room_title: string;
+  final_score: number | null;
+  is_partial_score: boolean;
+  score_calculated_at: string | null;
+  cv_weight: number;
+  video_weight: number;
+  formula_display: string;
+  missing_components_explanation?: string | null;
+  cv_component: ScoreComponentContribution;
+  video_component: ScoreComponentContribution;
+}
+
+/**
+ * US-27-T4: Fetch explainable score breakdown and mathematical point contributions.
+ */
+export async function apiGetApplicantScoreBreakdown(
+  applicationId: number | string
+): Promise<ApplicantScoreBreakdown> {
+  const response = await apiClient.get<ApplicantScoreBreakdown>(
+    `/recruitment/applications/${applicationId}/score-breakdown/`
+  );
+  return response.data;
+}
+
+
 
 

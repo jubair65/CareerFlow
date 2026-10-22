@@ -20,11 +20,15 @@ from .serializers import (
     CandidateDecisionSubmitSerializer,
     CandidateReviewDetailSerializer,
     CandidateDecisionResponseSerializer,
+    ApplicantScoreBreakdownSerializer,
 )
 from .permissions import IsHRManager, IsRoomOwner, IsApplicationRoomOwner
 from .services.review_service import (
     get_candidate_review_data,
     record_candidate_review_decision,
+)
+from .services.breakdown_service import (
+    get_applicant_score_breakdown,
 )
 from .services.matcher_bridge import (
     sync_room_to_job_requirement,
@@ -659,5 +663,33 @@ class CandidateApplicationDecisionView(APIView):
 
         response_serializer = CandidateDecisionResponseSerializer(result)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+
+# ============================================================================
+# US-27: Explainable Applicant Score Breakdown & Transparency
+# ============================================================================
+
+class ApplicantScoreBreakdownView(APIView):
+    """
+    US-27-T2: Explainable score breakdown endpoint.
+    Retrieves component weights, raw scores, points contribution, mathematical formula,
+    and missing component handling for an applicant.
+    GET /api/recruitment/applications/<application_id>/score-breakdown/
+    """
+    permission_classes = [permissions.IsAuthenticated, IsHRManager, IsApplicationRoomOwner]
+
+    def get(self, request, application_id=None, pk=None):
+        from django.shortcuts import get_object_or_404
+        app_id = application_id or pk
+        application = get_object_or_404(
+            CandidateApplication.objects.select_related('room', 'candidate', 'cv', 'video'),
+            id=app_id
+        )
+        self.check_object_permissions(request, application)
+
+        breakdown_data = get_applicant_score_breakdown(application, request_user=request.user, request=request)
+        serializer = ApplicantScoreBreakdownSerializer(breakdown_data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 

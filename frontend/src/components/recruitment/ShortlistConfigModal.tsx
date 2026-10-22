@@ -17,6 +17,7 @@ import {
   XCircle,
   Clock,
   Sparkles,
+  Calculator,
 } from 'lucide-react';
 import type {
   RecruitmentRoom,
@@ -31,6 +32,7 @@ import {
   apiGetShortlistedApplicants,
 } from '../../api/recruitment';
 import { CandidateReviewModal } from './CandidateReviewModal';
+import { ScoreBreakdownModal } from './ScoreBreakdownModal';
 
 interface ShortlistConfigModalProps {
   isOpen: boolean;
@@ -66,6 +68,8 @@ export function ShortlistConfigModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [applicantFilter, setApplicantFilter] = useState<ApplicantFilter>('ALL');
   const [selectedAppForReview, setSelectedAppForReview] = useState<number | null>(null);
+  const [selectedAppForBreakdown, setSelectedAppForBreakdown] = useState<number | null>(null);
+  const [selectedAppBreakdownName, setSelectedAppBreakdownName] = useState<string | undefined>(undefined);
 
   // Load criteria and candidates on open
   useEffect(() => {
@@ -676,7 +680,7 @@ export function ShortlistConfigModal({
                         <th className="px-4 py-3">Final Score</th>
                         <th className="px-4 py-3">Status</th>
                         <th className="px-4 py-3">Shortlist Reason / Criteria Explanation</th>
-                        <th className="px-4 py-3 text-right">Human Review</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#eef0e7]">
@@ -768,16 +772,31 @@ export function ShortlistConfigModal({
                               )}
                             </td>
 
-                            {/* Human Review Button (US-26) */}
+                            {/* Actions (Review & Score Breakdown) */}
                             <td className="px-4 py-3.5 text-right">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedAppForReview(app.application_id)}
-                                data-testid={`btn-review-applicant-${app.application_id}`}
-                                className="inline-flex items-center gap-1.5 rounded-xl border border-[#d9dbd1] bg-white px-2.5 py-1 text-xs font-bold text-[#253142] hover:bg-[#253142] hover:text-white transition shadow-2xs"
-                              >
-                                <span>Review</span>
-                              </button>
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedAppForBreakdown(app.application_id);
+                                    setSelectedAppBreakdownName(app.candidate_name);
+                                  }}
+                                  data-testid={`btn-breakdown-applicant-${app.application_id}`}
+                                  className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-600 hover:text-white px-2.5 py-1 text-xs font-bold text-indigo-700 transition shadow-2xs"
+                                  title="Explainable Score Breakdown"
+                                >
+                                  <Calculator size={13} />
+                                  <span>Breakdown</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedAppForReview(app.application_id)}
+                                  data-testid={`btn-review-applicant-${app.application_id}`}
+                                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#d9dbd1] bg-white px-2.5 py-1 text-xs font-bold text-[#253142] hover:bg-[#253142] hover:text-white transition shadow-2xs"
+                                >
+                                  <span>Review</span>
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))
@@ -825,6 +844,17 @@ export function ShortlistConfigModal({
           onDecisionRecorded={(_appId, _decision) => {
             fetchShortlistData(false);
           }}
+          notify={notify}
+        />
+      )}
+
+      {/* US-27: Explainable Applicant Score Breakdown Modal */}
+      {selectedAppForBreakdown && (
+        <ScoreBreakdownModal
+          isOpen={Boolean(selectedAppForBreakdown)}
+          onClose={() => setSelectedAppForBreakdown(null)}
+          applicationId={selectedAppForBreakdown}
+          candidateName={selectedAppBreakdownName}
           notify={notify}
         />
       )}

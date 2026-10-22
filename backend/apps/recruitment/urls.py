@@ -6,6 +6,7 @@ from .views import (
     PublicApplicationSubmitView,
     CandidateApplicationDecisionView,
     CandidateApplicationReviewDetailView,
+    ApplicantScoreBreakdownView,
 )
 
 app_name = 'recruitment'
@@ -17,6 +18,9 @@ urlpatterns = [
     # US-26: HR Candidate Review & Decision Endpoints
     path('applications/<int:application_id>/decision/', CandidateApplicationDecisionView.as_view(), name='application-decision'),
     path('applications/<int:application_id>/review/', CandidateApplicationReviewDetailView.as_view(), name='application-review-detail'),
+
+    # US-27: Explainable Applicant Score Breakdown & Transparency Endpoint
+    path('applications/<int:application_id>/score-breakdown/', ApplicantScoreBreakdownView.as_view(), name='application-score-breakdown'),
 
     path('apply/<str:token>/submit/', PublicApplicationSubmitView.as_view(), name='public-apply-submit'),
     path('apply/<str:token>/', PublicApplicationView.as_view(), name='public-apply'),
