@@ -38,6 +38,7 @@ from .services.scorer import calculate_presentation_score
 from .services.llm_coach_service import GeminiPresentationCoachService
 from .services.pipeline_manager import PipelineManager
 from apps.core.models import DataAccessLog
+from .permissions import IsVideoOwner
 
 logger = logging.getLogger(__name__)
 
@@ -179,39 +180,85 @@ class CurrentPresentationVideoView(APIView):
 
 class PresentationVideoHistoryView(APIView):
     """
+    US-16-T2 & US-16-T5:
     GET /api/presentation/history/
-    Returns the list of presentation videos uploaded/recorded by the candidate.
+    Returns the chronologically ordered list (newest first) of previous presentation
+    video analyses for the authenticated student.
+    Enforces strict tenant isolation and uses select_related/prefetch_related for high performance (<1.2s).
     """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        videos = PresentationVideo.objects.filter(user=request.user)
+        videos = PresentationVideo.objects.filter(
+            user=request.user
+        ).select_related(
+            'speech_analysis',
+            'behavioral_analysis',
+            'presentation_score',
+            'ai_feedback'
+        ).prefetch_related(
+            'execution_logs'
+        ).order_by('-uploaded_at')
+
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            videos = videos.filter(status=status_filter.upper())
+
+        search_query = request.query_params.get('search')
+        if search_query:
+            videos = videos.filter(original_filename__icontains=search_query)
+
         serializer = PresentationVideoSerializer(videos, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class PresentationVideoDetailView(APIView):
     """
-    GET /api/presentation/<pk>/
+    US-16-T4 & US-16-T5:
+    GET /api/presentation/<pk>/ or /api/presentation/history/<pk>/
     DELETE /api/presentation/<pk>/
-    View details or delete a presentation video.
+    View complete analysis details or delete a presentation video.
+    Strictly verifies ownership to prevent unauthorized access (tenant isolation).
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsVideoOwner]
 
-    def get_object(self, pk, user):
-        return PresentationVideo.objects.filter(pk=pk, user=user).first()
+    def get_object(self, pk):
+        return PresentationVideo.objects.filter(pk=pk).select_related(
+            'speech_analysis',
+            'behavioral_analysis',
+            'presentation_score',
+            'ai_feedback'
+        ).prefetch_related(
+            'execution_logs'
+        ).first()
 
     def get(self, request, pk):
-        video = self.get_object(pk, request.user)
+        video = self.get_object(pk)
         if not video:
             return Response({'error': 'Video not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if video.user != request.user and not request.user.is_staff:
+            return Response(
+                {'error': 'You do not have permission to access this presentation analysis.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        self.check_object_permissions(request, video)
         serializer = PresentationVideoSerializer(video, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def delete(self, request, pk):
-        video = self.get_object(pk, request.user)
+        video = self.get_object(pk)
         if not video:
             return Response({'error': 'Video not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if video.user != request.user and not request.user.is_staff:
+            return Response(
+                {'error': 'You do not have permission to delete this presentation video.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        self.check_object_permissions(request, video)
 
         # Remove physical file if exists
         if video.file and os.path.exists(video.file.path):

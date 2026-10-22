@@ -122,10 +122,21 @@ export async function apiGetActivePresentationVideo(): Promise<PresentationVideo
 }
 
 /**
- * Fetch video history for the candidate.
+ * US-16-T2: Fetch video history for the candidate with optional filtering.
  */
-export async function apiGetPresentationVideoHistory(): Promise<PresentationVideo[]> {
-  const response = await apiClient.get<PresentationVideo[]>('/presentation/history/');
+export async function apiGetPresentationVideoHistory(params?: {
+  search?: string;
+  status?: string;
+}): Promise<PresentationVideo[]> {
+  const response = await apiClient.get<PresentationVideo[]>('/presentation/history/', { params });
+  return response.data;
+}
+
+/**
+ * US-16-T4: Get full analysis details for a specific presentation video.
+ */
+export async function apiGetPresentationVideoDetail(id: number): Promise<PresentationVideo> {
+  const response = await apiClient.get<PresentationVideo>(`/presentation/history/${id}/`);
   return response.data;
 }
 
