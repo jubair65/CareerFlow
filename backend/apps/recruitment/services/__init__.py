@@ -29,6 +29,10 @@ from .review_service import (
 from .breakdown_service import (
     get_applicant_score_breakdown,
 )
+from .comparison_service import (
+    compare_room_applicants,
+    get_candidate_avatar_initials,
+)
 
 __all__ = [
     'extract_room_skills',
@@ -47,5 +51,7 @@ __all__ = [
     'get_candidate_review_data',
     'record_candidate_review_decision',
     'get_applicant_score_breakdown',
+    'compare_room_applicants',
+    'get_candidate_avatar_initials',
 ]
 

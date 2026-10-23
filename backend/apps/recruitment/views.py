@@ -21,6 +21,8 @@ from .serializers import (
     CandidateReviewDetailSerializer,
     CandidateDecisionResponseSerializer,
     ApplicantScoreBreakdownSerializer,
+    ApplicantComparisonRequestSerializer,
+    ApplicantComparisonResponseSerializer,
 )
 from .permissions import IsHRManager, IsRoomOwner, IsApplicationRoomOwner
 from .services.review_service import (
@@ -29,6 +31,9 @@ from .services.review_service import (
 )
 from .services.breakdown_service import (
     get_applicant_score_breakdown,
+)
+from .services.comparison_service import (
+    compare_room_applicants,
 )
 from .services.matcher_bridge import (
     sync_room_to_job_requirement,
@@ -450,6 +455,29 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
         eval_data = evaluate_room_shortlist(room, persist=False)
         serializer = RoomShortlistResponseSerializer(eval_data)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='compare-applicants')
+    def compare_applicants(self, request, pk=None):
+        """
+        US-28-T2: Side-by-side applicant comparison endpoint.
+        Compares 2 to 4 applicants within this recruitment room,
+        highlighting score differentials, skills matches, and behavioral metrics.
+        POST /api/recruitment/rooms/{id}/compare-applicants/
+        Payload: {"application_ids": [101, 102, 105]}
+        """
+        room = self.get_object()
+        serializer = ApplicantComparisonRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        application_ids = serializer.validated_data['application_ids']
+
+        data = compare_room_applicants(
+            room=room,
+            application_ids=application_ids,
+            request_user=request.user,
+            request=request
+        )
+        response_serializer = ApplicantComparisonResponseSerializer(data)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 
 
