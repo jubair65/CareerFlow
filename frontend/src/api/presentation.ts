@@ -317,3 +317,76 @@ export async function apiGetPipelineLogs(videoId: number): Promise<PipelineExecu
   return response.data;
 }
 
+// ==========================================
+// US-17: SCORE TRENDS ACROSS ATTEMPTS
+// ==========================================
+
+export interface ScoreTrendPoint {
+  attempt: number;
+  video_id: number;
+  original_filename: string;
+  date: string;
+  formatted_date: string;
+  timestamp: string;
+  duration_seconds: number;
+  overall: number;
+  overall_score: number;
+  speech: number;
+  speech_score: number;
+  behavioral: number;
+  behavioral_score: number;
+  pace: number;
+  pace_score: number;
+  filler: number;
+  filler_score: number;
+  eye_contact: number;
+  eye_contact_score: number;
+  posture: number;
+  posture_score: number;
+  engagement: number;
+  engagement_score: number;
+  grade_label: 'Excellent' | 'Competent' | 'Needs Practice';
+  words_per_minute?: number | null;
+  filler_word_count?: number | null;
+  clarity_score?: number | null;
+}
+
+export interface ScoreImprovements {
+  overall_delta: string;
+  speech_delta: string;
+  behavioral_delta: string;
+  pace_delta?: string;
+  eye_contact_delta?: string;
+  overall_diff_points?: number;
+  speech_diff_points?: number;
+  behavioral_diff_points?: number;
+}
+
+export interface ScoreTrendSummary {
+  total_attempts: number;
+  latest_score: number | null;
+  highest_score: number | null;
+  lowest_score: number | null;
+  average_score: number | null;
+  first_score: number | null;
+  progress_status: 'IMPROVED' | 'DECLINED' | 'STABLE' | 'BASELINE' | 'NO_DATA';
+}
+
+export interface ScoreTrendsResponse {
+  total_attempts: number;
+  trend_points: ScoreTrendPoint[];
+  improvements: ScoreImprovements;
+  summary: ScoreTrendSummary;
+  highlights: string[];
+  message: string;
+}
+
+/**
+ * Fetch chronological score trends across presentation attempts (US-17).
+ */
+export async function apiGetPresentationScoreTrends(): Promise<ScoreTrendsResponse> {
+  const response = await apiClient.get<ScoreTrendsResponse>('/presentation/trends/');
+  return response.data;
+}
+
+

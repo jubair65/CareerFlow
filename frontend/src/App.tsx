@@ -19,6 +19,7 @@ import { JobMatch } from './pages/JobMatch';
 import { PresentationStudio } from './pages/PresentationStudio';
 import { VideoHistory } from './pages/VideoHistory';
 import { PresentationDetailReportPage } from './pages/PresentationDetailReportPage';
+import { ScoreTrendsPage } from './pages/ScoreTrendsPage';
 import { RecruitmentRoomsPage } from './pages/RecruitmentRoomsPage';
 import { PublicApplicationPage } from './pages/PublicApplicationPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
@@ -684,6 +685,14 @@ function RoutedApp({ notify }: { notify: Notify }) {
     return (
       <ProtectedRoute allowedRoles={['student']} notify={notify}>
         <PresentationDetailReportPage notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (path === '/presentation/trends' || path === '/student/presentation/trends' || path === '/student/trends') {
+    return (
+      <ProtectedRoute allowedRoles={['student']} notify={notify}>
+        <ScoreTrendsPage notify={notify} />
       </ProtectedRoute>
     );
   }
