@@ -779,6 +779,64 @@ export async function apiGetApplicantScoreBreakdown(
   return response.data;
 }
 
+// ============================================================================
+// US-28: Side-by-Side Applicant Comparison
+// ============================================================================
+
+export interface ApplicantComparisonItem {
+  application_id: number;
+  candidate_id: number;
+  candidate_name: string;
+  email: string;
+  avatar_initials: string;
+  final_score: number | null;
+  score_tier: string;
+  is_partial_score: boolean;
+  cv_score: number | null;
+  video_score: number | null;
+  matched_skills: string[];
+  missing_skills: string[];
+  keyword_coverage: number;
+  wpm: number;
+  eye_contact_percent: number | null;
+  posture_score: number | null;
+  filler_words_count: number;
+  speech_score: number | null;
+  visual_score: number | null;
+  is_shortlisted: boolean;
+  shortlist_reason: string;
+  hr_decision: string;
+  hr_decision_display: string;
+  applied_at: string;
+  best_in: string[];
+}
+
+export interface ApplicantComparisonResponse {
+  room_id: number;
+  room_title: string;
+  company_name: string;
+  cv_weight: number;
+  video_weight: number;
+  comparison_count: number;
+  highest_final_score: number | null;
+  average_final_score: number | null;
+  applicants: ApplicantComparisonItem[];
+}
+
+/**
+ * US-28-T2: Fetch side-by-side comparison for 2 to 4 candidates in a room.
+ */
+export async function apiCompareApplicants(
+  roomId: number | string,
+  applicationIds: number[]
+): Promise<ApplicantComparisonResponse> {
+  const response = await apiClient.post<ApplicantComparisonResponse>(
+    `/recruitment/rooms/${roomId}/compare-applicants/`,
+    { application_ids: applicationIds }
+  );
+  return response.data;
+}
+
 
 
 
