@@ -212,6 +212,173 @@ class PresentationVideoHistoryView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+class PresentationScoreTrendsView(APIView):
+    """
+    US-17-T2 & US-17-T5:
+    GET /api/presentation/trends/
+    Aggregates composite and category scores across chronological attempts
+    for the authenticated student.
+    Enforces strict tenant isolation (student only sees their own attempts)
+    and computes progress deltas, category comparisons, and streak metrics.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        videos = PresentationVideo.objects.filter(
+            user=request.user,
+            presentation_score__isnull=False
+        ).select_related(
+            'presentation_score',
+            'speech_analysis',
+            'behavioral_analysis'
+        ).order_by('uploaded_at')
+
+        total_attempts = videos.count()
+
+        if total_attempts == 0:
+            return Response({
+                'total_attempts': 0,
+                'trend_points': [],
+                'improvements': {
+                    'overall_delta': '+0%',
+                    'speech_delta': '+0%',
+                    'behavioral_delta': '+0%',
+                    'pace_delta': '+0%',
+                    'eye_contact_delta': '+0%',
+                    'overall_diff_points': 0,
+                    'speech_diff_points': 0,
+                    'behavioral_diff_points': 0,
+                },
+                'summary': {
+                    'total_attempts': 0,
+                    'latest_score': None,
+                    'highest_score': None,
+                    'lowest_score': None,
+                    'average_score': None,
+                    'first_score': None,
+                    'progress_status': 'NO_DATA',
+                },
+                'highlights': [],
+                'message': 'Upload your first video to start tracking presentation progress.'
+            }, status=status.HTTP_200_OK)
+
+        trend_points = []
+        overall_scores = []
+
+        for idx, video in enumerate(videos, start=1):
+            score = video.presentation_score
+            speech = getattr(video, 'speech_analysis', None)
+            behavioral = getattr(video, 'behavioral_analysis', None)
+
+            overall_scores.append(score.overall_score)
+
+            trend_points.append({
+                'attempt': idx,
+                'video_id': video.id,
+                'original_filename': video.original_filename,
+                'date': video.uploaded_at.strftime('%Y-%m-%d'),
+                'formatted_date': video.uploaded_at.strftime('%b %d, %Y'),
+                'timestamp': video.uploaded_at.isoformat(),
+                'duration_seconds': video.duration_seconds,
+                'overall': score.overall_score,
+                'overall_score': score.overall_score,
+                'speech': score.speech_score,
+                'speech_score': score.speech_score,
+                'behavioral': score.behavioral_score,
+                'behavioral_score': score.behavioral_score,
+                'pace': score.pace_score,
+                'pace_score': score.pace_score,
+                'filler': score.filler_score,
+                'filler_score': score.filler_score,
+                'eye_contact': score.eye_contact_score,
+                'eye_contact_score': score.eye_contact_score,
+                'posture': score.posture_score,
+                'posture_score': score.posture_score,
+                'engagement': score.engagement_score,
+                'engagement_score': score.engagement_score,
+                'grade_label': score.grade_label,
+                'words_per_minute': speech.words_per_minute if speech else None,
+                'filler_word_count': speech.filler_word_count if speech else None,
+                'clarity_score': speech.clarity_score if speech else None,
+            })
+
+        first_point = trend_points[0]
+        latest_point = trend_points[-1]
+
+        def calculate_delta(latest_val, first_val):
+            diff = latest_val - first_val
+            prefix = "+" if diff > 0 else ""
+            return f"{prefix}{diff}%"
+
+        overall_delta_str = calculate_delta(latest_point['overall'], first_point['overall'])
+        speech_delta_str = calculate_delta(latest_point['speech'], first_point['speech'])
+        behavioral_delta_str = calculate_delta(latest_point['behavioral'], first_point['behavioral'])
+        pace_delta_str = calculate_delta(latest_point['pace'], first_point['pace'])
+        eye_contact_delta_str = calculate_delta(latest_point['eye_contact'], first_point['eye_contact'])
+
+        improvements = {
+            'overall_delta': overall_delta_str,
+            'speech_delta': speech_delta_str,
+            'behavioral_delta': behavioral_delta_str,
+            'pace_delta': pace_delta_str,
+            'eye_contact_delta': eye_contact_delta_str,
+            'overall_diff_points': latest_point['overall'] - first_point['overall'],
+            'speech_diff_points': latest_point['speech'] - first_point['speech'],
+            'behavioral_diff_points': latest_point['behavioral'] - first_point['behavioral'],
+        }
+
+        highlights = []
+        if total_attempts >= 2:
+            eye_diff = latest_point['eye_contact'] - first_point['eye_contact']
+            if eye_diff > 0:
+                highlights.append(f"Eye contact improved by +{eye_diff}% since Attempt 1")
+            elif eye_diff < 0:
+                highlights.append(f"Eye contact adjusted by {eye_diff}% since Attempt 1")
+
+            speech_diff = latest_point['speech'] - first_point['speech']
+            if speech_diff > 0:
+                highlights.append(f"Vocal delivery and pacing score improved by +{speech_diff}% since Attempt 1")
+
+            overall_diff = latest_point['overall'] - first_point['overall']
+            if overall_diff > 0:
+                highlights.append(f"Overall presentation score improved by +{overall_diff}% across {total_attempts} attempts")
+            elif overall_diff == 0:
+                highlights.append("Overall presentation score remained steady with consistent delivery")
+            else:
+                highlights.append(f"Overall presentation score shifted by {overall_diff}% since baseline")
+        else:
+            highlights.append("Initial baseline attempt registered. Complete a second take to visualize your improvement trajectory!")
+
+        avg_score = round(sum(overall_scores) / len(overall_scores), 1)
+
+        summary = {
+            'total_attempts': total_attempts,
+            'latest_score': latest_point['overall'],
+            'highest_score': max(overall_scores),
+            'lowest_score': min(overall_scores),
+            'average_score': avg_score,
+            'first_score': first_point['overall'],
+            'progress_status': 'BASELINE' if total_attempts == 1 else (
+                'IMPROVED' if latest_point['overall'] > first_point['overall'] else (
+                    'DECLINED' if latest_point['overall'] < first_point['overall'] else 'STABLE'
+                )
+            ),
+        }
+
+        return Response({
+            'total_attempts': total_attempts,
+            'trend_points': trend_points,
+            'improvements': improvements,
+            'summary': summary,
+            'highlights': highlights,
+            'message': (
+                "Upload a second attempt to see your improvement curve!"
+                if total_attempts == 1
+                else "Score trends aggregated successfully."
+            )
+        }, status=status.HTTP_200_OK)
+
+
 class PresentationVideoDetailView(APIView):
     """
     US-16-T4 & US-16-T5:

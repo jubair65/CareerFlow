@@ -44,11 +44,15 @@ import { WebcamPlaybackPlayer } from '../components/presentation/WebcamPlaybackP
 import { PresentationScoreCard } from '../components/presentation/PresentationScoreCard';
 import { SuggestionsList } from '../components/presentation/SuggestionsList';
 import { PipelineStatusAlert } from '../components/presentation/PipelineStatusAlert';
+import { ScoreTrendsDashboard } from '../components/presentation/ScoreTrendsDashboard';
 
 export function VideoHistory({ notify }: { notify: Notify }) {
   const [, setLocation] = useLocation();
   const [videoHistory, setVideoHistory] = useState<PresentationVideo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // US-17 Tab: 'takes' (History list) vs 'trends' (Analytics & Progress curves)
+  const [activeMainTab, setActiveMainTab] = useState<'takes' | 'trends'>('takes');
 
   // Filter & Search Controls (US-16-T3)
   const [searchTerm, setSearchTerm] = useState('');
@@ -82,9 +86,14 @@ export function VideoHistory({ notify }: { notify: Notify }) {
     loadHistory();
   }, []);
 
-  // Deep-link query parameter support: ?video=<id> or ?id=<id> (US-16-T4)
+  // Deep-link query parameter support: ?video=<id> or ?id=<id> (US-16-T4) or ?tab=trends (US-17)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    if (tabParam === 'trends') {
+      setActiveMainTab('trends');
+    }
+
     const videoIdStr = params.get('video') || params.get('id');
     if (videoIdStr && videoHistory.length > 0) {
       const vid = videoHistory.find((v) => v.id === Number(videoIdStr));
@@ -338,8 +347,57 @@ export function VideoHistory({ notify }: { notify: Notify }) {
           </div>
         </div>
 
-        {/* Overview Trajectory Summary Cards (US-16-T1) */}
-        {videoHistory.length > 0 && (
+        {/* US-17 Tab Navigation: Video Takes vs Score Trends */}
+        <div className="flex items-center justify-between border-b border-[#ecefe7] pb-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveMainTab('takes')}
+              data-testid="tab-takes-history"
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+                activeMainTab === 'takes'
+                  ? 'bg-[#253142] text-white shadow-xs'
+                  : 'bg-[#f4f6ef] text-[#687382] hover:text-[#253142]'
+              }`}
+            >
+              <VideoIcon size={16} />
+              <span>Video Takes ({videoHistory.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveMainTab('trends')}
+              data-testid="tab-score-trends"
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
+                activeMainTab === 'trends'
+                  ? 'bg-[#253142] text-white shadow-xs'
+                  : 'bg-[#f4f6ef] text-[#687382] hover:text-[#253142]'
+              }`}
+            >
+              <TrendingUp size={16} />
+              <span>Score Trends & Progress</span>
+              <span className="hidden sm:inline-block rounded-full bg-[#e2f0e9] px-2 py-0.5 text-[10px] font-bold text-[#277254]">
+                Analytics
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Tab 2: Score Trends Dashboard (US-17) */}
+        {activeMainTab === 'trends' && (
+          <ScoreTrendsDashboard
+            notify={notify}
+            onSelectAttempt={(vidId) => {
+              const vid = videoHistory.find((v) => v.id === vidId);
+              if (vid) handleOpenAnalysis(vid);
+            }}
+          />
+        )}
+
+        {/* Tab 1: Video Takes List & Overview (US-16) */}
+        {activeMainTab === 'takes' && (
+          <div className="space-y-6">
+            {/* Overview Trajectory Summary Cards (US-16-T1) */}
+            {videoHistory.length > 0 && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {/* Total Takes */}
             <div className="rounded-2xl border border-[#d9dbd1] bg-white p-4 shadow-xs">
@@ -669,6 +727,8 @@ export function VideoHistory({ notify }: { notify: Notify }) {
           )}
         </div>
       </div>
+    )}
+  </div>
 
       {/* MODAL 1: VIDEO PREVIEW PLAYER MODAL */}
       {previewVideo && (
