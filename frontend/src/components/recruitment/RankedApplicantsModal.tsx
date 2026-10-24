@@ -424,7 +424,7 @@ export function RankedApplicantsModal({
                           checked={selectedAppIds.includes(applicant.application_id)}
                           disabled={!selectedAppIds.includes(applicant.application_id) && selectedAppIds.length >= 4}
                           onChange={() => toggleApplicantSelection(applicant.application_id)}
-                          className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition"
+                          className="w-4 h-4 rounded border-[#d9dbd1] text-[#277254] focus:ring-[#277254] accent-[#277254] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition"
                           title={
                             !selectedAppIds.includes(applicant.application_id) && selectedAppIds.length >= 4
                               ? 'Maximum 4 candidates can be selected for comparison'
@@ -594,17 +594,17 @@ export function RankedApplicantsModal({
         {activeTab === 'RANKED' && selectedAppIds.length > 0 && (
           <div
             data-testid="bar-applicant-comparison"
-            className="sticky bottom-0 z-20 px-6 py-3.5 bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-md border-t border-slate-700/80 shadow-2xl flex items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-2 duration-150"
+            className="sticky bottom-0 z-20 px-6 py-3.5 bg-white/95 backdrop-blur-md border-t border-[#d9dbd1] shadow-[0_-4px_16px_rgba(0,0,0,0.06)] flex items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-2 duration-150"
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-xs border border-indigo-500/30">
+              <div className="w-8 h-8 rounded-xl bg-[#e2f0e9] text-[#277254] flex items-center justify-center font-bold text-xs border border-[#b8d8c7]">
                 {selectedAppIds.length}
               </div>
               <div>
-                <p className="text-xs font-semibold text-white">
+                <p className="text-xs font-semibold text-[#253142]">
                   {selectedAppIds.length} of 4 candidates selected
                 </p>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-[#687382]">
                   {selectedAppIds.length < 2
                     ? 'Select at least 1 more candidate to compare'
                     : 'Ready for side-by-side comparison'}
@@ -617,7 +617,7 @@ export function RankedApplicantsModal({
                 type="button"
                 data-testid="btn-clear-selection"
                 onClick={clearSelection}
-                className="px-3 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition"
+                className="px-3 py-1.5 rounded-xl text-xs font-medium text-[#687382] hover:text-[#253142] hover:bg-[#f4f6ef] transition"
               >
                 Clear
               </button>
@@ -626,10 +626,10 @@ export function RankedApplicantsModal({
                 data-testid="btn-compare-now"
                 disabled={selectedAppIds.length < 2}
                 onClick={() => setIsComparisonModalOpen(true)}
-                className={`px-4 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md ${
+                className={`px-4 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm ${
                   selectedAppIds.length >= 2
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white cursor-pointer shadow-indigo-500/25'
-                    : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-50'
+                    ? 'bg-[#253142] hover:bg-[#33435a] text-white cursor-pointer'
+                    : 'bg-[#f4f6ef] text-[#98a09c] border border-[#d9dbd1] cursor-not-allowed opacity-50'
                 }`}
               >
                 <Scale className="w-3.5 h-3.5" />
