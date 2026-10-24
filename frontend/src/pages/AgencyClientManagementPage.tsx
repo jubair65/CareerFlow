@@ -680,7 +680,7 @@ export function AgencyClientManagementPage({ notify }: { notify: Notify }) {
               </div>
             )}
 
-            <form onSubmit={handleSubmitForm} className="mt-5 space-y-4">
+            <form onSubmit={handleSubmitForm} noValidate className="mt-5 space-y-4">
               {/* Company Name */}
               <div>
                 <label className="block text-xs font-bold text-[#253142] mb-1">
