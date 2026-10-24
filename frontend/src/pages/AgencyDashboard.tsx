@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useLocation } from 'wouter';
 import {
   Building2,
   FolderOpen,
@@ -20,6 +21,7 @@ import {
 import { getStoredUser } from '../api/auth';
 
 export function AgencyDashboard({ notify }: { notify: Notify }) {
+  const [, setLocation] = useLocation();
   const user = useMemo(() => {
     try {
       return getStoredUser() || JSON.parse(localStorage.getItem('careerflow-session') || '{}');
@@ -142,7 +144,7 @@ export function AgencyDashboard({ notify }: { notify: Notify }) {
             <h2 className="font-bold text-[#253142] text-lg">Client companies</h2>
             <button
               type="button"
-              onClick={() => handleAction('Manage Clients')}
+              onClick={() => setLocation('/agency/clients')}
               data-testid="link-agency-clients"
               className="text-xs font-bold text-[#277254] hover:underline"
             >

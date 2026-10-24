@@ -3,6 +3,72 @@ from django.conf import settings
 from django.db import models
 
 
+
+class ClientCompany(models.Model):
+    """
+    US-29-T1: Client company profile managed by a Recruitment Agency Administrator.
+    Supports multi-tenant company isolation, contact records, and soft deactivation states.
+    """
+    agency = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='client_companies',
+        help_text="Recruitment Agency Administrator who manages this client company"
+    )
+    name = models.CharField(
+        max_length=200,
+        help_text="Client company name"
+    )
+    industry = models.CharField(
+        max_length=100,
+        help_text="Industry sector (e.g., Technology, Finance, Healthcare, Retail)"
+    )
+    contact_person = models.CharField(
+        max_length=150,
+        help_text="Primary representative or contact person at client company"
+    )
+    contact_email = models.EmailField(
+        help_text="Primary contact email address for candidate forwarding and notifications"
+    )
+    phone = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        help_text="Contact phone number"
+    )
+    website = models.URLField(
+        blank=True,
+        default="",
+        help_text="Company official website URL"
+    )
+    notes = models.TextField(
+        blank=True,
+        default="",
+        help_text="Internal agency notes or remarks regarding the client"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        db_index=True,
+        help_text="Operational status: Active (True) or Deactivated (False)"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'careerflow_client_companies'
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['agency', 'name'],
+                name='unique_agency_client_company_name'
+            )
+        ]
+
+    def __str__(self):
+        status_label = "Active" if self.is_active else "Deactivated"
+        return f"{self.name} ({self.industry}) - {status_label}"
+
+
 class RecruitmentRoom(models.Model):
     class Status(models.TextChoices):
         ACTIVE = 'ACTIVE', 'Active'
@@ -14,6 +80,16 @@ class RecruitmentRoom(models.Model):
     department = models.CharField(max_length=150, blank=True, default="", help_text="Optional department or team")
     description = models.TextField(blank=True, default="", help_text="Detailed job description and responsibilities")
     
+    # US-29 / US-30: Associated Client Company for Agency Rooms
+    client_company = models.ForeignKey(
+        'ClientCompany',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='rooms',
+        help_text="Associated client company for agency-managed recruitment rooms"
+    )
+
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
