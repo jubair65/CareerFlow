@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import RecruitmentRoom
+from .models import RecruitmentRoom, ClientCompany
 
 
 class RecruitmentRoomSerializer(serializers.ModelSerializer):
@@ -708,3 +708,106 @@ class ApplicantComparisonResponseSerializer(serializers.Serializer):
     highest_final_score = serializers.FloatField(allow_null=True)
     average_final_score = serializers.FloatField(allow_null=True)
     applicants = ApplicantComparisonItemSerializer(many=True)
+
+
+# ============================================================================
+# US-29: Manage Multiple Client Companies
+# ============================================================================
+
+class ClientCompanySerializer(serializers.ModelSerializer):
+    """
+    US-29-T2: Serializer for recruitment agency client company CRUD.
+    Validates company name uniqueness per agency, email formatting, and contact fields.
+    """
+    agency_id = serializers.ReadOnlyField(source='agency.id')
+    agency_name = serializers.ReadOnlyField(source='agency.full_name')
+    agency_email = serializers.ReadOnlyField(source='agency.email')
+    rooms_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ClientCompany
+        fields = [
+            'id',
+            'agency_id',
+            'agency_name',
+            'agency_email',
+            'name',
+            'industry',
+            'contact_person',
+            'contact_email',
+            'phone',
+            'website',
+            'notes',
+            'is_active',
+            'rooms_count',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'id',
+            'agency_id',
+            'agency_name',
+            'agency_email',
+            'rooms_count',
+            'created_at',
+            'updated_at',
+        ]
+
+    def get_rooms_count(self, obj):
+        if hasattr(obj, 'rooms'):
+            return obj.rooms.count()
+        return 0
+
+    def validate_name(self, value):
+        val = (value or '').strip()
+        if not val:
+            raise serializers.ValidationError("Client company name cannot be blank.")
+        if len(val) < 2:
+            raise serializers.ValidationError("Client company name must be at least 2 characters long.")
+        if len(val) > 200:
+            raise serializers.ValidationError("Client company name cannot exceed 200 characters.")
+        return val
+
+    def validate_industry(self, value):
+        val = (value or '').strip()
+        if not val:
+            raise serializers.ValidationError("Industry cannot be blank.")
+        return val
+
+    def validate_contact_person(self, value):
+        val = (value or '').strip()
+        if not val:
+            raise serializers.ValidationError("Contact person cannot be blank.")
+        return val
+
+    def validate_contact_email(self, value):
+        val = (value or '').strip().lower()
+        if not val:
+            raise serializers.ValidationError("Contact email cannot be blank.")
+        return val
+
+    def validate(self, attrs):
+        name = attrs.get('name')
+        request = self.context.get('request')
+        
+        # When creating or updating name, check for duplicate company name within the same agency
+        if name and request and getattr(request, 'user', None) and request.user.is_authenticated:
+            qs = ClientCompany.objects.filter(agency=request.user, name__iexact=name.strip())
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError({
+                    "name": f"A client company named '{name.strip()}' already exists in your agency portfolio."
+                })
+        return attrs
+
+
+class ClientCompanyStatsSerializer(serializers.Serializer):
+    """
+    US-29-T4: Serializer for Agency client company summary statistics.
+    """
+    total_clients = serializers.IntegerField()
+    active_clients = serializers.IntegerField()
+    deactivated_clients = serializers.IntegerField()
+    associated_rooms = serializers.IntegerField()
+

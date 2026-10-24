@@ -2,7 +2,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import RecruitmentRoom
+from .models import RecruitmentRoom, ClientCompany
 from .serializers import (
     RecruitmentRoomSerializer,
     RoomRequirementsSerializer,
@@ -23,8 +23,16 @@ from .serializers import (
     ApplicantScoreBreakdownSerializer,
     ApplicantComparisonRequestSerializer,
     ApplicantComparisonResponseSerializer,
+    ClientCompanySerializer,
+    ClientCompanyStatsSerializer,
 )
-from .permissions import IsHRManager, IsRoomOwner, IsApplicationRoomOwner
+from .permissions import (
+    IsHRManager,
+    IsRoomOwner,
+    IsApplicationRoomOwner,
+    IsAgencyAdmin,
+    IsClientAgencyOwner,
+)
 from .services.review_service import (
     get_candidate_review_data,
     record_candidate_review_decision,
@@ -718,6 +726,88 @@ class ApplicantScoreBreakdownView(APIView):
         breakdown_data = get_applicant_score_breakdown(application, request_user=request.user, request=request)
         serializer = ApplicantScoreBreakdownSerializer(breakdown_data)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# ============================================================================
+# US-29: Manage Multiple Client Companies ViewSet
+# ============================================================================
+
+class ClientCompanyViewSet(viewsets.ModelViewSet):
+    """
+    US-29-T2 & US-29-T3: Agency Administrator Client Company Management.
+    Provides complete CRUD, soft deactivation/reactivation, multi-tenant isolation,
+    and dashboard KPI metrics. Only accessible to users with the AGENCY_ADMIN role.
+    """
+    serializer_class = ClientCompanySerializer
+    permission_classes = [permissions.IsAuthenticated, IsAgencyAdmin, IsClientAgencyOwner]
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user or not user.is_authenticated:
+            return ClientCompany.objects.none()
+
+        qs = ClientCompany.objects.filter(agency=user).prefetch_related('rooms').order_by('-created_at')
+
+        # Optional query filters
+        search_query = self.request.query_params.get('q', '').strip()
+        if search_query:
+            from django.db.models import Q
+            qs = qs.filter(
+                Q(name__icontains=search_query) |
+                Q(industry__icontains=search_query) |
+                Q(contact_person__icontains=search_query) |
+                Q(contact_email__icontains=search_query)
+            )
+
+        industry = self.request.query_params.get('industry', '').strip()
+        if industry and industry.lower() != 'all':
+            qs = qs.filter(industry__iexact=industry)
+
+        status_param = self.request.query_params.get('status', '').strip().lower()
+        if status_param == 'active':
+            qs = qs.filter(is_active=True)
+        elif status_param == 'deactivated':
+            qs = qs.filter(is_active=False)
+
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(agency=self.request.user)
+
+    @action(detail=True, methods=['post'], url_path='toggle-active')
+    def toggle_active(self, request, pk=None):
+        """
+        US-29-T5: Toggle client company operational status between active and deactivated.
+        """
+        company = self.get_object()
+        company.is_active = not company.is_active
+        company.save(update_fields=['is_active', 'updated_at'])
+        action_verb = "activated" if company.is_active else "deactivated"
+        return Response({
+            "message": f"Client company '{company.name}' successfully {action_verb}.",
+            "is_active": company.is_active,
+            "client": ClientCompanySerializer(company, context={'request': request}).data
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], url_path='summary-stats')
+    def summary_stats(self, request):
+        """
+        US-29-T4: Return high-level KPI metrics for the agency dashboard.
+        """
+        user_clients = ClientCompany.objects.filter(agency=request.user)
+        total_clients = user_clients.count()
+        active_clients = user_clients.filter(is_active=True).count()
+        deactivated_clients = total_clients - active_clients
+        associated_rooms = RecruitmentRoom.objects.filter(client_company__agency=request.user).count()
+
+        data = {
+            "total_clients": total_clients,
+            "active_clients": active_clients,
+            "deactivated_clients": deactivated_clients,
+            "associated_rooms": associated_rooms,
+        }
+        return Response(data, status=status.HTTP_200_OK)
+
 
 
 

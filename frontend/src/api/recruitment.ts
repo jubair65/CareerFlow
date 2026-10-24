@@ -837,6 +837,135 @@ export async function apiCompareApplicants(
   return response.data;
 }
 
+// ============================================================================
+// US-29: Agency Client Company Management Types & APIs
+// ============================================================================
+
+export interface ClientCompany {
+  id: number;
+  agency_id: number;
+  agency_name: string;
+  agency_email: string;
+  name: string;
+  industry: string;
+  contact_person: string;
+  contact_email: string;
+  phone?: string;
+  website?: string;
+  notes?: string;
+  is_active: boolean;
+  rooms_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClientCompanyCreatePayload {
+  name: string;
+  industry: string;
+  contact_person: string;
+  contact_email: string;
+  phone?: string;
+  website?: string;
+  notes?: string;
+}
+
+export interface ClientCompanyUpdatePayload {
+  name?: string;
+  industry?: string;
+  contact_person?: string;
+  contact_email?: string;
+  phone?: string;
+  website?: string;
+  notes?: string;
+  is_active?: boolean;
+}
+
+export interface AgencyClientStats {
+  total_clients: number;
+  active_clients: number;
+  deactivated_clients: number;
+  associated_rooms: number;
+}
+
+export interface ToggleActiveResponse {
+  message: string;
+  is_active: boolean;
+  client: ClientCompany;
+}
+
+/**
+ * US-29-T2: Fetch list of client companies for the authenticated Agency Admin.
+ */
+export async function apiGetAgencyClients(params?: {
+  q?: string;
+  industry?: string;
+  status?: string;
+}): Promise<ClientCompany[]> {
+  const response = await apiClient.get<ClientCompany[]>('/recruitment/agency/clients/', {
+    params,
+  });
+  return response.data;
+}
+
+/**
+ * US-29-T2: Fetch single client company details.
+ */
+export async function apiGetAgencyClient(id: number | string): Promise<ClientCompany> {
+  const response = await apiClient.get<ClientCompany>(`/recruitment/agency/clients/${id}/`);
+  return response.data;
+}
+
+/**
+ * US-29-T2: Create a new client company.
+ */
+export async function apiCreateAgencyClient(
+  payload: ClientCompanyCreatePayload
+): Promise<ClientCompany> {
+  const response = await apiClient.post<ClientCompany>('/recruitment/agency/clients/', payload);
+  return response.data;
+}
+
+/**
+ * US-29-T2: Update an existing client company.
+ */
+export async function apiUpdateAgencyClient(
+  id: number | string,
+  payload: ClientCompanyUpdatePayload
+): Promise<ClientCompany> {
+  const response = await apiClient.patch<ClientCompany>(`/recruitment/agency/clients/${id}/`, payload);
+  return response.data;
+}
+
+/**
+ * US-29-T5: Toggle client company between Active and Deactivated.
+ */
+export async function apiToggleClientActive(
+  id: number | string
+): Promise<ToggleActiveResponse> {
+  const response = await apiClient.post<ToggleActiveResponse>(
+    `/recruitment/agency/clients/${id}/toggle-active/`
+  );
+  return response.data;
+}
+
+/**
+ * US-29-T5: Delete a client company.
+ */
+export async function apiDeleteAgencyClient(id: number | string): Promise<void> {
+  await apiClient.delete(`/recruitment/agency/clients/${id}/`);
+}
+
+/**
+ * US-29-T4: Fetch high-level agency dashboard summary metrics.
+ */
+export async function apiGetAgencyClientStats(): Promise<AgencyClientStats> {
+  const response = await apiClient.get<AgencyClientStats>(
+    '/recruitment/agency/clients/summary-stats/'
+  );
+  return response.data;
+}
+
+
 
 
 

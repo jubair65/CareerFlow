@@ -47,3 +47,35 @@ class IsApplicationRoomOwner(BasePermission):
             room_owner == request.user
         )
 
+
+class IsAgencyAdmin(BasePermission):
+    """
+    US-29-T3: Allows access only to authenticated users who have the AGENCY_ADMIN role.
+    """
+    message = "Access forbidden: Only users with the Agency Admin role can manage client companies."
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            getattr(request.user, 'role', None) == User.Role.AGENCY_ADMIN
+        )
+
+
+class IsClientAgencyOwner(BasePermission):
+    """
+    US-29-T3: Object-level permission to ensure only the Agency Admin who owns
+    the ClientCompany can view or edit it.
+    """
+    message = "Access forbidden: You cannot view or modify another agency's client company."
+
+    def has_object_permission(self, request, view, obj):
+        agency_owner = getattr(obj, 'agency', None)
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            getattr(request.user, 'role', None) == User.Role.AGENCY_ADMIN and
+            agency_owner == request.user
+        )
+
+

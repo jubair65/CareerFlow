@@ -24,6 +24,7 @@ import { RecruitmentRoomsPage } from './pages/RecruitmentRoomsPage';
 import { PublicApplicationPage } from './pages/PublicApplicationPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { AgencyClientManagementPage } from './pages/AgencyClientManagementPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 
@@ -718,6 +719,14 @@ function RoutedApp({ notify }: { notify: Notify }) {
     return (
       <ProtectedRoute allowedRoles={['agency']} notify={notify}>
         <AgencyDashboard notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (path === '/agency/clients' || path === '/agency/client-companies') {
+    return (
+      <ProtectedRoute allowedRoles={['agency']} notify={notify}>
+        <AgencyClientManagementPage notify={notify} />
       </ProtectedRoute>
     );
   }
