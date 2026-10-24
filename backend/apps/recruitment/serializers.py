@@ -639,3 +639,72 @@ class ApplicantScoreBreakdownSerializer(serializers.Serializer):
     missing_components_explanation = serializers.CharField(allow_null=True, allow_blank=True, required=False)
     cv_component = ScoreComponentContributionSerializer()
     video_component = ScoreComponentContributionSerializer()
+
+
+# ============================================================================
+# US-28: Side-by-Side Applicant Comparison
+# ============================================================================
+
+class ApplicantComparisonRequestSerializer(serializers.Serializer):
+    """
+    US-28-T2: Request serializer for comparing 2 to 4 applicants side by side.
+    """
+    application_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=False,
+        help_text="List of 2 to 4 candidate application IDs belonging to this room."
+    )
+
+    def validate_application_ids(self, value):
+        unique_ids = list(dict.fromkeys(value))
+        if len(unique_ids) < 2:
+            raise serializers.ValidationError("At least 2 unique applicants are required for side-by-side comparison.")
+        if len(unique_ids) > 4:
+            raise serializers.ValidationError("Maximum 4 applicants can be compared simultaneously.")
+        return unique_ids
+
+
+class ApplicantComparisonItemSerializer(serializers.Serializer):
+    """
+    US-28-T2: Candidate metrics item within comparison matrix.
+    """
+    application_id = serializers.IntegerField()
+    candidate_id = serializers.IntegerField()
+    candidate_name = serializers.CharField(allow_blank=True)
+    email = serializers.EmailField()
+    avatar_initials = serializers.CharField(allow_blank=True, default="CA")
+    final_score = serializers.FloatField(allow_null=True)
+    score_tier = serializers.CharField()
+    is_partial_score = serializers.BooleanField()
+    cv_score = serializers.FloatField(allow_null=True)
+    video_score = serializers.FloatField(allow_null=True)
+    matched_skills = serializers.ListField(child=serializers.CharField(), default=list)
+    missing_skills = serializers.ListField(child=serializers.CharField(), default=list)
+    keyword_coverage = serializers.FloatField(default=0.0)
+    wpm = serializers.FloatField(default=0.0)
+    eye_contact_percent = serializers.FloatField(allow_null=True)
+    posture_score = serializers.FloatField(allow_null=True)
+    filler_words_count = serializers.IntegerField(default=0)
+    speech_score = serializers.FloatField(allow_null=True)
+    visual_score = serializers.FloatField(allow_null=True)
+    is_shortlisted = serializers.BooleanField()
+    shortlist_reason = serializers.CharField(allow_blank=True)
+    hr_decision = serializers.CharField()
+    hr_decision_display = serializers.CharField()
+    applied_at = serializers.DateTimeField()
+    best_in = serializers.ListField(child=serializers.CharField(), default=list)
+
+
+class ApplicantComparisonResponseSerializer(serializers.Serializer):
+    """
+    US-28-T2: Response serializer for side-by-side applicant comparison.
+    """
+    room_id = serializers.IntegerField()
+    room_title = serializers.CharField()
+    company_name = serializers.CharField()
+    cv_weight = serializers.IntegerField()
+    video_weight = serializers.IntegerField()
+    comparison_count = serializers.IntegerField()
+    highest_final_score = serializers.FloatField(allow_null=True)
+    average_final_score = serializers.FloatField(allow_null=True)
+    applicants = ApplicantComparisonItemSerializer(many=True)

@@ -18,6 +18,7 @@ import {
   FileText,
   Video,
   Calculator,
+  Scale,
 } from 'lucide-react';
 import type {
   RecruitmentRoom,
@@ -27,6 +28,7 @@ import type {
 } from '../../api/recruitment';
 import { apiGetRankedApplicants, apiCalculateRoomScores } from '../../api/recruitment';
 import { ScoreBreakdownModal } from './ScoreBreakdownModal';
+import { ApplicantComparisonModal } from './ApplicantComparisonModal';
 
 interface RankedApplicantsModalProps {
   isOpen: boolean;
@@ -63,6 +65,27 @@ export function RankedApplicantsModal({
   const [breakdownAppId, setBreakdownAppId] = useState<number | null>(null);
   const [breakdownCandidateName, setBreakdownCandidateName] = useState<string | undefined>(undefined);
 
+  // US-28: Side-by-Side Applicant Comparison Selection State
+  const [selectedAppIds, setSelectedAppIds] = useState<number[]>([]);
+  const [isComparisonModalOpen, setIsComparisonModalOpen] = useState(false);
+
+  const toggleApplicantSelection = (appId: number) => {
+    setSelectedAppIds((prev) => {
+      if (prev.includes(appId)) {
+        return prev.filter((id) => id !== appId);
+      }
+      if (prev.length >= 4) {
+        notify?.('Maximum 4 candidates can be compared simultaneously.', 'info');
+        return prev;
+      }
+      return [...prev, appId];
+    });
+  };
+
+  const clearSelection = () => {
+    setSelectedAppIds([]);
+  };
+
   const fetchRankings = async (showLoadingSpinner = true) => {
     if (!room) return;
     try {
@@ -92,9 +115,13 @@ export function RankedApplicantsModal({
       setMinScoreFilter(0);
       setSortBy('-final_score');
       setActiveTab('RANKED');
+      setSelectedAppIds([]);
+      setIsComparisonModalOpen(false);
       return;
     }
 
+    setSelectedAppIds([]);
+    setIsComparisonModalOpen(false);
     fetchRankings(true);
   }, [isOpen, room]);
 
@@ -386,8 +413,26 @@ export function RankedApplicantsModal({
                         : 'border-gray-200 dark:border-gray-800'
                     }`}
                   >
-                    {/* Left: Rank & Candidate Details */}
-                    <div className="flex items-center gap-4 min-w-[260px]">
+                    {/* Left: Checkbox + Rank & Candidate Details */}
+                    <div className="flex items-center gap-3.5 min-w-[270px]">
+                      {/* US-28: Multi-selection Checkbox */}
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          data-testid={`checkbox-compare-${applicant.application_id}`}
+                          aria-label={`Select ${applicant.candidate_name || 'candidate'} for comparison`}
+                          checked={selectedAppIds.includes(applicant.application_id)}
+                          disabled={!selectedAppIds.includes(applicant.application_id) && selectedAppIds.length >= 4}
+                          onChange={() => toggleApplicantSelection(applicant.application_id)}
+                          className="w-4 h-4 rounded border-[#d9dbd1] text-[#277254] focus:ring-[#277254] accent-[#277254] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition"
+                          title={
+                            !selectedAppIds.includes(applicant.application_id) && selectedAppIds.length >= 4
+                              ? 'Maximum 4 candidates can be selected for comparison'
+                              : 'Select candidate for side-by-side comparison'
+                          }
+                        />
+                      </div>
+
                       <div className="flex-shrink-0" data-testid={`badge-rank-${applicant.rank}`}>
                         {getRankBadgeElement(applicant.rank, applicant.badge)}
                       </div>
@@ -545,6 +590,55 @@ export function RankedApplicantsModal({
           )}
         </div>
 
+        {/* US-28: Sticky Floating Comparison Bar */}
+        {activeTab === 'RANKED' && selectedAppIds.length > 0 && (
+          <div
+            data-testid="bar-applicant-comparison"
+            className="sticky bottom-0 z-20 px-6 py-3.5 bg-white/95 backdrop-blur-md border-t border-[#d9dbd1] shadow-[0_-4px_16px_rgba(0,0,0,0.06)] flex items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-2 duration-150"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-[#e2f0e9] text-[#277254] flex items-center justify-center font-bold text-xs border border-[#b8d8c7]">
+                {selectedAppIds.length}
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-[#253142]">
+                  {selectedAppIds.length} of 4 candidates selected
+                </p>
+                <p className="text-[11px] text-[#687382]">
+                  {selectedAppIds.length < 2
+                    ? 'Select at least 1 more candidate to compare'
+                    : 'Ready for side-by-side comparison'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                data-testid="btn-clear-selection"
+                onClick={clearSelection}
+                className="px-3 py-1.5 rounded-xl text-xs font-medium text-[#687382] hover:text-[#253142] hover:bg-[#f4f6ef] transition"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                data-testid="btn-compare-now"
+                disabled={selectedAppIds.length < 2}
+                onClick={() => setIsComparisonModalOpen(true)}
+                className={`px-4 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm ${
+                  selectedAppIds.length >= 2
+                    ? 'bg-[#253142] hover:bg-[#33435a] text-white cursor-pointer'
+                    : 'bg-[#f4f6ef] text-[#98a09c] border border-[#d9dbd1] cursor-not-allowed opacity-50'
+                }`}
+              >
+                <Scale className="w-3.5 h-3.5" />
+                Compare Now ({selectedAppIds.length})
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Modal Footer */}
         <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-900/70 text-xs text-gray-500 dark:text-gray-400">
           <div className="flex items-center gap-2">
@@ -567,6 +661,18 @@ export function RankedApplicantsModal({
           onClose={() => setBreakdownAppId(null)}
           applicationId={breakdownAppId}
           candidateName={breakdownCandidateName}
+          notify={notify}
+        />
+      )}
+
+      {/* US-28: Side-by-Side Applicant Comparison Modal */}
+      {isComparisonModalOpen && room && (
+        <ApplicantComparisonModal
+          isOpen={isComparisonModalOpen}
+          onClose={() => setIsComparisonModalOpen(false)}
+          roomId={room.id}
+          roomTitle={room.title}
+          applicationIds={selectedAppIds}
           notify={notify}
         />
       )}
