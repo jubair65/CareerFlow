@@ -8,6 +8,7 @@ from .views import (
     CandidateApplicationReviewDetailView,
     ApplicantScoreBreakdownView,
     ClientCompanyViewSet,
+    AgencyRoomViewSet,
 )
 
 app_name = 'recruitment'
@@ -15,6 +16,7 @@ app_name = 'recruitment'
 router = DefaultRouter()
 router.register(r'rooms', RecruitmentRoomViewSet, basename='room')
 router.register(r'agency/clients', ClientCompanyViewSet, basename='agency-clients')
+router.register(r'agency/rooms', AgencyRoomViewSet, basename='agency-rooms')
 
 urlpatterns = [
     # US-26: HR Candidate Review & Decision Endpoints

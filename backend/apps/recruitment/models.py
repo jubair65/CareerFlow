@@ -216,10 +216,21 @@ class RecruitmentRoom(models.Model):
         if self.cv_weight + self.video_weight != 100:
             raise ValidationError({'weights': f'Weights must sum to 100% (currently {self.cv_weight}% + {self.video_weight}% = {self.cv_weight + self.video_weight}%).'})
 
+        # US-30-T1 & US-30-T5: Client Company Association & Agency Validation
+        if self.client_company_id:
+            if hasattr(self, 'created_by') and self.created_by_id:
+                if self.client_company.agency_id != self.created_by_id:
+                    raise ValidationError({'client_company': 'Room cannot be associated with a client company belonging to another agency.'})
+            if not self.pk and not self.client_company.is_active:
+                raise ValidationError({'client_company': 'Cannot create rooms for a deactivated client company. Please reactivate the client first.'})
+
     def save(self, *args, **kwargs):
         # Auto-generate a secure non-guessable share token if not set
         if not self.share_token:
             self.share_token = secrets.token_urlsafe(32)
+        # If client_company is set and company_name is blank or needs sync, align with client company
+        if self.client_company_id and (not self.company_name or not self.company_name.strip()):
+            self.company_name = self.client_company.name
         self.clean()
         super().save(*args, **kwargs)
 

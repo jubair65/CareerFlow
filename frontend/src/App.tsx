@@ -25,6 +25,7 @@ import { PublicApplicationPage } from './pages/PublicApplicationPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { AgencyClientManagementPage } from './pages/AgencyClientManagementPage';
+import { AgencyRoomsPage } from './pages/AgencyRoomsPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 
@@ -727,6 +728,14 @@ function RoutedApp({ notify }: { notify: Notify }) {
     return (
       <ProtectedRoute allowedRoles={['agency']} notify={notify}>
         <AgencyClientManagementPage notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (path === '/agency/rooms') {
+    return (
+      <ProtectedRoute allowedRoles={['agency']} notify={notify}>
+        <AgencyRoomsPage notify={notify} />
       </ProtectedRoute>
     );
   }

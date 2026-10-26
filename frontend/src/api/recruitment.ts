@@ -11,6 +11,16 @@ export interface RecruitmentRoom {
   title: string;
   company_name: string;
   department: string;
+  client_company?: number | null;
+  client_company_name?: string;
+  client_company_details?: {
+    id: number;
+    name: string;
+    industry: string;
+    contact_person: string;
+    contact_email: string;
+    is_active: boolean;
+  } | null;
   role_category?: string;
   experience_level?: 'ENTRY' | 'MID' | 'SENIOR' | 'LEAD';
   experience_level_display?: string;
@@ -964,6 +974,180 @@ export async function apiGetAgencyClientStats(): Promise<AgencyClientStats> {
   );
   return response.data;
 }
+
+export interface CreateAgencyRoomPayload {
+  title: string;
+  client_company: number;
+  department?: string;
+  description?: string;
+  role_category?: string;
+  experience_level?: 'ENTRY' | 'MID' | 'SENIOR' | 'LEAD';
+  requirements_text?: string;
+  skills_required?: (string | SkillItem)[];
+  cv_weight?: number;
+  video_weight?: number;
+}
+
+export interface AgencyClientGroupedRooms {
+  client_id: number;
+  client_name: string;
+  industry: string;
+  contact_person: string;
+  contact_email: string;
+  is_active: boolean;
+  rooms_count: number;
+  rooms: RecruitmentRoom[];
+}
+
+export interface AgencyRoomStats {
+  total_rooms: number;
+  active_rooms: number;
+  clients_with_rooms: number;
+  total_applicants: number;
+}
+
+/**
+ * US-30-T2: Fetch rooms managed by the authenticated Agency Admin.
+ */
+export async function apiGetAgencyRooms(params?: {
+  client_company?: number | string;
+  status?: string;
+  q?: string;
+}): Promise<RecruitmentRoom[]> {
+  const response = await apiClient.get<RecruitmentRoom[]>('/recruitment/agency/rooms/', {
+    params,
+  });
+  return response.data;
+}
+
+/**
+ * US-30-AC#6: Fetch agency rooms grouped by client company.
+ */
+export async function apiGetAgencyRoomsGrouped(): Promise<AgencyClientGroupedRooms[]> {
+  const response = await apiClient.get<AgencyClientGroupedRooms[]>(
+    '/recruitment/agency/rooms/grouped-by-client/'
+  );
+  return response.data;
+}
+
+/**
+ * US-30-T2: Create a recruitment room for a selected client company.
+ */
+export async function apiCreateAgencyRoom(
+  payload: CreateAgencyRoomPayload
+): Promise<RoomApiResponse> {
+  const response = await apiClient.post<RoomApiResponse>('/recruitment/agency/rooms/', payload);
+  return response.data;
+}
+
+/**
+ * US-30: Fetch summary KPI metrics for agency rooms.
+ */
+export async function apiGetAgencyRoomStats(): Promise<AgencyRoomStats> {
+  const response = await apiClient.get<AgencyRoomStats>('/recruitment/agency/rooms/summary-stats/');
+  return response.data;
+}
+
+/**
+ * US-30-T3: Fetch requirements and skills for an agency room.
+ */
+export async function apiGetAgencyRoomRequirements(
+  id: number | string
+): Promise<RoomRequirementsDetailResponse> {
+  const response = await apiClient.get<RoomRequirementsDetailResponse>(
+    `/recruitment/agency/rooms/${id}/requirements/`
+  );
+  return response.data;
+}
+
+/**
+ * US-30-T3: Update requirements and skills for an agency room.
+ */
+export async function apiUpdateAgencyRoomRequirements(
+  id: number | string,
+  payload: RoomRequirementsPayload
+): Promise<RoomRequirementsResponse> {
+  const response = await apiClient.patch<RoomRequirementsResponse>(
+    `/recruitment/agency/rooms/${id}/requirements/`,
+    payload
+  );
+  return response.data;
+}
+
+/**
+ * US-30-T3: Fetch evaluation weighting for an agency room.
+ */
+export async function apiGetAgencyRoomWeighting(
+  id: number | string
+): Promise<RoomWeightingDetailResponse> {
+  const response = await apiClient.get<RoomWeightingDetailResponse>(
+    `/recruitment/agency/rooms/${id}/weighting/`
+  );
+  return response.data;
+}
+
+/**
+ * US-30-T3: Update evaluation weighting for an agency room.
+ */
+export async function apiUpdateAgencyRoomWeighting(
+  id: number | string,
+  payload: RoomWeightingPayload
+): Promise<RoomWeightingResponse> {
+  const response = await apiClient.patch<RoomWeightingResponse>(
+    `/recruitment/agency/rooms/${id}/weighting/`,
+    payload
+  );
+  return response.data;
+}
+
+/**
+ * US-30: Update agency room details (title, department, status, description).
+ */
+export async function apiUpdateAgencyRoom(
+  id: number | string,
+  payload: UpdateRoomPayload
+): Promise<RoomApiResponse> {
+  const response = await apiClient.patch<RoomApiResponse>(
+    `/recruitment/agency/rooms/${id}/`,
+    payload
+  );
+  return response.data;
+}
+
+/**
+ * US-30: Delete an agency room.
+ */
+export async function apiDeleteAgencyRoom(id: number | string): Promise<void> {
+  await apiClient.delete(`/recruitment/agency/rooms/${id}/`);
+}
+
+/**
+ * US-30-T3: Retrieve or generate shareable application link for an agency room.
+ */
+export async function apiGetAgencyRoomLink(
+  id: number | string
+): Promise<{ message: string; link: any }> {
+  const response = await apiClient.get<{ message: string; link: any }>(
+    `/recruitment/agency/rooms/${id}/link/`
+  );
+  return response.data;
+}
+
+/**
+ * US-30-T3: Activate or deactivate application link for an agency room.
+ */
+export async function apiToggleAgencyRoomLink(
+  id: number | string,
+  activate: boolean
+): Promise<{ message: string; link: any }> {
+  const path = activate ? 'activate' : 'deactivate';
+  const response = await apiClient.post<{ message: string; link: any }>(
+    `/recruitment/agency/rooms/${id}/link/${path}/`
+  );
+  return response.data;
+}
+
+
 
 
 
