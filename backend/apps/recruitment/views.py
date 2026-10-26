@@ -25,6 +25,8 @@ from .serializers import (
     ApplicantComparisonResponseSerializer,
     ClientCompanySerializer,
     ClientCompanyStatsSerializer,
+    AgencyCrossClientApplicantSerializer,
+    AgencyCrossClientSummaryStatsSerializer,
 )
 from .permissions import (
     IsHRManager,
@@ -925,6 +927,126 @@ class AgencyRoomViewSet(RecruitmentRoomViewSet):
             "total_applicants": total_applicants,
         }
         return Response(data, status=status.HTTP_200_OK)
+
+
+class AgencyCrossClientApplicantViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    US-31: Cross-Client Applicant View for Agency Administrators.
+    Aggregates candidate applications across all client companies managed by
+    the authenticated Agency Admin with multi-tenant isolation, filtering,
+    and pipeline KPI summary statistics.
+    """
+    serializer_class = AgencyCrossClientApplicantSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAgencyAdmin]
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user or not user.is_authenticated or getattr(user, 'role', None) != User.Role.AGENCY_ADMIN:
+            return CandidateApplication.objects.none()
+
+        # US-31-T5: Enforce strict Agency multi-tenant data isolation
+        qs = CandidateApplication.objects.filter(
+            room__client_company__agency=user,
+            room__client_company__isnull=False
+        ).select_related(
+            'candidate',
+            'room',
+            'room__client_company',
+            'cv',
+            'video'
+        )
+
+        # US-31-T4: Filter by Client Company ID
+        client_company_id = self.request.query_params.get('client_company')
+        if client_company_id:
+            qs = qs.filter(room__client_company_id=client_company_id)
+
+        # US-31-T4: Filter by Room ID
+        room_id = self.request.query_params.get('room')
+        if room_id:
+            qs = qs.filter(room_id=room_id)
+
+        # US-31-T4: Filter by Application Status
+        status_param = self.request.query_params.get('status', '').strip().upper()
+        if status_param and status_param != 'ALL':
+            qs = qs.filter(status=status_param)
+
+        # US-31-T4: Filter by Shortlist Status
+        shortlisted_param = self.request.query_params.get('shortlisted', '').strip().lower()
+        if shortlisted_param == 'true':
+            qs = qs.filter(is_shortlisted=True)
+        elif shortlisted_param == 'false':
+            qs = qs.filter(is_shortlisted=False)
+
+        # Filter by HR Review Decision
+        decision_param = self.request.query_params.get('decision', '').strip().upper()
+        if decision_param and decision_param != 'ALL':
+            qs = qs.filter(hr_decision=decision_param)
+
+        # US-31-T4: Search across candidate name, email, room title, client name
+        search_query = self.request.query_params.get('q', '').strip()
+        if search_query:
+            from django.db.models import Q
+            qs = qs.filter(
+                Q(candidate__full_name__icontains=search_query) |
+                Q(candidate__email__icontains=search_query) |
+                Q(room__title__icontains=search_query) |
+                Q(room__client_company__name__icontains=search_query)
+            )
+
+        # Ordering / Sorting
+        ordering = self.request.query_params.get('ordering', '-applied_at').strip()
+        allowed_ordering = [
+            'applied_at', '-applied_at',
+            'final_score', '-final_score',
+            'cv_score', '-cv_score',
+            'video_score', '-video_score',
+            'candidate__full_name', '-candidate__full_name',
+            'room__title', '-room__title'
+        ]
+        if ordering in allowed_ordering:
+            qs = qs.order_by(ordering)
+        else:
+            qs = qs.order_by('-applied_at')
+
+        return qs
+
+    @action(detail=False, methods=['get'], url_path='summary-stats')
+    def summary_stats(self, request):
+        """
+        US-31: High-level KPI metrics for cross-client applicant pipeline.
+        """
+        user = request.user
+        base_qs = CandidateApplication.objects.filter(
+            room__client_company__agency=user,
+            room__client_company__isnull=False
+        )
+
+        total_applicants = base_qs.count()
+        completed_evaluations = base_qs.filter(status=CandidateApplication.Status.COMPLETED).count()
+        shortlisted_candidates = base_qs.filter(is_shortlisted=True).count()
+        pending_reviews = base_qs.filter(
+            hr_decision=CandidateApplication.HrDecision.UNDECIDED,
+            status=CandidateApplication.Status.COMPLETED
+        ).count()
+
+        from django.db.models import Avg
+        avg_score = base_qs.filter(final_score__isnull=False).aggregate(Avg('final_score'))['final_score__avg'] or 0.0
+
+        clients_count = base_qs.values('room__client_company').distinct().count()
+        rooms_count = base_qs.values('room').distinct().count()
+
+        data = {
+            "total_applicants": total_applicants,
+            "completed_evaluations": completed_evaluations,
+            "shortlisted_candidates": shortlisted_candidates,
+            "pending_reviews": pending_reviews,
+            "average_final_score": round(avg_score, 1),
+            "clients_count": clients_count,
+            "rooms_count": rooms_count,
+        }
+        return Response(data, status=status.HTTP_200_OK)
+
 
 
 

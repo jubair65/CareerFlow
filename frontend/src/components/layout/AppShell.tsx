@@ -138,7 +138,9 @@ export function AppShell({
       targetPath === '/student/videos' ||
       targetPath === '/student/presentation' ||
       targetPath === '/agency/clients' ||
-      targetPath === '/agency/rooms'
+      targetPath === '/agency/rooms' ||
+      targetPath === '/agency/pipeline' ||
+      targetPath === '/agency/applicants'
     ) {
       setLocation(targetPath);
     } else {
@@ -173,7 +175,8 @@ export function AppShell({
               const isCurrent =
                 path === itemPath ||
                 (active && path.startsWith(itemPath)) ||
-                (itemPath === '/student/cv' && path.startsWith('/student/cv'));
+                (itemPath === '/student/cv' && path.startsWith('/student/cv')) ||
+                (itemPath === '/agency/pipeline' && path === '/agency/applicants');
               return (
                 <button
                   key={itemPath}

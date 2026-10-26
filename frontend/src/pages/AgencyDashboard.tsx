@@ -73,13 +73,15 @@ export function AgencyDashboard({ notify }: { notify: Notify }) {
             accent="blue"
           />
         </div>
-        <StatCard
-          label="Applicants"
-          value="126"
-          detail="+18 this week"
-          icon={Users}
-          accent="green"
-        />
+        <div onClick={() => setLocation('/agency/pipeline')} className="cursor-pointer" data-testid="card-agency-applicants">
+          <StatCard
+            label="Applicants"
+            value="126"
+            detail="+18 this week"
+            icon={Users}
+            accent="green"
+          />
+        </div>
         <StatCard
           label="AI shortlisted"
           value="24"
@@ -130,7 +132,7 @@ export function AgencyDashboard({ notify }: { notify: Notify }) {
           </div>
           <button
             type="button"
-            onClick={() => handleAction('Review Pipeline')}
+            onClick={() => setLocation('/agency/pipeline')}
             data-testid="button-review-pipeline"
             className="mt-6 inline-flex w-fit items-center gap-2 rounded-xl bg-[#e2f0e9] px-4 py-2.5 text-xs font-bold text-[#277254] hover:bg-[#d2e7dc] transition"
           >
