@@ -137,7 +137,8 @@ export function AppShell({
       targetPath === '/student/practice' ||
       targetPath === '/student/videos' ||
       targetPath === '/student/presentation' ||
-      targetPath === '/agency/clients'
+      targetPath === '/agency/clients' ||
+      targetPath === '/agency/rooms'
     ) {
       setLocation(targetPath);
     } else {

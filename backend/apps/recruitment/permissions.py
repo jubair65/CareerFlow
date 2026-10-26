@@ -79,3 +79,37 @@ class IsClientAgencyOwner(BasePermission):
         )
 
 
+class IsHRManagerOrAgencyAdmin(BasePermission):
+    """
+    US-30: Allows access only to authenticated users who have either
+    the HR_MANAGER or the AGENCY_ADMIN role.
+    """
+    message = "Access forbidden: Only HR Managers or Agency Administrators can access this recruitment resource."
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            getattr(request.user, 'role', None) in [User.Role.HR_MANAGER, User.Role.AGENCY_ADMIN]
+        )
+
+
+class IsAgencyRoomOwner(BasePermission):
+    """
+    US-30-T5: Object-level permission to ensure only the Agency Admin who owns
+    the client room can view or modify it.
+    """
+    message = "Access forbidden: You cannot view or modify another agency's room."
+
+    def has_object_permission(self, request, view, obj):
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            getattr(request.user, 'role', None) == User.Role.AGENCY_ADMIN and
+            (
+                obj.created_by == request.user or
+                (getattr(obj, 'client_company', None) and obj.client_company.agency == request.user)
+            )
+        )
+
+

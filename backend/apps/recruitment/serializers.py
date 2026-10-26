@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from apps.authentication.models import User
 from .models import RecruitmentRoom, ClientCompany
 
 
@@ -7,6 +8,14 @@ class RecruitmentRoomSerializer(serializers.ModelSerializer):
     created_by_email = serializers.ReadOnlyField(source='created_by.email')
     experience_level_display = serializers.CharField(source='get_experience_level_display', read_only=True)
     share_url = serializers.SerializerMethodField()
+    company_name = serializers.CharField(required=False, allow_blank=True)
+    client_company = serializers.PrimaryKeyRelatedField(
+        queryset=ClientCompany.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    client_company_name = serializers.CharField(source='client_company.name', read_only=True)
+    client_company_details = serializers.SerializerMethodField()
 
     class Meta:
         model = RecruitmentRoom
@@ -15,6 +24,9 @@ class RecruitmentRoomSerializer(serializers.ModelSerializer):
             'title',
             'company_name',
             'department',
+            'client_company',
+            'client_company_name',
+            'client_company_details',
             'role_category',
             'experience_level',
             'experience_level_display',
@@ -41,6 +53,8 @@ class RecruitmentRoomSerializer(serializers.ModelSerializer):
             'id',
             'share_token',
             'share_url',
+            'client_company_name',
+            'client_company_details',
             'created_by',
             'created_by_name',
             'created_by_email',
@@ -55,6 +69,18 @@ class RecruitmentRoomSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(relative_path)
         return relative_path
 
+    def get_client_company_details(self, obj):
+        if obj.client_company:
+            return {
+                "id": obj.client_company.id,
+                "name": obj.client_company.name,
+                "industry": obj.client_company.industry,
+                "contact_person": obj.client_company.contact_person,
+                "contact_email": obj.client_company.contact_email,
+                "is_active": obj.client_company.is_active,
+            }
+        return None
+
     def validate_title(self, value):
         val = value.strip()
         if not val:
@@ -63,13 +89,51 @@ class RecruitmentRoomSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Job title must be at least 3 characters long.")
         return val
 
-    def validate_company_name(self, value):
-        val = value.strip()
-        if not val:
-            raise serializers.ValidationError("Company name cannot be blank.")
-        return val
-
     def validate(self, attrs):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) if request else None
+        client_co = attrs.get('client_company')
+
+        # US-30 validation: Client Company rules for Agency Admins vs HR Managers
+        if user and user.is_authenticated and getattr(user, 'role', None) == User.Role.AGENCY_ADMIN:
+            if not self.instance and not client_co:
+                raise serializers.ValidationError({
+                    "client_company": "A client company must be selected for agency recruitment rooms."
+                })
+            if client_co:
+                if client_co.agency != user:
+                    raise serializers.ValidationError({
+                        "client_company": "You cannot associate a room with a client company belonging to another agency."
+                    })
+                if not self.instance and not client_co.is_active:
+                    raise serializers.ValidationError({
+                        "client_company": "Cannot create rooms for a deactivated client company. Please reactivate the client first."
+                    })
+                if not attrs.get('company_name'):
+                    attrs['company_name'] = client_co.name
+        elif user and user.is_authenticated and getattr(user, 'role', None) == User.Role.HR_MANAGER:
+            if client_co:
+                raise serializers.ValidationError({
+                    "client_company": "HR Managers cannot associate rooms with agency client companies."
+                })
+            if 'company_name' in attrs and not attrs['company_name'].strip():
+                raise serializers.ValidationError({
+                    "company_name": "Company name cannot be blank."
+                })
+            if not self.instance and not attrs.get('company_name', '').strip():
+                raise serializers.ValidationError({
+                    "company_name": "Company name cannot be blank."
+                })
+        else:
+            if 'company_name' in attrs and not attrs['company_name'].strip():
+                raise serializers.ValidationError({
+                    "company_name": "Company name cannot be blank."
+                })
+            if not self.instance and not client_co and not attrs.get('company_name', '').strip():
+                raise serializers.ValidationError({
+                    "company_name": "Company name cannot be blank."
+                })
+
         # US-20 forward validation: weights sum check if both supplied
         cv_w = attrs.get('cv_weight')
         vid_w = attrs.get('video_weight')

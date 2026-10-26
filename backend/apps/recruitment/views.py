@@ -32,6 +32,8 @@ from .permissions import (
     IsApplicationRoomOwner,
     IsAgencyAdmin,
     IsClientAgencyOwner,
+    IsAgencyRoomOwner,
+    IsHRManagerOrAgencyAdmin,
 )
 from .services.review_service import (
     get_candidate_review_data,
@@ -76,22 +78,31 @@ User = get_user_model()
 
 class RecruitmentRoomViewSet(viewsets.ModelViewSet):
     """
-    CRUD API for HR Recruitment Rooms (US-18, US-19, US-20).
-    Strictly isolated so HR Managers can only view and manage their own rooms.
+    CRUD API for HR Recruitment Rooms (US-18, US-19, US-20) and shared criteria actions.
+    Strictly isolated so users can only view and manage their own rooms.
     """
     serializer_class = RecruitmentRoomSerializer
-    permission_classes = [permissions.IsAuthenticated, IsHRManager, IsRoomOwner]
+    permission_classes = [permissions.IsAuthenticated, IsHRManagerOrAgencyAdmin, IsRoomOwner]
 
     def get_queryset(self):
         user = self.request.user
-        if not user.is_authenticated or user.role != 'HR_MANAGER':
+        if not user or not user.is_authenticated:
             return RecruitmentRoom.objects.none()
-        return RecruitmentRoom.objects.filter(created_by=user).order_by('-created_at')
+        if user.role == User.Role.HR_MANAGER:
+            return RecruitmentRoom.objects.filter(created_by=user).order_by('-created_at')
+        elif user.role == User.Role.AGENCY_ADMIN:
+            return RecruitmentRoom.objects.filter(created_by=user).select_related('client_company').order_by('-created_at')
+        return RecruitmentRoom.objects.none()
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
     def create(self, request, *args, **kwargs):
+        if request.user.role == User.Role.AGENCY_ADMIN:
+            return Response(
+                {"detail": "Access forbidden: Agency Admins must manage rooms via agency rooms endpoint."},
+                status=status.HTTP_403_FORBIDDEN
+            )
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
@@ -807,6 +818,114 @@ class ClientCompanyViewSet(viewsets.ModelViewSet):
             "associated_rooms": associated_rooms,
         }
         return Response(data, status=status.HTTP_200_OK)
+
+
+class AgencyRoomViewSet(RecruitmentRoomViewSet):
+    """
+    US-30: Agency Administrator Room Management for Client Companies.
+    Enforces multi-tenant agency isolation, client company association,
+    reusable criteria/weights/link configuration, and client-grouped listings.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsAgencyAdmin, IsAgencyRoomOwner]
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user or not user.is_authenticated or getattr(user, 'role', None) != User.Role.AGENCY_ADMIN:
+            return RecruitmentRoom.objects.none()
+
+        qs = RecruitmentRoom.objects.filter(
+            created_by=user,
+            client_company__isnull=False
+        ).select_related('client_company', 'created_by').order_by('-created_at')
+
+        # Filter by client company ID
+        client_id = self.request.query_params.get('client_company')
+        if client_id:
+            qs = qs.filter(client_company_id=client_id)
+
+        # Filter by status
+        status_param = self.request.query_params.get('status', '').strip().upper()
+        if status_param in ['ACTIVE', 'PAUSED', 'CLOSED']:
+            qs = qs.filter(status=status_param)
+
+        # Search query across title, department, role category, or client company name
+        search_query = self.request.query_params.get('q', '').strip()
+        if search_query:
+            from django.db.models import Q
+            qs = qs.filter(
+                Q(title__icontains=search_query) |
+                Q(department__icontains=search_query) |
+                Q(role_category__icontains=search_query) |
+                Q(client_company__name__icontains=search_query)
+            )
+
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(
+            {
+                "message": "Agency recruitment room created successfully.",
+                "room": serializer.data
+            },
+            status=status.HTTP_201_CREATED,
+            headers=headers
+        )
+
+    @action(detail=False, methods=['get'], url_path='grouped-by-client')
+    def grouped_by_client(self, request):
+        """
+        US-30-AC#6: List recruitment rooms grouped by client company.
+        """
+        user = request.user
+        clients = ClientCompany.objects.filter(agency=user).order_by('name')
+
+        result = []
+        for client in clients:
+            client_rooms = RecruitmentRoom.objects.filter(
+                client_company=client,
+                created_by=user
+            ).order_by('-created_at')
+
+            rooms_data = RecruitmentRoomSerializer(client_rooms, many=True, context={'request': request}).data
+            result.append({
+                "client_id": client.id,
+                "client_name": client.name,
+                "industry": client.industry,
+                "contact_person": client.contact_person,
+                "contact_email": client.contact_email,
+                "is_active": client.is_active,
+                "rooms_count": len(rooms_data),
+                "rooms": rooms_data
+            })
+        return Response(result, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], url_path='summary-stats')
+    def summary_stats(self, request):
+        """
+        US-30: Summary KPI stats for agency room dashboard.
+        """
+        user = request.user
+        agency_rooms = RecruitmentRoom.objects.filter(created_by=user, client_company__isnull=False)
+        total_rooms = agency_rooms.count()
+        active_rooms = agency_rooms.filter(status=RecruitmentRoom.Status.ACTIVE).count()
+        clients_with_rooms = agency_rooms.values('client_company').distinct().count()
+        total_applicants = CandidateApplication.objects.filter(room__in=agency_rooms).count()
+
+        data = {
+            "total_rooms": total_rooms,
+            "active_rooms": active_rooms,
+            "clients_with_rooms": clients_with_rooms,
+            "total_applicants": total_applicants,
+        }
+        return Response(data, status=status.HTTP_200_OK)
+
 
 
 

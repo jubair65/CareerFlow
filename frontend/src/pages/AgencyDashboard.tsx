@@ -46,9 +46,9 @@ export function AgencyDashboard({ notify }: { notify: Notify }) {
         action={
           <button
             type="button"
-            onClick={() => handleAction('Create Client Room')}
+            onClick={() => setLocation('/agency/rooms')}
             data-testid="button-agency-create-room"
-            className="inline-flex items-center gap-2 rounded-xl bg-[#277254] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#1f5b43] transition shadow-sm"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#277254] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#1f5b43] transition shadow-sm cursor-pointer"
           >
             <Plus size={16} /> New room
           </button>
@@ -64,13 +64,15 @@ export function AgencyDashboard({ notify }: { notify: Notify }) {
           icon={Building2}
           accent="yellow"
         />
-        <StatCard
-          label="Open rooms"
-          value="6"
-          detail="Across 3 clients"
-          icon={FolderOpen}
-          accent="blue"
-        />
+        <div onClick={() => setLocation('/agency/rooms')} className="cursor-pointer">
+          <StatCard
+            label="Open rooms"
+            value="6"
+            detail="Across client portfolio"
+            icon={FolderOpen}
+            accent="blue"
+          />
+        </div>
         <StatCard
           label="Applicants"
           value="126"
