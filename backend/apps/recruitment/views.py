@@ -78,22 +78,31 @@ User = get_user_model()
 
 class RecruitmentRoomViewSet(viewsets.ModelViewSet):
     """
-    CRUD API for HR Recruitment Rooms (US-18, US-19, US-20).
-    Strictly isolated so HR Managers can only view and manage their own rooms.
+    CRUD API for HR Recruitment Rooms (US-18, US-19, US-20) and shared criteria actions.
+    Strictly isolated so users can only view and manage their own rooms.
     """
     serializer_class = RecruitmentRoomSerializer
-    permission_classes = [permissions.IsAuthenticated, IsHRManager, IsRoomOwner]
+    permission_classes = [permissions.IsAuthenticated, IsHRManagerOrAgencyAdmin, IsRoomOwner]
 
     def get_queryset(self):
         user = self.request.user
-        if not user.is_authenticated or user.role != 'HR_MANAGER':
+        if not user or not user.is_authenticated:
             return RecruitmentRoom.objects.none()
-        return RecruitmentRoom.objects.filter(created_by=user).order_by('-created_at')
+        if user.role == User.Role.HR_MANAGER:
+            return RecruitmentRoom.objects.filter(created_by=user).order_by('-created_at')
+        elif user.role == User.Role.AGENCY_ADMIN:
+            return RecruitmentRoom.objects.filter(created_by=user).select_related('client_company').order_by('-created_at')
+        return RecruitmentRoom.objects.none()
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
     def create(self, request, *args, **kwargs):
+        if request.user.role == User.Role.AGENCY_ADMIN:
+            return Response(
+                {"detail": "Access forbidden: Agency Admins must manage rooms via agency rooms endpoint."},
+                status=status.HTTP_403_FORBIDDEN
+            )
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)

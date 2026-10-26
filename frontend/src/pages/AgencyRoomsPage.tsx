@@ -608,27 +608,12 @@ export function AgencyRoomsPage({ notify }: { notify: Notify }) {
             data-testid="modal-agency-weighting-config"
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs overflow-y-auto"
           >
-            <div className="relative w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl border border-[#d9dbd1]">
-              <div className="flex items-center justify-between border-b border-[#eef0e7] pb-3 mb-4">
-                <h3 className="font-bold text-base text-[#253142]">
-                  Evaluation Weighting: {weightingModalRoom.title}
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setWeightingModalRoom(null)}
-                  className="rounded-lg p-1 text-[#7b8490] hover:bg-[#eef0e7]"
-                >
-                  <Plus size={18} className="rotate-45" />
-                </button>
-              </div>
+            <div className="relative w-full max-w-xl my-8">
               <WeightingConfigCard
-                roomId={weightingModalRoom.id}
-                onWeightingUpdated={(cvW, vidW) => {
-                  handleRoomUpdated({
-                    ...weightingModalRoom,
-                    cv_weight: cvW,
-                    video_weight: vidW,
-                  });
+                room={weightingModalRoom}
+                onClose={() => setWeightingModalRoom(null)}
+                onWeightingSaved={(updatedRoom) => {
+                  handleRoomUpdated(updatedRoom);
                   setWeightingModalRoom(null);
                 }}
                 notify={notify}
