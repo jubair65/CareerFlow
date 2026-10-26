@@ -1147,6 +1147,96 @@ export async function apiToggleAgencyRoomLink(
   return response.data;
 }
 
+export interface AgencyCrossClientApplicant {
+  id: number;
+  candidate_id: number;
+  candidate_name: string;
+  candidate_email: string;
+  client_company_id: number;
+  client_company_name: string;
+  client_company_industry: string;
+  room_id: number;
+  room_title: string;
+  role_category: string;
+  experience_level: string;
+  experience_level_display: string;
+  cv_weight: number;
+  video_weight: number;
+  status: 'PENDING' | 'ANALYZING' | 'COMPLETED' | 'FAILED';
+  status_display: string;
+  cv_score: number | null;
+  video_score: number | null;
+  final_score: number | null;
+  is_partial_score: boolean;
+  score_calculated_at: string | null;
+  is_shortlisted: boolean;
+  shortlist_reason: string;
+  shortlisted_at: string | null;
+  hr_decision: 'UNDECIDED' | 'CONFIRMED' | 'OVERRIDDEN' | 'REJECTED' | 'ON_HOLD';
+  hr_decision_display: string;
+  hr_decision_notes: string;
+  hr_decided_at: string | null;
+  has_cv: boolean;
+  has_video: boolean;
+  applied_at: string;
+}
+
+export interface AgencyCrossClientApplicantStats {
+  total_applicants: number;
+  completed_evaluations: number;
+  shortlisted_candidates: number;
+  pending_reviews: number;
+  average_final_score: number;
+  clients_count: number;
+  rooms_count: number;
+}
+
+export interface AgencyCrossClientApplicantParams {
+  client_company?: number | string;
+  room?: number | string;
+  status?: string;
+  shortlisted?: boolean | string;
+  decision?: string;
+  q?: string;
+  ordering?: string;
+}
+
+/**
+ * US-31-T2: Fetch consolidated candidate applications across all client companies.
+ */
+export async function apiGetAgencyCrossClientApplicants(
+  params?: AgencyCrossClientApplicantParams
+): Promise<AgencyCrossClientApplicant[]> {
+  const response = await apiClient.get<AgencyCrossClientApplicant[]>(
+    '/recruitment/agency/applicants/',
+    { params }
+  );
+  return response.data;
+}
+
+/**
+ * US-31: Fetch pipeline KPI summary statistics.
+ */
+export async function apiGetAgencyCrossClientApplicantStats(): Promise<AgencyCrossClientApplicantStats> {
+  const response = await apiClient.get<AgencyCrossClientApplicantStats>(
+    '/recruitment/agency/applicants/summary-stats/'
+  );
+  return response.data;
+}
+
+/**
+ * US-31: Fetch details of a specific candidate application.
+ */
+export async function apiGetAgencyApplicantDetail(
+  id: number | string
+): Promise<AgencyCrossClientApplicant> {
+  const response = await apiClient.get<AgencyCrossClientApplicant>(
+    `/recruitment/agency/applicants/${id}/`
+  );
+  return response.data;
+}
+
+
 
 
 

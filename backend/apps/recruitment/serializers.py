@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from apps.authentication.models import User
-from .models import RecruitmentRoom, ClientCompany
+from .models import RecruitmentRoom, ClientCompany, CandidateApplication
 
 
 class RecruitmentRoomSerializer(serializers.ModelSerializer):
@@ -874,4 +874,97 @@ class ClientCompanyStatsSerializer(serializers.Serializer):
     active_clients = serializers.IntegerField()
     deactivated_clients = serializers.IntegerField()
     associated_rooms = serializers.IntegerField()
+
+
+class AgencyCrossClientApplicantSerializer(serializers.ModelSerializer):
+    """
+    US-31-T2: Serializer for cross-client candidate application aggregation.
+    Provides candidate details, client company association, room metadata,
+    evaluation scores (CV, Video, Final), and workflow/decision statuses.
+    """
+    candidate_id = serializers.IntegerField(source='candidate.id', read_only=True)
+    candidate_name = serializers.SerializerMethodField()
+    candidate_email = serializers.EmailField(source='candidate.email', read_only=True)
+
+    client_company_id = serializers.IntegerField(source='room.client_company.id', read_only=True)
+    client_company_name = serializers.CharField(source='room.client_company.name', read_only=True)
+    client_company_industry = serializers.CharField(source='room.client_company.industry', read_only=True)
+
+    room_id = serializers.IntegerField(source='room.id', read_only=True)
+    room_title = serializers.CharField(source='room.title', read_only=True)
+    role_category = serializers.CharField(source='room.role_category', read_only=True)
+    experience_level = serializers.CharField(source='room.experience_level', read_only=True)
+    experience_level_display = serializers.CharField(source='room.get_experience_level_display', read_only=True)
+    cv_weight = serializers.IntegerField(source='room.cv_weight', read_only=True)
+    video_weight = serializers.IntegerField(source='room.video_weight', read_only=True)
+
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    hr_decision_display = serializers.CharField(source='get_hr_decision_display', read_only=True)
+
+    has_cv = serializers.SerializerMethodField()
+    has_video = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CandidateApplication
+        fields = [
+            'id',
+            'candidate_id',
+            'candidate_name',
+            'candidate_email',
+            'client_company_id',
+            'client_company_name',
+            'client_company_industry',
+            'room_id',
+            'room_title',
+            'role_category',
+            'experience_level',
+            'experience_level_display',
+            'cv_weight',
+            'video_weight',
+            'status',
+            'status_display',
+            'cv_score',
+            'video_score',
+            'final_score',
+            'is_partial_score',
+            'score_calculated_at',
+            'is_shortlisted',
+            'shortlist_reason',
+            'shortlisted_at',
+            'hr_decision',
+            'hr_decision_display',
+            'hr_decision_notes',
+            'hr_decided_at',
+            'has_cv',
+            'has_video',
+            'applied_at',
+        ]
+        read_only_fields = fields
+
+    def get_candidate_name(self, obj):
+        name = getattr(obj.candidate, 'full_name', None)
+        if name and name.strip():
+            return name.strip()
+        email_prefix = obj.candidate.email.split('@')[0]
+        return email_prefix.replace('.', ' ').replace('_', ' ').title()
+
+    def get_has_cv(self, obj):
+        return bool(obj.cv_id)
+
+    def get_has_video(self, obj):
+        return bool(obj.video_id)
+
+
+class AgencyCrossClientSummaryStatsSerializer(serializers.Serializer):
+    """
+    US-31: High-level KPI metrics for cross-client applicant pipeline.
+    """
+    total_applicants = serializers.IntegerField()
+    completed_evaluations = serializers.IntegerField()
+    shortlisted_candidates = serializers.IntegerField()
+    pending_reviews = serializers.IntegerField()
+    average_final_score = serializers.FloatField()
+    clients_count = serializers.IntegerField()
+    rooms_count = serializers.IntegerField()
+
 
