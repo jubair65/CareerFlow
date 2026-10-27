@@ -35,13 +35,15 @@ export function ForwardCandidatesModal({
   notify,
 }: ForwardCandidatesModalProps) {
   // Determine if all selected candidates belong to the same client company
+  const clientCompanyIds = Array.from(new Set(candidates.map((c) => c.client_company_id).filter(Boolean)));
+  const clientCompanyNames = Array.from(new Set(candidates.map((c) => c.client_company_name).filter(Boolean)));
+  const isCrossClient = clientCompanyIds.length > 1;
   const clientCompanyId = candidates.length > 0 ? candidates[0].client_company_id : null;
-  const sameClient = candidates.every((c) => c.client_company_id === clientCompanyId);
+  const sameClient = !isCrossClient && candidates.length > 0;
 
-  const initialClient =
-    (clientCompanyId ? clients.find((c) => c.id === clientCompanyId) : null) ||
-    clients[0] ||
-    null;
+  const initialClient = !isCrossClient
+    ? (clientCompanyId ? clients.find((c) => c.id === clientCompanyId) : null) || clients[0] || null
+    : null;
 
   const [selectedClientId, setSelectedClientId] = useState<number>(initialClient?.id || 0);
   const [recipientEmail, setRecipientEmail] = useState<string>(initialClient?.contact_email || '');
@@ -72,6 +74,16 @@ export function ForwardCandidatesModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // US-32 / Bonny UI review: Prevent submitting candidates from multiple client companies
+    if (isCrossClient) {
+      const errMsg = `Cannot forward candidates from multiple client companies (${clientCompanyNames.join(', ')}). All candidates in a forward batch must belong to the same client company.`;
+      setError(errMsg);
+      if (notify) {
+        notify(errMsg, 'error');
+      }
+      return;
+    }
 
     if (!selectedClientId) {
       setError('Please select a target client company.');
@@ -159,6 +171,23 @@ export function ForwardCandidatesModal({
           </button>
         </div>
 
+        {/* Cross-Client Warning Alert */}
+        {isCrossClient && (
+          <div
+            data-testid="alert-cross-client-error"
+            className="mt-4 flex items-start gap-2.5 rounded-xl bg-[#fff1f0] p-3 text-xs text-[#cf1322] border border-[#ffa39e]"
+          >
+            <AlertCircle size={16} className="shrink-0 mt-0.5 text-[#cf1322]" />
+            <div>
+              <div className="font-bold">Multiple Client Companies Selected</div>
+              <p className="mt-0.5 text-[11px] text-[#526072]">
+                Selected candidates belong to different client companies: <strong>{clientCompanyNames.join(', ')}</strong>.
+                Candidate dossiers must be forwarded to a single client company at a time. Please close this modal and select candidates for only one client company.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Error Alert */}
         {error && (
           <div
@@ -180,9 +209,12 @@ export function ForwardCandidatesModal({
               data-testid="select-forward-client"
               value={selectedClientId}
               onChange={(e) => handleClientChange(Number(e.target.value))}
-              disabled={sameClient && candidates.length > 0}
+              disabled={isCrossClient || (sameClient && candidates.length > 0)}
               className="w-full rounded-xl border border-[#d9dbd1] bg-white px-3.5 py-2.5 text-xs font-semibold text-[#253142] focus:border-[#277254] focus:outline-hidden focus:ring-2 focus:ring-[#277254]/20 transition disabled:bg-[#f6f6f3] disabled:text-[#526072]"
             >
+              {isCrossClient && (
+                <option value={0}>-- Multiple Client Companies (Cannot Submit) --</option>
+              )}
               {clients.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name} ({c.industry})
@@ -192,6 +224,11 @@ export function ForwardCandidatesModal({
             {sameClient && (
               <p className="mt-1 text-[11px] text-[#7b8490]">
                 Auto-assigned to client company based on selected candidate applications.
+              </p>
+            )}
+            {isCrossClient && (
+              <p className="mt-1 text-[11px] text-[#cf1322] font-semibold">
+                Disabled because candidates from multiple clients ({clientCompanyNames.join(', ')}) are selected.
               </p>
             )}
           </div>
@@ -266,7 +303,7 @@ export function ForwardCandidatesModal({
                         {cand.candidate_name}
                       </div>
                       <div className="text-[11px] text-[#7b8490] truncate">
-                        {cand.room_title} • {cand.candidate_email}
+                        {cand.client_company_name} • {cand.room_title} • {cand.candidate_email}
                       </div>
                     </div>
                   </div>
@@ -293,7 +330,7 @@ export function ForwardCandidatesModal({
             </label>
             <textarea
               rows={3}
-              data-testid="textarea-forward-notes"
+              data-testid="input-forward-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Add key highlights or notes for the client hiring panel..."
@@ -313,9 +350,10 @@ export function ForwardCandidatesModal({
             </button>
             <button
               type="submit"
-              disabled={submitting || candidates.length === 0}
+              disabled={submitting || candidates.length === 0 || isCrossClient}
               data-testid="button-submit-forward"
-              className="inline-flex items-center gap-2 rounded-xl bg-[#277254] px-5 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#205e45] transition disabled:opacity-50"
+              title={isCrossClient ? 'Cannot forward candidates from multiple client companies' : undefined}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#277254] px-5 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#205e45] transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? (
                 <>

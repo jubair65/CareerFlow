@@ -496,7 +496,7 @@ export function AgencyApplicantsPipelinePage({ notify }: { notify: Notify }) {
                         <td className="py-3.5 px-3 text-center">
                           <input
                             type="checkbox"
-                            data-testid={`checkbox-select-applicant-${app.id}`}
+                            data-testid={`checkbox-candidate-${app.id}`}
                             checked={selectedAppIds.includes(app.id)}
                             disabled={!app.is_shortlisted}
                             onChange={() => handleToggleSelectApplicant(app.id)}
@@ -625,7 +625,9 @@ export function AgencyApplicantsPipelinePage({ notify }: { notify: Notify }) {
                             )}
                             {app.is_forwarded && (
                               <span
-                                data-testid={`badge-forwarded-${app.id}`}
+                                data-testid="badge-forwarded"
+                                id={`badge-forwarded-${app.id}`}
+                                data-candidate-id={app.id}
                                 className="inline-flex items-center gap-1 rounded-md bg-[#e2f0e9] border border-[#b9dec6] px-1.5 py-0.5 text-[10px] font-bold text-[#277254]"
                               >
                                 <Send size={9} /> Forwarded
