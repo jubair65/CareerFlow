@@ -1303,6 +1303,45 @@ export async function apiGetForwardHistory(
   return response.data;
 }
 
+// ==========================================
+// US-33: Downloadable PDF Reports
+// ==========================================
+
+/**
+ * US-33-T4 & US-33-T5: Download individual candidate evaluation report PDF.
+ */
+export async function apiDownloadCandidateReportPdf(applicationId: number | string): Promise<Blob> {
+  const response = await apiClient.get(`/recruitment/applications/${applicationId}/report-pdf/`, {
+    responseType: 'blob',
+  });
+  return response.data;
+}
+
+/**
+ * US-33-T4 & US-33-T5: Download recruitment room executive summary report PDF.
+ */
+export async function apiDownloadRoomSummaryPdf(roomId: number | string): Promise<Blob> {
+  const response = await apiClient.get(`/recruitment/rooms/${roomId}/summary-pdf/`, {
+    responseType: 'blob',
+  });
+  return response.data;
+}
+
+/**
+ * Trigger browser file download from Blob.
+ */
+export function triggerPdfDownload(blob: Blob, defaultFilename: string) {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = defaultFilename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+}
+
+
 
 
 

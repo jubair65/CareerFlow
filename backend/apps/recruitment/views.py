@@ -1,3 +1,5 @@
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -38,6 +40,11 @@ from .permissions import (
     IsClientAgencyOwner,
     IsAgencyRoomOwner,
     IsHRManagerOrAgencyAdmin,
+    IsRoomOwnerOrAdmin,
+)
+from .services.report_service import (
+    generate_candidate_report_pdf,
+    generate_room_summary_pdf,
 )
 from .services.review_service import (
     get_candidate_review_data,
@@ -300,6 +307,22 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_200_OK
         )
+
+    @action(detail=True, methods=['get'], url_path='summary-pdf', permission_classes=[permissions.IsAuthenticated, IsRoomOwnerOrAdmin])
+    def summary_pdf(self, request, pk=None):
+        """
+        US-33-T2 & US-33-T5: Downloadable Room Summary Report (PDF).
+        GET /api/recruitment/rooms/{id}/summary-pdf/
+        """
+        room = self.get_object()
+        pdf_bytes = generate_room_summary_pdf(room, request=request)
+        sanitized_title = "".join(c for c in room.title if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+        filename = f"CareerFlow_Room_{room.id}_{sanitized_title}_Summary_Report.pdf"
+
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Content-Length'] = len(pdf_bytes)
+        return response
 
     @action(detail=True, methods=['get'], url_path='cv-scores')
     def cv_scores(self, request, pk=None):
@@ -1242,6 +1265,56 @@ class AgencyForwardHistoryView(APIView):
 
         serializer = CandidateForwardRecordSerializer(qs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CandidateApplicationReportPdfView(APIView):
+    """
+    US-33-T2, US-33-T5: Generates and streams an individual candidate's evaluation report as a PDF.
+    GET /api/recruitment/applications/{application_id}/report-pdf/
+    """
+    permission_classes = [permissions.IsAuthenticated, IsRoomOwnerOrAdmin]
+
+    def get(self, request, application_id):
+        application = get_object_or_404(
+            CandidateApplication.objects.select_related('room', 'room__client_company', 'candidate'),
+            id=application_id
+        )
+        self.check_object_permissions(request, application)
+
+        pdf_bytes = generate_candidate_report_pdf(application, request=request)
+        cand_name = getattr(application.candidate, 'full_name', '') or application.candidate.email.split('@')[0]
+        sanitized_cand_name = "".join(c for c in cand_name if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+        filename = f"CareerFlow_Candidate_{application.id}_{sanitized_cand_name}_Report.pdf"
+
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Content-Length'] = len(pdf_bytes)
+        return response
+
+
+class RecruitmentRoomSummaryPdfView(APIView):
+    """
+    US-33-T2, US-33-T5: Generates and streams the recruitment room executive summary report as a PDF.
+    GET /api/recruitment/rooms/{room_id}/summary-pdf/
+    """
+    permission_classes = [permissions.IsAuthenticated, IsRoomOwnerOrAdmin]
+
+    def get(self, request, room_id):
+        room = get_object_or_404(
+            RecruitmentRoom.objects.select_related('client_company'),
+            id=room_id
+        )
+        self.check_object_permissions(request, room)
+
+        pdf_bytes = generate_room_summary_pdf(room, request=request)
+        sanitized_title = "".join(c for c in room.title if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+        filename = f"CareerFlow_Room_{room.id}_{sanitized_title}_Summary_Report.pdf"
+
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Content-Length'] = len(pdf_bytes)
+        return response
+
 
 
 

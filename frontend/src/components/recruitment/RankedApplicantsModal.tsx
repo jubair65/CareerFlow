@@ -19,6 +19,8 @@ import {
   Video,
   Calculator,
   Scale,
+  Download,
+  Loader2,
 } from 'lucide-react';
 import type {
   RecruitmentRoom,
@@ -26,7 +28,12 @@ import type {
   UnrankedApplicantItem,
   RankedApplicantsResponse,
 } from '../../api/recruitment';
-import { apiGetRankedApplicants, apiCalculateRoomScores } from '../../api/recruitment';
+import {
+  apiGetRankedApplicants,
+  apiCalculateRoomScores,
+  apiDownloadRoomSummaryPdf,
+  triggerPdfDownload,
+} from '../../api/recruitment';
 import { ScoreBreakdownModal } from './ScoreBreakdownModal';
 import { ApplicantComparisonModal } from './ApplicantComparisonModal';
 
@@ -55,7 +62,22 @@ export function RankedApplicantsModal({
   const [data, setData] = useState<RankedApplicantsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleDownloadRoomSummaryPdf = async () => {
+    try {
+      setDownloadingPdf(true);
+      const blob = await apiDownloadRoomSummaryPdf(room.id);
+      const titleClean = room.title.replace(/\s+/g, '_');
+      triggerPdfDownload(blob, `CareerFlow_Room_${room.id}_${titleClean}_Summary_Report.pdf`);
+      if (notify) notify('Room Summary Report downloaded successfully.', 'success');
+    } catch {
+      if (notify) notify('Failed to download room summary PDF report.', 'error');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   // Filters & State
   const [activeTab, setActiveTab] = useState<TabMode>('RANKED');
@@ -236,6 +258,20 @@ export function RankedApplicantsModal({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownloadRoomSummaryPdf}
+              disabled={downloadingPdf}
+              title="Download complete room assessment report as PDF"
+              data-testid="button-download-room-summary-pdf"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#277254] hover:bg-[#1f5b43] text-white transition-colors disabled:opacity-50"
+            >
+              {downloadingPdf ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
+              {downloadingPdf ? 'Exporting PDF...' : 'Download Summary Report'}
+            </button>
             <button
               onClick={handleRecalculateScores}
               disabled={recalculating}
