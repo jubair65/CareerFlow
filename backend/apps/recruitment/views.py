@@ -2,7 +2,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import RecruitmentRoom, ClientCompany
+from .models import RecruitmentRoom, ClientCompany, CandidateApplication, CandidateForwardRecord
 from .serializers import (
     RecruitmentRoomSerializer,
     RoomRequirementsSerializer,
@@ -27,6 +27,8 @@ from .serializers import (
     ClientCompanyStatsSerializer,
     AgencyCrossClientApplicantSerializer,
     AgencyCrossClientSummaryStatsSerializer,
+    ForwardShortlistRequestSerializer,
+    CandidateForwardRecordSerializer,
 )
 from .permissions import (
     IsHRManager,
@@ -1046,6 +1048,201 @@ class AgencyCrossClientApplicantViewSet(viewsets.ReadOnlyModelViewSet):
             "rooms_count": rooms_count,
         }
         return Response(data, status=status.HTTP_200_OK)
+
+
+class AgencyForwardShortlistView(APIView):
+    """
+    US-32-T2: Forward shortlisted candidate profiles to a client company.
+    Accepts:
+    {
+        "client_id": 12,
+        "application_ids": [101, 105],
+        "recipient_email": "contact@client.com",
+        "recipient_name": "Sarah Jenkins",
+        "notes": "Cover note..."
+    }
+    """
+    permission_classes = [permissions.IsAuthenticated, IsAgencyAdmin]
+
+    def post(self, request):
+        serializer = ForwardShortlistRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        client_id = data['client_id']
+        application_ids = data['application_ids']
+        recipient_email = data['recipient_email']
+        recipient_name = data.get('recipient_name', '').strip()
+        notes = data.get('notes', '').strip()
+
+        # 1. Fetch Client Company and verify Agency ownership (AC#3, AC#4)
+        try:
+            client_company = ClientCompany.objects.get(id=client_id)
+        except ClientCompany.DoesNotExist:
+            return Response(
+                {"detail": f"Client company with id {client_id} does not exist."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if client_company.agency != request.user:
+            return Response(
+                {"detail": "You do not have permission to forward candidates to another agency's client company."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if not client_company.is_active:
+            return Response(
+                {"detail": "Cannot forward candidate profiles to a deactivated client company. Please reactivate the client first."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 2. Fetch and validate applications (AC#1, AC#2)
+        applications = list(CandidateApplication.objects.filter(
+            id__in=application_ids
+        ).select_related('candidate', 'room', 'room__client_company', 'cv', 'video'))
+
+        if len(applications) != len(application_ids):
+            found_ids = {a.id for a in applications}
+            missing_ids = set(application_ids) - found_ids
+            return Response(
+                {"detail": f"One or more application IDs were not found: {list(missing_ids)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 3. Security & Shortlist Guard Checks
+        dossier_candidates = []
+        for app in applications:
+            # Agency multi-tenant check
+            if not app.room.client_company or app.room.client_company.agency != request.user:
+                return Response(
+                    {"detail": f"Application #{app.id} does not belong to your agency client portfolio."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Target client company match check
+            if app.room.client_company_id != client_company.id:
+                return Response(
+                    {"detail": f"Application #{app.id} belongs to '{app.room.client_company.name}', not the selected target client '{client_company.name}'."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # AC#2: Strictly enforce that only shortlisted candidates can be forwarded
+            if not app.is_shortlisted:
+                cand_name = app.candidate.full_name or app.candidate.email
+                return Response(
+                    {"detail": f"Only shortlisted candidates can be forwarded to clients. Candidate '{cand_name}' (Application #{app.id}) is not shortlisted."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            dossier_candidates.append({
+                "application_id": app.id,
+                "candidate_id": app.candidate.id,
+                "candidate_name": app.candidate.full_name or app.candidate.email.split('@')[0].title(),
+                "candidate_email": app.candidate.email,
+                "room_title": app.room.title,
+                "role_category": app.room.role_category,
+                "cv_score": round(app.cv_score, 1) if app.cv_score is not None else None,
+                "video_score": round(app.video_score, 1) if app.video_score is not None else None,
+                "final_score": round(app.final_score, 1) if app.final_score is not None else None,
+                "is_shortlisted": app.is_shortlisted,
+                "shortlist_reason": app.shortlist_reason,
+                "hr_decision": app.hr_decision,
+                "hr_decision_display": app.get_hr_decision_display(),
+            })
+
+        # 4. Save CandidateForwardRecord in Database (AC#5)
+        dossier_data = {
+            "client_name": client_company.name,
+            "client_industry": client_company.industry,
+            "agency_name": request.user.full_name or request.user.email,
+            "notes": notes,
+            "candidates": dossier_candidates,
+        }
+
+        from django.utils import timezone
+        now = timezone.now()
+
+        forward_record = CandidateForwardRecord.objects.create(
+            agency=request.user,
+            client_company=client_company,
+            recipient_email=recipient_email,
+            recipient_name=recipient_name or client_company.contact_person,
+            notes=notes,
+            dossier_data=dossier_data,
+            status=CandidateForwardRecord.DeliveryStatus.DELIVERED
+        )
+        forward_record.applications.set(applications)
+
+        # 5. Mark applications as forwarded
+        for app in applications:
+            app.is_forwarded = True
+            app.forwarded_at = now
+            app.save(update_fields=['is_forwarded', 'forwarded_at'])
+
+        # 6. Dispatch Email Notification (AC#4, US-32-T4)
+        try:
+            from django.core.mail import EmailMultiAlternatives
+            from django.template.loader import render_to_string
+            from django.conf import settings
+
+            context = {
+                "client_name": client_company.name,
+                "agency_name": request.user.full_name or request.user.email,
+                "recipient_name": recipient_name or client_company.contact_person,
+                "notes": notes,
+                "candidates": dossier_candidates,
+                "current_year": now.year,
+            }
+            html_content = render_to_string('emails/forwarded_shortlist.html', context)
+            subject = f"Shortlisted Candidate Profiles ({len(dossier_candidates)}) - {client_company.name}"
+            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@careerflow.ai')
+
+            email_msg = EmailMultiAlternatives(
+                subject=subject,
+                body=f"Candidate shortlist forwarded by {request.user.full_name or request.user.email} for {client_company.name}. Please review the attached HTML dossier.",
+                from_email=from_email,
+                to=[recipient_email]
+            )
+            email_msg.attach_alternative(html_content, "text/html")
+            email_msg.send(fail_silently=False)
+        except Exception:
+            # Email delivery failure does not roll back the database forward record
+            forward_record.status = CandidateForwardRecord.DeliveryStatus.FAILED
+            forward_record.save(update_fields=['status'])
+
+        return Response(
+            {
+                "forward_id": forward_record.id,
+                "forwarded_candidates_count": len(applications),
+                "recipient_email": recipient_email,
+                "recipient_name": forward_record.recipient_name,
+                "status": forward_record.status,
+                "dispatched_at": forward_record.sent_at.isoformat(),
+                "message": f"Successfully forwarded {len(applications)} shortlisted candidate profile(s) to {client_company.name}."
+            },
+            status=status.HTTP_201_CREATED
+        )
+
+
+class AgencyForwardHistoryView(APIView):
+    """
+    US-32-T5: Retrieve history of shortlisted candidate dossiers forwarded to clients.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsAgencyAdmin]
+
+    def get(self, request):
+        qs = CandidateForwardRecord.objects.filter(
+            agency=request.user
+        ).select_related('client_company').prefetch_related('applications').order_by('-sent_at')
+
+        client_id = request.query_params.get('client_id')
+        if client_id:
+            qs = qs.filter(client_company_id=client_id)
+
+        serializer = CandidateForwardRecordSerializer(qs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 
 

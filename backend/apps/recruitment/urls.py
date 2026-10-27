@@ -10,6 +10,8 @@ from .views import (
     ClientCompanyViewSet,
     AgencyRoomViewSet,
     AgencyCrossClientApplicantViewSet,
+    AgencyForwardShortlistView,
+    AgencyForwardHistoryView,
 )
 
 app_name = 'recruitment'
@@ -21,6 +23,10 @@ router.register(r'agency/rooms', AgencyRoomViewSet, basename='agency-rooms')
 router.register(r'agency/applicants', AgencyCrossClientApplicantViewSet, basename='agency-applicants')
 
 urlpatterns = [
+    # US-32: Agency Shortlist Forwarding to Client Endpoints
+    path('agency/forward-shortlist/', AgencyForwardShortlistView.as_view(), name='agency-forward-shortlist'),
+    path('agency/forward-history/', AgencyForwardHistoryView.as_view(), name='agency-forward-history'),
+
     # US-26: HR Candidate Review & Decision Endpoints
     path('applications/<int:application_id>/decision/', CandidateApplicationDecisionView.as_view(), name='application-decision'),
     path('applications/<int:application_id>/review/', CandidateApplicationReviewDetailView.as_view(), name='application-review-detail'),
