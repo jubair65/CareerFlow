@@ -20,9 +20,11 @@ import {
   SlidersHorizontal,
   TrendingUp,
   Percent,
+  Send,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { PageHeading, StatCard, type Notify } from '../components/dashboard/DashboardShared';
+import { ForwardCandidatesModal } from '../components/recruitment/ForwardCandidatesModal';
 import {
   apiGetAgencyCrossClientApplicants,
   apiGetAgencyCrossClientApplicantStats,
@@ -61,6 +63,20 @@ export function AgencyApplicantsPipelinePage({ notify }: { notify: Notify }) {
   // Selected applicant for detail modal
   const [detailApplicant, setDetailApplicant] = useState<AgencyCrossClientApplicant | null>(null);
 
+  // US-32: Candidate selection for client forwarding
+  const [selectedAppIds, setSelectedAppIds] = useState<number[]>([]);
+  const [forwardModalOpen, setForwardModalOpen] = useState(false);
+  const [candidatesToForward, setCandidatesToForward] = useState<AgencyCrossClientApplicant[]>([]);
+
+  // Search debounce state
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -75,7 +91,7 @@ export function AgencyApplicantsPipelinePage({ notify }: { notify: Notify }) {
               : selectedShortlist === 'non-shortlisted'
               ? 'false'
               : undefined,
-          q: searchQuery.trim() || undefined,
+          q: debouncedSearch.trim() || undefined,
           ordering: selectedOrdering,
         }),
         apiGetAgencyCrossClientApplicantStats(),
@@ -96,35 +112,59 @@ export function AgencyApplicantsPipelinePage({ notify }: { notify: Notify }) {
 
   useEffect(() => {
     fetchData();
-  }, [selectedClientId, selectedRoomId, selectedStatus, selectedShortlist, selectedOrdering]);
-
-  // Handle live search debounce
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      apiGetAgencyCrossClientApplicants({
-        client_company: selectedClientId !== 'all' ? selectedClientId : undefined,
-        room: selectedRoomId !== 'all' ? selectedRoomId : undefined,
-        status: selectedStatus !== 'all' ? selectedStatus : undefined,
-        shortlisted:
-          selectedShortlist === 'shortlisted'
-            ? 'true'
-            : selectedShortlist === 'non-shortlisted'
-            ? 'false'
-            : undefined,
-        q: searchQuery.trim() || undefined,
-        ordering: selectedOrdering,
-      })
-        .then((data) => setApplicants(data))
-        .catch(() => {});
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [selectedClientId, selectedRoomId, selectedStatus, selectedShortlist, selectedOrdering, debouncedSearch]);
 
   // Filter available rooms based on selected client
   const availableRooms = useMemo(() => {
     if (selectedClientId === 'all') return rooms;
     return rooms.filter((r) => String(r.client_company) === selectedClientId);
   }, [rooms, selectedClientId]);
+
+  // US-32: Selection helpers
+  const visibleShortlistedApps = useMemo(() => {
+    return applicants.filter((a) => a.is_shortlisted);
+  }, [applicants]);
+
+  const allVisibleShortlistedSelected =
+    visibleShortlistedApps.length > 0 &&
+    visibleShortlistedApps.every((a) => selectedAppIds.includes(a.id));
+
+  const handleToggleSelectAll = () => {
+    if (allVisibleShortlistedSelected) {
+      setSelectedAppIds([]);
+    } else {
+      setSelectedAppIds(visibleShortlistedApps.map((a) => a.id));
+    }
+  };
+
+  const handleToggleSelectApplicant = (id: number) => {
+    setSelectedAppIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleOpenForwardSelected = () => {
+    const selected = applicants.filter((a) => selectedAppIds.includes(a.id));
+    if (selected.length === 0) return;
+    setCandidatesToForward(selected);
+    setForwardModalOpen(true);
+  };
+
+  const handleOpenForwardSingle = (app: AgencyCrossClientApplicant) => {
+    setCandidatesToForward([app]);
+    setForwardModalOpen(true);
+  };
+
+  const handleForwardSuccess = (appIds: number[], clientName: string) => {
+    setApplicants((prev) =>
+      prev.map((app) =>
+        appIds.includes(app.id)
+          ? { ...app, is_forwarded: true, forwarded_at: new Date().toISOString() }
+          : app
+      )
+    );
+    setSelectedAppIds((prev) => prev.filter((id) => !appIds.includes(id)));
+  };
 
   const handleResetFilters = () => {
     setSelectedClientId('all');
@@ -133,6 +173,7 @@ export function AgencyApplicantsPipelinePage({ notify }: { notify: Notify }) {
     setSelectedShortlist('all');
     setSearchQuery('');
     setSelectedOrdering('-applied_at');
+    setSelectedAppIds([]);
   };
 
   const getScoreBadgeClass = (score: number | null) => {
@@ -336,6 +377,40 @@ export function AgencyApplicantsPipelinePage({ notify }: { notify: Notify }) {
           </div>
         </div>
 
+
+        {/* US-32: Selection action bar */}
+        {selectedAppIds.length > 0 && (
+          <div
+            data-testid="bar-forward-selection"
+            className="flex items-center justify-between rounded-xl bg-[#253142] p-3 text-white shadow-lg animate-in fade-in duration-150"
+          >
+            <div className="flex items-center gap-2.5 text-xs font-bold">
+              <span className="grid h-6 w-6 place-items-center rounded-md bg-[#f5c84b] text-[#253142] text-[11px] font-black">
+                {selectedAppIds.length}
+              </span>
+              <span>Shortlisted candidate{selectedAppIds.length > 1 ? 's' : ''} selected</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedAppIds([])}
+                data-testid="button-clear-selection"
+                className="rounded-lg px-2.5 py-1 text-xs font-bold text-[#b7c0cc] hover:text-white hover:bg-[#354255] transition"
+              >
+                Clear selection
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenForwardSelected}
+                data-testid="button-forward-selected"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#277254] px-3.5 py-1.5 text-xs font-bold text-white hover:bg-[#205e45] shadow-xs transition"
+              >
+                <Send size={13} /> Forward to Client
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Applicants Table / List View */}
         {loading ? (
           <div className="flex h-64 items-center justify-center rounded-2xl bg-white border border-[#d9dbd1]">
@@ -380,6 +455,17 @@ export function AgencyApplicantsPipelinePage({ notify }: { notify: Notify }) {
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-[#eef0e7] bg-[#fafaf7] text-[11px] font-bold uppercase tracking-wider text-[#7b8490]">
+                    <th className="py-3 px-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        data-testid="checkbox-select-all-shortlisted"
+                        checked={allVisibleShortlistedSelected}
+                        onChange={handleToggleSelectAll}
+                        disabled={visibleShortlistedApps.length === 0}
+                        title="Select all shortlisted candidates for forwarding"
+                        className="rounded border-[#d9dbd1] text-[#277254] focus:ring-[#277254] cursor-pointer"
+                      />
+                    </th>
                     <th className="py-3 px-4">Candidate</th>
                     <th className="py-3 px-4">Client Company</th>
                     <th className="py-3 px-4">Room & Position</th>
@@ -406,6 +492,23 @@ export function AgencyApplicantsPipelinePage({ notify }: { notify: Notify }) {
                         data-testid={`applicant-row-${app.id}`}
                         className="hover:bg-[#fafaf7]/80 transition group"
                       >
+                        {/* Multi-select checkbox */}
+                        <td className="py-3.5 px-3 text-center">
+                          <input
+                            type="checkbox"
+                            data-testid={`checkbox-select-applicant-${app.id}`}
+                            checked={selectedAppIds.includes(app.id)}
+                            disabled={!app.is_shortlisted}
+                            onChange={() => handleToggleSelectApplicant(app.id)}
+                            title={
+                              app.is_shortlisted
+                                ? 'Select candidate to forward to client'
+                                : 'Only shortlisted candidates can be forwarded to clients'
+                            }
+                            className="rounded border-[#d9dbd1] text-[#277254] focus:ring-[#277254] disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                          />
+                        </td>
+
                         {/* Candidate Name & Email */}
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-2.5">
@@ -520,6 +623,14 @@ export function AgencyApplicantsPipelinePage({ notify }: { notify: Notify }) {
                                 <Star size={10} className="fill-[#8a6a16]" /> Shortlisted
                               </span>
                             )}
+                            {app.is_forwarded && (
+                              <span
+                                data-testid={`badge-forwarded-${app.id}`}
+                                className="inline-flex items-center gap-1 rounded-md bg-[#e2f0e9] border border-[#b9dec6] px-1.5 py-0.5 text-[10px] font-bold text-[#277254]"
+                              >
+                                <Send size={9} /> Forwarded
+                              </span>
+                            )}
                           </div>
                           {app.hr_decision !== 'UNDECIDED' && (
                             <div className="mt-1 text-[10px] text-[#526072] font-semibold">
@@ -530,14 +641,27 @@ export function AgencyApplicantsPipelinePage({ notify }: { notify: Notify }) {
 
                         {/* Actions */}
                         <td className="py-3.5 px-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => setDetailApplicant(app)}
-                            data-testid={`button-view-applicant-${app.id}`}
-                            className="inline-flex items-center gap-1 rounded-lg border border-[#d9dbd1] bg-white px-2.5 py-1 text-xs font-bold text-[#253142] hover:bg-[#eef0e7] hover:border-[#253142] transition"
-                          >
-                            Details <ChevronRight size={13} />
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            {app.is_shortlisted && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenForwardSingle(app)}
+                                data-testid={`button-forward-row-${app.id}`}
+                                className="inline-flex items-center gap-1 rounded-lg border border-[#277254] bg-[#e2f0e9]/50 text-[#277254] px-2 py-1 text-xs font-bold hover:bg-[#277254] hover:text-white transition"
+                                title="Forward candidate dossier to client"
+                              >
+                                <Send size={11} /> Forward
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setDetailApplicant(app)}
+                              data-testid={`button-view-applicant-${app.id}`}
+                              className="inline-flex items-center gap-1 rounded-lg border border-[#d9dbd1] bg-white px-2.5 py-1 text-xs font-bold text-[#253142] hover:bg-[#eef0e7] hover:border-[#253142] transition"
+                            >
+                              Details <ChevronRight size={13} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -674,6 +798,20 @@ export function AgencyApplicantsPipelinePage({ notify }: { notify: Notify }) {
               </div>
             </div>
           </div>
+        )}
+
+        {/* US-32: Forward Candidates Modal */}
+        {forwardModalOpen && (
+          <ForwardCandidatesModal
+            candidates={candidatesToForward}
+            clients={clients}
+            onClose={() => {
+              setForwardModalOpen(false);
+              setCandidatesToForward([]);
+            }}
+            onForwardSuccess={handleForwardSuccess}
+            notify={notify}
+          />
         )}
       </div>
     </AppShell>

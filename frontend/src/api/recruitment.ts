@@ -1178,6 +1178,8 @@ export interface AgencyCrossClientApplicant {
   hr_decided_at: string | null;
   has_cv: boolean;
   has_video: boolean;
+  is_forwarded?: boolean;
+  forwarded_at?: string | null;
   applied_at: string;
 }
 
@@ -1235,6 +1237,72 @@ export async function apiGetAgencyApplicantDetail(
   );
   return response.data;
 }
+
+// ==========================================
+// US-32: Forward Shortlisted Candidates to Client
+// ==========================================
+
+export interface ForwardShortlistPayload {
+  client_id: number;
+  application_ids: number[];
+  recipient_email: string;
+  recipient_name?: string;
+  notes?: string;
+}
+
+export interface ForwardShortlistResponse {
+  forward_id: number;
+  forwarded_candidates_count: number;
+  recipient_email: string;
+  recipient_name: string;
+  status: string;
+  dispatched_at: string;
+  message: string;
+}
+
+export interface CandidateForwardRecord {
+  id: number;
+  agency_id: number;
+  client_company_id: number;
+  client_company_name: string;
+  recipient_email: string;
+  recipient_name: string;
+  status: string;
+  notes: string;
+  dossier_data: any;
+  application_ids: number[];
+  forwarded_candidates_count: number;
+  sent_at: string;
+}
+
+/**
+ * US-32-T2: Forward shortlisted candidate dossiers to a client company.
+ */
+export async function apiForwardShortlist(
+  payload: ForwardShortlistPayload
+): Promise<ForwardShortlistResponse> {
+  const response = await apiClient.post<ForwardShortlistResponse>(
+    '/recruitment/agency/forward-shortlist/',
+    payload
+  );
+  return response.data;
+}
+
+/**
+ * US-32-T5: Fetch history of candidate dossiers forwarded to clients.
+ */
+export async function apiGetForwardHistory(
+  clientId?: number | string
+): Promise<CandidateForwardRecord[]> {
+  const response = await apiClient.get<CandidateForwardRecord[]>(
+    '/recruitment/agency/forward-history/',
+    {
+      params: clientId ? { client_id: clientId } : undefined,
+    }
+  );
+  return response.data;
+}
+
 
 
 

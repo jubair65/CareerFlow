@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shortlisted Candidate Profiles - {{ client_name }}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f5f1e6;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #253142;
+    }
+    .wrapper {
+      width: 100%;
+      background-color: #f5f1e6;
+      padding: 40px 15px;
+    }
+    .container {
+      max-width: 620px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #d9dbd1;
+      box-shadow: 0 4px 16px rgba(37, 49, 66, 0.08);
+    }
+    .header {
+      background-color: #253142;
+      padding: 28px 32px;
+      text-align: left;
+    }
+    .brand-title {
+      color: #f5c84b;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0;
+    }
+    .header-sub {
+      color: #b7c0cc;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .content {
+      padding: 32px 32px 24px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #253142;
+      margin-top: 0;
+      margin-bottom: 12px;
+    }
+    p {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #526072;
+      margin: 0 0 18px;
+    }
+    .notes-box {
+      background-color: #fafaf7;
+      border-left: 4px solid #277254;
+      border-radius: 0 10px 10px 0;
+      padding: 14px 18px;
+      margin: 20px 0 28px;
+    }
+    .notes-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #277254;
+      margin-bottom: 6px;
+    }
+    .candidate-card {
+      background-color: #ffffff;
+      border: 1px solid #eef0e7;
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+    }
+    .candidate-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .candidate-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: #253142;
+      margin: 0;
+    }
+    .candidate-role {
+      font-size: 12px;
+      color: #7b8490;
+      margin-top: 2px;
+    }
+    .score-badge {
+      background-color: #e2f0e9;
+      color: #277254;
+      border: 1px solid #b9dec6;
+      font-size: 14px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 8px;
+    }
+    .score-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed #eef0e7;
+      text-align: center;
+    }
+    .score-item-label {
+      font-size: 10px;
+      color: #7b8490;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .score-item-val {
+      font-size: 14px;
+      font-weight: 700;
+      color: #253142;
+      margin-top: 2px;
+    }
+    .reason-text {
+      font-size: 12px;
+      color: #526072;
+      background-color: #fafaf7;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-top: 12px;
+    }
+    .footer {
+      background-color: #faf7ef;
+      border-top: 1px solid #eef0e7;
+      padding: 20px 32px;
+      font-size: 12px;
+      color: #8a929c;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <div class="header">
+        <h2 class="brand-title">CareerFlow Agency Hub</h2>
+        <div class="header-sub">Talent Dossier Forwarded by {{ agency_name }}</div>
+      </div>
+      <div class="content">
+        <h1>Candidate Shortlist for {{ client_name }}</h1>
+        <p>
+          Hello {{ recipient_name|default:"Hiring Team" }},<br>
+          <strong>{{ agency_name }}</strong> has evaluated and forwarded <strong>{{ candidates|length }}</strong> shortlisted candidate profile(s) for your review.
+        </p>
+
+        {% if notes %}
+        <div class="notes-box">
+          <div class="notes-title">Agency Cover Note</div>
+          <div style="font-size: 13px; color: #253142; line-height: 1.5;">{{ notes }}</div>
+        </div>
+        {% endif %}
+
+        <h3 style="font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #526072; margin: 24px 0 14px;">
+          Shortlisted Candidates ({{ candidates|length }})
+        </h3>
+
+        {% for cand in candidates %}
+        <div class="candidate-card">
+          <div class="candidate-header">
+            <div>
+              <h4 class="candidate-name">{{ cand.candidate_name }}</h4>
+              <div class="candidate-role">{{ cand.room_title }} • {{ cand.candidate_email }}</div>
+            </div>
+            <div class="score-badge">
+              {{ cand.final_score }}% Final
+            </div>
+          </div>
+
+          <div class="score-grid">
+            <div>
+              <div class="score-item-label">CV Match</div>
+              <div class="score-item-val">{{ cand.cv_score }}%</div>
+            </div>
+            <div>
+              <div class="score-item-label">Video Interview</div>
+              <div class="score-item-val">{{ cand.video_score }}%</div>
+            </div>
+            <div>
+              <div class="score-item-label">Decision</div>
+              <div class="score-item-val">{{ cand.hr_decision_display }}</div>
+            </div>
+          </div>
+
+          {% if cand.shortlist_reason %}
+          <div class="reason-text">
+            <strong>Shortlist Reason:</strong> {{ cand.shortlist_reason }}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="footer">
+        This candidate dossier was automatically generated by CareerFlow on behalf of {{ agency_name }}.<br>
+        © {{ current_year }} CareerFlow AI Recruitment Platform. All rights reserved.
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from apps.authentication.models import User
-from .models import RecruitmentRoom, ClientCompany, CandidateApplication
+from .models import RecruitmentRoom, ClientCompany, CandidateApplication, CandidateForwardRecord
 
 
 class RecruitmentRoomSerializer(serializers.ModelSerializer):
@@ -937,6 +937,8 @@ class AgencyCrossClientApplicantSerializer(serializers.ModelSerializer):
             'hr_decided_at',
             'has_cv',
             'has_video',
+            'is_forwarded',
+            'forwarded_at',
             'applied_at',
         ]
         read_only_fields = fields
@@ -966,5 +968,55 @@ class AgencyCrossClientSummaryStatsSerializer(serializers.Serializer):
     average_final_score = serializers.FloatField()
     clients_count = serializers.IntegerField()
     rooms_count = serializers.IntegerField()
+
+
+class ForwardShortlistRequestSerializer(serializers.Serializer):
+    """
+    US-32-T2: Request serializer for forwarding shortlisted candidate dossiers to a client company.
+    """
+    client_id = serializers.IntegerField(required=True)
+    application_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        min_length=1,
+        required=True
+    )
+    recipient_email = serializers.EmailField(required=True)
+    recipient_name = serializers.CharField(required=False, allow_blank=True, default="")
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class CandidateForwardRecordSerializer(serializers.ModelSerializer):
+    """
+    US-32-T5: Serializer for CandidateForwardRecord audit logs.
+    """
+    client_company_name = serializers.CharField(source='client_company.name', read_only=True)
+    forwarded_candidates_count = serializers.SerializerMethodField()
+    application_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        read_only=True,
+        source='applications'
+    )
+
+    class Meta:
+        model = CandidateForwardRecord
+        fields = [
+            'id',
+            'agency_id',
+            'client_company_id',
+            'client_company_name',
+            'recipient_email',
+            'recipient_name',
+            'status',
+            'notes',
+            'dossier_data',
+            'application_ids',
+            'forwarded_candidates_count',
+            'sent_at',
+        ]
+        read_only_fields = fields
+
+    def get_forwarded_candidates_count(self, obj):
+        return obj.applications.count()
+
 
 

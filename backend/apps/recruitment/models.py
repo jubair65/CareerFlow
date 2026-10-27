@@ -366,6 +366,17 @@ class CandidateApplication(models.Model):
         blank=True,
         help_text="Timestamp when HR review decision was recorded"
     )
+    # --- SPRINT 6 ENHANCEMENTS: US-32 Forward Shortlisted Candidates to Client ---
+    is_forwarded = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Whether candidate profile has been forwarded to client company"
+    )
+    forwarded_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp when candidate was forwarded to client"
+    )
     applied_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -375,3 +386,66 @@ class CandidateApplication(models.Model):
 
     def __str__(self):
         return f"{self.candidate.email} -> {self.room.title} ({self.get_status_display()})"
+
+
+class CandidateForwardRecord(models.Model):
+    """
+    US-32: Audit record of candidate profile dossiers forwarded by an Agency
+    to a client company representative.
+    """
+    class DeliveryStatus(models.TextChoices):
+        SENT = 'SENT', 'Sent'
+        DELIVERED = 'DELIVERED', 'Delivered'
+        FAILED = 'FAILED', 'Failed'
+
+    agency = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='forwarded_shortlists',
+        help_text="Agency administrator who dispatched the shortlist"
+    )
+    client_company = models.ForeignKey(
+        ClientCompany,
+        on_delete=models.CASCADE,
+        related_name='forwarded_candidate_records',
+        help_text="Target client company receiving the candidates"
+    )
+    applications = models.ManyToManyField(
+        CandidateApplication,
+        related_name='forward_records',
+        help_text="Shortlisted applications included in this dossier"
+    )
+    recipient_email = models.EmailField(
+        help_text="Client contact email where dossier was sent"
+    )
+    recipient_name = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+        help_text="Client contact person name"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=DeliveryStatus.choices,
+        default=DeliveryStatus.DELIVERED,
+        help_text="Transmission / delivery status of candidate dossier"
+    )
+    notes = models.TextField(
+        blank=True,
+        default="",
+        help_text="Optional agency notes or cover message to client"
+    )
+    dossier_data = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Snapshot of candidate scores, matched skills, and summary at time of forward"
+    )
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'careerflow_candidate_forward_records'
+        ordering = ['-sent_at']
+
+    def __str__(self):
+        return f"Forward #{self.id} -> {self.client_company.name} ({self.recipient_email})"
+
