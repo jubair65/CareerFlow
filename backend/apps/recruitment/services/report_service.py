@@ -501,8 +501,10 @@ def generate_candidate_report_pdf(application_or_id: Union[CandidateApplication,
 
     # 5. CV Intelligence & Skill Match Breakdown
     story.append(Paragraph("CV INTELLIGENCE & SKILL MATCHING", styles['SectionHeading']))
-    matched_skills_str = ", ".join(data['skills_matched']) if data['skills_matched'] else "None recorded"
-    missing_skills_str = ", ".join(data['skills_missing']) if data['skills_missing'] else "None identified"
+    matched_list = [s.get('name', str(s)) if isinstance(s, dict) else str(s) for s in (data.get('skills_matched') or [])]
+    matched_skills_str = ", ".join(matched_list) if matched_list else "None recorded"
+    missing_list = [s.get('name', str(s)) if isinstance(s, dict) else str(s) for s in (data.get('skills_missing') or [])]
+    missing_skills_str = ", ".join(missing_list) if missing_list else "None identified"
 
     cv_breakdown_data = [
         [
@@ -676,8 +678,9 @@ def generate_room_summary_pdf(room_or_id: Union[RecruitmentRoom, int], request=N
     story.append(metrics_table)
     story.append(Spacer(1, 14))
 
-    # 3. Room Configuration & Evaluation Weights
-    skills_req_str = ", ".join(data['skills_required']) if data['skills_required'] else "General requirements"
+    skills_raw = data.get('skills_required') or []
+    skills_list = [s.get('name', str(s)) if isinstance(s, dict) else str(s) for s in skills_raw]
+    skills_req_str = ", ".join(skills_list) if skills_list else "General requirements"
     config_data = [
         [
             Paragraph("EVALUATION WEIGHTING", styles['MetaLabel']),

@@ -266,6 +266,27 @@ class DownloadableReportsTestCase(TestCase):
         self.assertEqual(data['total_applicants'], 0)
         self.assertEqual(len(data['roster']), 0)
 
+    def test_room_summary_pdf_with_dict_skills_required(self):
+        """Verifies room summary PDF renders cleanly when skills_required is a list of dicts."""
+        dict_skills_room = RecruitmentRoom.objects.create(
+            created_by=self.hr_user,
+            title='Senior AI Engineer',
+            company_name='TechCorp',
+            skills_required=[
+                {"name": "Python", "importance": "REQUIRED"},
+                {"name": "Django", "importance": "PREFERRED"},
+                {"name": "Docker", "importance": "NICE_TO_HAVE"},
+            ],
+            status=RecruitmentRoom.Status.ACTIVE
+        )
+        self.client.force_authenticate(user=self.hr_user)
+        url = reverse('recruitment:room-summary-pdf', kwargs={'room_id': dict_skills_room.id})
+
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertTrue(response.content.startswith(b'%PDF-'))
+
     def test_room_summary_unauthorized_forbidden(self):
         """AC#4: Unauthorized HR Manager cannot download room summary."""
         self.client.force_authenticate(user=self.other_hr_user)
