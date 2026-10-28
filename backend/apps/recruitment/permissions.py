@@ -113,3 +113,37 @@ class IsAgencyRoomOwner(BasePermission):
         )
 
 
+class IsRoomOwnerOrAdmin(BasePermission):
+    """
+    US-33-T5: Ensures only the creator/owner of the RecruitmentRoom (HR Manager)
+    or the Agency Admin managing the client company can access and download reports.
+    """
+    message = "Access forbidden: Only authorized HR Managers or Agency Administrators can access this report."
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            getattr(request.user, 'role', None) in [User.Role.HR_MANAGER, User.Role.AGENCY_ADMIN]
+        )
+
+    def has_object_permission(self, request, view, obj):
+        if not (request.user and request.user.is_authenticated):
+            return False
+
+        # Support both CandidateApplication and RecruitmentRoom objects
+        room = getattr(obj, 'room', None) or obj
+        created_by = getattr(room, 'created_by', None)
+        client_company = getattr(room, 'client_company', None)
+
+        # Room creator check
+        if created_by == request.user:
+            return True
+
+        # Agency Admin managing client company check
+        if client_company and getattr(client_company, 'agency', None) == request.user:
+            return True
+
+        return False
+
+

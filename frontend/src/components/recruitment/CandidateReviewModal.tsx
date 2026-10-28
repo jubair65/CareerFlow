@@ -19,10 +19,14 @@ import {
   ThumbsUp,
   MessageSquare,
   AlertCircle,
+  Download,
+  Loader2,
 } from 'lucide-react';
 import {
   apiGetCandidateReviewDetail,
   apiSubmitCandidateDecision,
+  apiDownloadCandidateReportPdf,
+  triggerPdfDownload,
   CandidateReviewDetail,
   HrDecisionType,
 } from '../../api/recruitment';
@@ -54,6 +58,22 @@ export function CandidateReviewModal({
   const [selectedDecision, setSelectedDecision] = useState<'CONFIRMED' | 'OVERRIDDEN' | 'REJECTED' | 'ON_HOLD'>('CONFIRMED');
   const [decisionNotes, setDecisionNotes] = useState<string>('');
   const [activeTab, setActiveTab] = useState<TabType>('OVERVIEW');
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (!applicationId) return;
+    try {
+      setDownloadingPdf(true);
+      const blob = await apiDownloadCandidateReportPdf(applicationId);
+      const candName = data?.candidate_name?.replace(/\s+/g, '_') || 'Candidate';
+      triggerPdfDownload(blob, `CareerFlow_Candidate_${applicationId}_${candName}_Report.pdf`);
+      if (notify) notify('Candidate PDF report downloaded successfully.', 'success');
+    } catch {
+      if (notify) notify('Failed to download candidate PDF report.', 'error');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   // Load applicant details when modal opens
   useEffect(() => {
@@ -213,14 +233,31 @@ export function CandidateReviewModal({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-            data-testid="button-close-review-modal"
-            aria-label="Close modal"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf || !applicationId}
+              data-testid="button-download-candidate-pdf"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700 hover:bg-[#277254] hover:text-white hover:border-[#277254] transition disabled:opacity-50"
+              title="Download evaluation report as PDF"
+            >
+              {downloadingPdf ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
+              <span>{downloadingPdf ? 'Exporting PDF...' : 'Download PDF Report'}</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              data-testid="button-close-review-modal"
+              aria-label="Close modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Modal Scrollable Body */}

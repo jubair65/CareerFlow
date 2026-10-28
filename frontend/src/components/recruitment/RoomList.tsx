@@ -20,9 +20,15 @@ import {
   Trophy,
   MoreVertical,
   Star,
+  FileDown,
 } from 'lucide-react';
 import type { RecruitmentRoom } from '../../api/recruitment';
-import { apiUpdateRoom, apiDeleteRoom } from '../../api/recruitment';
+import {
+  apiUpdateRoom,
+  apiDeleteRoom,
+  apiDownloadRoomSummaryPdf,
+  triggerPdfDownload,
+} from '../../api/recruitment';
 import { JobRequirementsForm } from './JobRequirementsForm';
 import { WeightingConfigCard } from './WeightingConfigCard';
 import { ShareableLinkCard } from './ShareableLinkCard';
@@ -51,7 +57,22 @@ export function RoomList({
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'PAUSED' | 'CLOSED'>('ALL');
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [downloadingRoomId, setDownloadingRoomId] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const handleDownloadRoomPdf = async (room: RecruitmentRoom) => {
+    try {
+      setDownloadingRoomId(room.id);
+      const blob = await apiDownloadRoomSummaryPdf(room.id);
+      const titleClean = room.title.replace(/\s+/g, '_');
+      triggerPdfDownload(blob, `CareerFlow_Room_${room.id}_${titleClean}_Summary_Report.pdf`);
+      if (notify) notify('Room Summary PDF downloaded successfully.', 'success');
+    } catch {
+      if (notify) notify('Failed to download room summary PDF report.', 'error');
+    } finally {
+      setDownloadingRoomId(null);
+    }
+  };
 
   // Close three-dot menu on outside click
   useEffect(() => {
@@ -468,6 +489,22 @@ export function RoomList({
                       >
                         <Star size={14} className="text-[#277254]" />
                         Shortlisting Rules
+                      </button>
+
+                      {/* Download Room Summary PDF (US-33) */}
+                      <button
+                        type="button"
+                        onClick={() => { handleDownloadRoomPdf(room); setOpenMenuId(null); }}
+                        data-testid={`button-download-room-pdf-${room.id}`}
+                        disabled={downloadingRoomId === room.id}
+                        className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition disabled:opacity-50"
+                      >
+                        {downloadingRoomId === room.id ? (
+                          <Loader2 size={14} className="animate-spin text-[#277254]" />
+                        ) : (
+                          <FileDown size={14} className="text-[#277254]" />
+                        )}
+                        {downloadingRoomId === room.id ? 'Exporting PDF...' : 'Download Room Report'}
                       </button>
 
                       <div className="my-1 border-t border-[#eef0e7]" />

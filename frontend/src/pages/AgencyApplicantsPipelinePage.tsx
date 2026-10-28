@@ -21,6 +21,8 @@ import {
   TrendingUp,
   Percent,
   Send,
+  Download,
+  Loader2,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { PageHeading, StatCard, type Notify } from '../components/dashboard/DashboardShared';
@@ -34,6 +36,8 @@ import {
   type AgencyCrossClientApplicantStats,
   type ClientCompany,
   type RecruitmentRoom,
+  apiDownloadCandidateReportPdf,
+  triggerPdfDownload,
 } from '../api/recruitment';
 
 export function AgencyApplicantsPipelinePage({ notify }: { notify: Notify }) {
@@ -67,6 +71,21 @@ export function AgencyApplicantsPipelinePage({ notify }: { notify: Notify }) {
   const [selectedAppIds, setSelectedAppIds] = useState<number[]>([]);
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
   const [candidatesToForward, setCandidatesToForward] = useState<AgencyCrossClientApplicant[]>([]);
+  const [downloadingAppId, setDownloadingAppId] = useState<number | null>(null);
+
+  const handleDownloadApplicantPdf = async (appId: number, candName: string) => {
+    try {
+      setDownloadingAppId(appId);
+      const blob = await apiDownloadCandidateReportPdf(appId);
+      const nameClean = candName.replace(/\s+/g, '_');
+      triggerPdfDownload(blob, `CareerFlow_Candidate_${appId}_${nameClean}_Report.pdf`);
+      if (notify) notify('Candidate PDF report downloaded successfully.', 'success');
+    } catch {
+      if (notify) notify('Failed to download candidate PDF report.', 'error');
+    } finally {
+      setDownloadingAppId(null);
+    }
+  };
 
   // Search debounce state
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -657,6 +676,20 @@ export function AgencyApplicantsPipelinePage({ notify }: { notify: Notify }) {
                             )}
                             <button
                               type="button"
+                              onClick={() => handleDownloadApplicantPdf(app.id, app.candidate_name)}
+                              disabled={downloadingAppId === app.id}
+                              data-testid={`button-download-applicant-pdf-${app.id}`}
+                              className="inline-flex items-center gap-1 rounded-lg border border-[#d9dbd1] bg-white p-1.5 text-xs font-bold text-[#526072] hover:bg-[#eef0e7] hover:text-[#277254] transition disabled:opacity-50"
+                              title="Download candidate evaluation PDF"
+                            >
+                              {downloadingAppId === app.id ? (
+                                <Loader2 size={12} className="animate-spin text-[#277254]" />
+                              ) : (
+                                <Download size={12} />
+                              )}
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => setDetailApplicant(app)}
                               data-testid={`button-view-applicant-${app.id}`}
                               className="inline-flex items-center gap-1 rounded-lg border border-[#d9dbd1] bg-white px-2.5 py-1 text-xs font-bold text-[#253142] hover:bg-[#eef0e7] hover:border-[#253142] transition"
@@ -788,8 +821,23 @@ export function AgencyApplicantsPipelinePage({ notify }: { notify: Notify }) {
                 )}
               </div>
 
-              {/* Close Button */}
-              <div className="mt-5 flex justify-end">
+              {/* Action Buttons */}
+              <div className="mt-5 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => handleDownloadApplicantPdf(detailApplicant.id, detailApplicant.candidate_name)}
+                  disabled={downloadingAppId === detailApplicant.id}
+                  data-testid="button-modal-download-candidate-pdf"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#277254] bg-[#e2f0e9]/50 px-3 py-2 text-xs font-bold text-[#277254] hover:bg-[#277254] hover:text-white transition disabled:opacity-50"
+                  title="Download candidate assessment PDF report"
+                >
+                  {downloadingAppId === detailApplicant.id ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <Download size={13} />
+                  )}
+                  {downloadingAppId === detailApplicant.id ? 'Exporting PDF...' : 'Download PDF Report'}
+                </button>
                 <button
                   type="button"
                   onClick={() => setDetailApplicant(null)}

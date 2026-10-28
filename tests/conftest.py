@@ -99,15 +99,19 @@ def get_chromedriver_service():
 
 @pytest.fixture(scope="function")
 def driver(request):
-    """Provides a clean headless Chrome WebDriver instance, falling back to Firefox if Chrome is mismatched."""
+    """Provides a clean headless WebDriver instance (Edge / Firefox / Chrome)."""
     driver_instance = None
     try:
-        options = get_chrome_options()
-        service = get_chromedriver_service()
-        driver_instance = webdriver.Chrome(service=service, options=options)
+        options = get_edge_options()
+        driver_instance = webdriver.Edge(options=options)
     except Exception:
-        options = get_firefox_options()
-        driver_instance = webdriver.Firefox(options=options)
+        try:
+            options = get_firefox_options()
+            driver_instance = webdriver.Firefox(options=options)
+        except Exception:
+            options = get_chrome_options()
+            service = get_chromedriver_service()
+            driver_instance = webdriver.Chrome(service=service, options=options)
     driver_instance.implicitly_wait(10)
 
     yield driver_instance
