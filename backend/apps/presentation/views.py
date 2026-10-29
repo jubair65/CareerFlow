@@ -605,6 +605,17 @@ class PresentationScoreView(APIView):
         try:
             force = request.data.get('force', True) if isinstance(request.data, dict) else True
             score = self._ensure_analysis_and_score(video, force_refresh=force)
+            # US-34: Generate notification upon Presentation score calculation
+            try:
+                from apps.core.services.notification_service import NotificationService
+                NotificationService.notify_presentation_analysis_complete(
+                    user=video.user,
+                    video=video,
+                    overall_score=getattr(score, 'overall_score', None)
+                )
+            except Exception as notif_err:
+                logger.warning(f"[US-34] Notification generation failed: {notif_err}")
+
             serializer = PresentationScoreSerializer(score)
             return Response(
                 {

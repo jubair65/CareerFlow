@@ -7,7 +7,8 @@ from rest_framework import status, permissions, serializers
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from .models import DataAccessLog
+from .models import DataAccessLog, Notification
+from .serializers import NotificationSerializer
 from apps.authentication.models import User
 from apps.authentication.permissions import IsHRManager, IsAgencyAdmin
 
@@ -115,3 +116,83 @@ class AuditLogListView(APIView):
             'total_logs': DataAccessLog.objects.count(),
             'results': serializer.data
         }, status=status.HTTP_200_OK)
+
+
+# ==============================================================================
+# US-34: In-app Notification Views
+# ==============================================================================
+
+class NotificationListView(APIView):
+    """
+    US-34-T5: Retrieve list of notifications and unread count for authenticated user.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        queryset = Notification.objects.filter(user=request.user)
+        unread_count = queryset.filter(is_read=False).count()
+        notifications = queryset[:50]
+        serializer = NotificationSerializer(notifications, many=True)
+        return Response({
+            'unread_count': unread_count,
+            'notifications': serializer.data,
+        }, status=status.HTTP_200_OK)
+
+
+class NotificationMarkReadView(APIView):
+    """
+    US-34-T5: Mark a single notification as read.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        notification = Notification.objects.filter(id=pk, user=request.user).first()
+        if not notification:
+            return Response(
+                {'error': f'Notification with id {pk} not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        notification.is_read = True
+        notification.save(update_fields=['is_read'])
+        serializer = NotificationSerializer(notification)
+        return Response({
+            'message': 'Notification marked as read.',
+            'notification': serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class NotificationMarkAllReadView(APIView):
+    """
+    US-34-T5: Mark all unread notifications for authenticated user as read.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        updated_count = Notification.objects.filter(
+            user=request.user,
+            is_read=False
+        ).update(is_read=True)
+
+        return Response({
+            'message': f'Marked {updated_count} notification(s) as read.',
+            'updated_count': updated_count
+        }, status=status.HTTP_200_OK)
+
+
+class NotificationDetailView(APIView):
+    """
+    US-34-T5: Delete a notification belonging to the authenticated user.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, pk):
+        notification = Notification.objects.filter(id=pk, user=request.user).first()
+        if not notification:
+            return Response(
+                {'error': f'Notification with id {pk} not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        notification.delete()
+        return Response({'message': 'Notification deleted successfully.'}, status=status.HTTP_200_OK)

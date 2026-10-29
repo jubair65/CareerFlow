@@ -211,6 +211,17 @@ class CVParseView(APIView):
             except Exception as fb_err:
                 logger.warning(f"Auto-feedback update after parse skipped: {fb_err}")
 
+        # US-34: Generate notification upon CV analysis completion
+        try:
+            from apps.core.services.notification_service import NotificationService
+            NotificationService.notify_cv_analysis_complete(
+                user=cv.user,
+                cv=cv,
+                skills_count=len(result.skills) if result and result.skills else 0
+            )
+        except Exception as notif_err:
+            logger.warning(f"Notification generation failed on CV parse: {notif_err}")
+
         serializer = ParsedCVSerializer(parsed_cv)
         return Response(
             {
