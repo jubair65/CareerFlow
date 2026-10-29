@@ -12,6 +12,7 @@ import {
   Loader2,
   RefreshCw,
   Filter,
+  Sliders,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { PageHeading, type Notify } from '../components/dashboard/DashboardShared';
@@ -26,6 +27,7 @@ import {
   type RecruitmentRoom,
 } from '../api/recruitment';
 import { ForwardCandidatesModal } from '../components/recruitment/ForwardCandidatesModal';
+import { ShortlistConfigModal } from '../components/recruitment/ShortlistConfigModal';
 
 export function AgencyShortlistedPage({ notify }: { notify: Notify }) {
   const [, setLocation] = useLocation();
@@ -45,6 +47,9 @@ export function AgencyShortlistedPage({ notify }: { notify: Notify }) {
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
   const [candidatesToForward, setCandidatesToForward] = useState<AgencyCrossClientApplicant[]>([]);
   const [downloadingAppId, setDownloadingAppId] = useState<number | null>(null);
+
+  // Shortlist Configuration Modal
+  const [configRoom, setConfigRoom] = useState<RecruitmentRoom | null>(null);
 
   const fetchShortlistData = async () => {
     try {
@@ -158,6 +163,15 @@ export function AgencyShortlistedPage({ notify }: { notify: Notify }) {
             </button>
             <button
               type="button"
+              onClick={() => setConfigRoom(rooms[0] || null)}
+              disabled={rooms.length === 0}
+              data-testid="button-agency-config-shortlist"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#253142] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#33435a] transition disabled:opacity-40 shadow-xs cursor-pointer"
+            >
+              <Sliders size={14} /> Configure Shortlist Rules
+            </button>
+            <button
+              type="button"
               disabled={selectedAppIds.length === 0}
               onClick={handleOpenBulkForward}
               data-testid="button-forward-selected-top"
@@ -251,15 +265,25 @@ export function AgencyShortlistedPage({ notify }: { notify: Notify }) {
           <p className="mt-1 max-w-md text-xs text-[#7b8490]">
             {searchQuery || selectedClientId !== 'all' || selectedRoomId !== 'all'
               ? 'No shortlisted profiles match the current filter selection.'
-              : 'Review your client candidate pipeline and qualify applicants to generate shortlist dossiers.'}
+              : 'Applicants in your client rooms become shortlisted when room shortlisting rules (minimum score or top candidate count) are configured.'}
           </p>
-          <button
-            type="button"
-            onClick={() => setLocation('/agency/pipeline')}
-            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#253142] px-4 py-2 text-xs font-bold text-white hover:bg-[#33435a] transition cursor-pointer"
-          >
-            View Full Pipeline &rarr;
-          </button>
+          <div className="mt-5 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setConfigRoom(rooms[0] || null)}
+              disabled={rooms.length === 0}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#277254] px-4 py-2 text-xs font-bold text-white hover:bg-[#1f5b43] transition cursor-pointer"
+            >
+              <Sliders size={14} /> Configure Shortlist Rules
+            </button>
+            <button
+              type="button"
+              onClick={() => setLocation('/agency/pipeline')}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#d9dbd1] bg-white px-4 py-2 text-xs font-bold text-[#253142] hover:bg-[#f8f7f2] transition cursor-pointer"
+            >
+              View Full Pipeline &rarr;
+            </button>
+          </div>
         </div>
       ) : (
         <div className="mt-6 overflow-hidden rounded-2xl border border-[#d9dbd1] bg-white shadow-xs">
@@ -398,6 +422,20 @@ export function AgencyShortlistedPage({ notify }: { notify: Notify }) {
             )}
           </div>
         </div>
+      )}
+
+      {/* Shortlist Configuration Modal (US-25) */}
+      {configRoom && (
+        <ShortlistConfigModal
+          isOpen={Boolean(configRoom)}
+          onClose={() => setConfigRoom(null)}
+          room={configRoom}
+          onShortlistUpdated={() => {
+            fetchShortlistData();
+            setConfigRoom(null);
+          }}
+          notify={notify}
+        />
       )}
 
       {/* Forwarding Modal Dialog (US-32) */}
