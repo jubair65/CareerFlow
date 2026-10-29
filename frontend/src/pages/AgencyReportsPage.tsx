@@ -48,9 +48,12 @@ export function AgencyReportsPage({ notify }: { notify: Notify }) {
         apiGetAgencyRooms(),
         apiGetAgencyCrossClientApplicants({ limit: 100 }),
       ]);
-      setClients(clientsRes);
-      setRooms(roomsRes);
-      setApplicants(appsRes.results || []);
+      setClients(Array.isArray(clientsRes) ? clientsRes : []);
+      setRooms(Array.isArray(roomsRes) ? roomsRes : []);
+      const list = Array.isArray(appsRes)
+        ? appsRes
+        : (appsRes as any)?.results || [];
+      setApplicants(list);
     } catch {
       notify('Failed to load agency report data.', 'error');
     } finally {
@@ -107,8 +110,8 @@ export function AgencyReportsPage({ notify }: { notify: Notify }) {
       const q = searchQuery.toLowerCase();
       return (
         a.candidate_name?.toLowerCase().includes(q) ||
-        a.email?.toLowerCase().includes(q) ||
-        a.client_company?.toLowerCase().includes(q) ||
+        a.candidate_email?.toLowerCase().includes(q) ||
+        a.client_company_name?.toLowerCase().includes(q) ||
         a.room_title?.toLowerCase().includes(q)
       );
     }
@@ -284,16 +287,16 @@ export function AgencyReportsPage({ notify }: { notify: Notify }) {
               </thead>
               <tbody className="divide-y divide-[#eceee7]">
                 {filteredCandidates.map((candidate) => {
-                  const isDownloading = downloadingAppId === candidate.application_id;
+                  const isDownloading = downloadingAppId === candidate.id;
 
                   return (
-                    <tr key={candidate.application_id} className="hover:bg-[#fbfaf7] transition">
+                    <tr key={candidate.id} className="hover:bg-[#fbfaf7] transition">
                       <td className="py-3 px-4">
                         <div className="font-bold text-[#253142]">{candidate.candidate_name}</div>
-                        <div className="text-[11px] text-[#7b8490]">{candidate.email}</div>
+                        <div className="text-[11px] text-[#7b8490]">{candidate.candidate_email}</div>
                       </td>
                       <td className="py-3 px-4">
-                        <div className="font-bold text-[#253142]">{candidate.client_company}</div>
+                        <div className="font-bold text-[#253142]">{candidate.client_company_name}</div>
                       </td>
                       <td className="py-3 px-4">
                         <div className="font-medium text-[#253142]">{candidate.room_title}</div>
@@ -317,9 +320,9 @@ export function AgencyReportsPage({ notify }: { notify: Notify }) {
                       <td className="py-3 pr-4 pl-2 text-right">
                         <button
                           type="button"
-                          onClick={() => handleDownloadCandidatePdf(candidate.application_id, candidate.candidate_name)}
+                          onClick={() => handleDownloadCandidatePdf(candidate.id, candidate.candidate_name)}
                           disabled={isDownloading}
-                          data-testid={`button-download-agency-candidate-pdf-${candidate.application_id}`}
+                          data-testid={`button-download-agency-candidate-pdf-${candidate.id}`}
                           className="inline-flex items-center gap-1.5 rounded-xl border border-[#d9dbd1] bg-white px-3 py-1.5 text-xs font-bold text-[#277254] hover:bg-[#e2f0e9] transition disabled:opacity-50 cursor-pointer shadow-2xs"
                         >
                           {isDownloading ? (

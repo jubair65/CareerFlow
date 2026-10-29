@@ -50,13 +50,16 @@ export function AgencyShortlistedPage({ notify }: { notify: Notify }) {
     try {
       setLoading(true);
       const [applicantsRes, clientsRes, roomsRes] = await Promise.all([
-        apiGetAgencyCrossClientApplicants({ is_shortlisted: 'true' }),
+        apiGetAgencyCrossClientApplicants({ shortlisted: 'true' }),
         apiGetAgencyClients(),
         apiGetAgencyRooms(),
       ]);
-      setCandidates(applicantsRes.results || []);
-      setClients(clientsRes);
-      setRooms(roomsRes);
+      const list = Array.isArray(applicantsRes)
+        ? applicantsRes
+        : (applicantsRes as any)?.results || [];
+      setCandidates(list);
+      setClients(Array.isArray(clientsRes) ? clientsRes : []);
+      setRooms(Array.isArray(roomsRes) ? roomsRes : []);
     } catch {
       notify('Failed to load agency shortlisted candidate pipeline.', 'error');
     } finally {
@@ -93,8 +96,8 @@ export function AgencyShortlistedPage({ notify }: { notify: Notify }) {
       result = result.filter(
         (c) =>
           c.candidate_name?.toLowerCase().includes(q) ||
-          c.email?.toLowerCase().includes(q) ||
-          c.client_company?.toLowerCase().includes(q) ||
+          c.candidate_email?.toLowerCase().includes(q) ||
+          c.client_company_name?.toLowerCase().includes(q) ||
           c.room_title?.toLowerCase().includes(q)
       );
     }
@@ -109,7 +112,11 @@ export function AgencyShortlistedPage({ notify }: { notify: Notify }) {
   };
 
   const handleOpenBulkForward = () => {
-    const selected = candidates.filter((c) => selectedAppIds.includes(c.application_id));
+    const selected = candidates.filter((c) => selectedAppIds.includes(c.id));
+    if (selected.length === 0) {
+      notify('Please select at least one candidate to forward.', 'error');
+      return;
+    }
     setCandidatesToForward(selected);
     setForwardModalOpen(true);
   };
@@ -261,7 +268,22 @@ export function AgencyShortlistedPage({ notify }: { notify: Notify }) {
               <thead className="border-b border-[#eef0e7] bg-[#fbfaf5] text-[11px] font-bold uppercase tracking-wider text-[#7b8490]">
                 <tr>
                   <th className="py-3 pl-4 pr-2 w-10">
-                    <span className="sr-only">Select</span>
+                    <input
+                      type="checkbox"
+                      data-testid="checkbox-select-all-agency-shortlist"
+                      checked={
+                        filteredCandidates.length > 0 &&
+                        filteredCandidates.every((c) => selectedAppIds.includes(c.id))
+                      }
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedAppIds(filteredCandidates.map((c) => c.id));
+                        } else {
+                          setSelectedAppIds([]);
+                        }
+                      }}
+                      className="h-4 w-4 rounded accent-[#277254] cursor-pointer"
+                    />
                   </th>
                   <th className="py-3 px-4">Candidate</th>
                   <th className="py-3 px-4">Client Company</th>
@@ -273,32 +295,32 @@ export function AgencyShortlistedPage({ notify }: { notify: Notify }) {
               </thead>
               <tbody className="divide-y divide-[#eceee7]">
                 {filteredCandidates.map((candidate) => {
-                  const isSelected = selectedAppIds.includes(candidate.application_id);
-                  const isDownloading = downloadingAppId === candidate.application_id;
+                  const isSelected = selectedAppIds.includes(candidate.id);
+                  const isDownloading = downloadingAppId === candidate.id;
 
                   return (
                     <tr
-                      key={candidate.application_id}
-                      data-testid={`agency-shortlist-row-${candidate.application_id}`}
+                      key={candidate.id}
+                      data-testid={`agency-shortlist-row-${candidate.id}`}
                       className={`hover:bg-[#fbfaf7] transition ${isSelected ? 'bg-[#fffcf2]' : ''}`}
                     >
                       <td className="py-3.5 pl-4 pr-2">
                         <input
                           type="checkbox"
                           checked={isSelected}
-                          onChange={() => toggleSelect(candidate.application_id)}
-                          data-testid={`checkbox-forward-${candidate.application_id}`}
+                          onChange={() => toggleSelect(candidate.id)}
+                          data-testid={`checkbox-forward-${candidate.id}`}
                           className="h-4 w-4 rounded accent-[#277254] cursor-pointer"
                         />
                       </td>
                       <td className="py-3.5 px-4">
                         <div className="font-bold text-[#253142]">{candidate.candidate_name}</div>
-                        <div className="text-[11px] text-[#7b8490]">{candidate.email}</div>
+                        <div className="text-[11px] text-[#7b8490]">{candidate.candidate_email}</div>
                       </td>
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-1.5 font-bold text-[#253142]">
                           <Building2 size={13} className="text-[#3a6384]" />
-                          {candidate.client_company}
+                          {candidate.client_company_name}
                         </div>
                       </td>
                       <td className="py-3.5 px-4">
@@ -326,17 +348,17 @@ export function AgencyShortlistedPage({ notify }: { notify: Notify }) {
                             type="button"
                             onClick={() => handleOpenSingleForward(candidate)}
                             title="Forward Dossier to Client Contact"
-                            data-testid={`button-forward-single-${candidate.application_id}`}
+                            data-testid={`button-forward-single-${candidate.id}`}
                             className="inline-flex items-center gap-1 rounded-lg bg-[#277254] px-2.5 py-1 text-xs font-bold text-white hover:bg-[#1f5b43] transition cursor-pointer shadow-2xs"
                           >
                             <Send size={12} /> Forward
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDownloadPdf(candidate.application_id, candidate.candidate_name)}
+                            onClick={() => handleDownloadPdf(candidate.id, candidate.candidate_name)}
                             disabled={isDownloading}
                             title="Download Candidate PDF Dossier"
-                            data-testid={`button-download-dossier-${candidate.application_id}`}
+                            data-testid={`button-download-dossier-${candidate.id}`}
                             className="inline-flex items-center gap-1 rounded-lg border border-[#d9dbd1] bg-white px-2.5 py-1 text-xs font-bold text-[#253142] hover:bg-[#f8f7f2] transition disabled:opacity-50 cursor-pointer"
                           >
                             {isDownloading ? <Loader2 size={12} className="animate-spin text-[#277254]" /> : <Download size={12} />}
@@ -379,17 +401,23 @@ export function AgencyShortlistedPage({ notify }: { notify: Notify }) {
       )}
 
       {/* Forwarding Modal Dialog (US-32) */}
-      <ForwardCandidatesModal
-        isOpen={forwardModalOpen}
-        onClose={() => setForwardModalOpen(false)}
-        candidates={candidatesToForward}
-        clients={clients}
-        onForwardSuccess={() => {
-          fetchShortlistData();
-          setSelectedAppIds([]);
-        }}
-        notify={notify}
-      />
+      {forwardModalOpen && (
+        <ForwardCandidatesModal
+          isOpen={forwardModalOpen}
+          onClose={() => {
+            setForwardModalOpen(false);
+            setCandidatesToForward([]);
+          }}
+          candidates={candidatesToForward}
+          clients={clients}
+          onForwardSuccess={() => {
+            fetchShortlistData();
+            setSelectedAppIds([]);
+            setCandidatesToForward([]);
+          }}
+          notify={notify}
+        />
+      )}
     </AppShell>
   );
 }

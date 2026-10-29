@@ -20,6 +20,7 @@ import {
 import type { Notify } from '../dashboard/DashboardShared';
 
 interface ForwardCandidatesModalProps {
+  isOpen?: boolean;
   candidates: AgencyCrossClientApplicant[];
   clients: ClientCompany[];
   onClose: () => void;
@@ -28,12 +29,15 @@ interface ForwardCandidatesModalProps {
 }
 
 export function ForwardCandidatesModal({
+  isOpen = true,
   candidates,
   clients,
   onClose,
   onForwardSuccess,
   notify,
 }: ForwardCandidatesModalProps) {
+  if (isOpen === false) return null;
+
   // Determine if all selected candidates belong to the same client company
   const clientCompanyIds = Array.from(new Set(candidates.map((c) => c.client_company_id).filter(Boolean)));
   const clientCompanyNames = Array.from(new Set(candidates.map((c) => c.client_company_name).filter(Boolean)));
@@ -64,16 +68,43 @@ export function ForwardCandidatesModal({
     }
   };
 
+  // Synchronize client and recipient when candidates or clients change
   useEffect(() => {
-    if (initialClient && !recipientEmail) {
-      setRecipientEmail(initialClient.contact_email || '');
-      setRecipientName(initialClient.contact_person || '');
+    if (!isCrossClient && candidates.length > 0) {
+      const cId = candidates[0].client_company_id;
+      const client = clients.find((c) => c.id === cId) || clients[0];
+      if (client) {
+        setSelectedClientId(client.id);
+        setRecipientEmail(client.contact_email || '');
+        setRecipientName(client.contact_person || '');
+      }
+    } else if (clients.length > 0 && !selectedClientId) {
+      setSelectedClientId(clients[0].id);
+      setRecipientEmail(clients[0].contact_email || '');
+      setRecipientName(clients[0].contact_person || '');
     }
-  }, [initialClient]);
+  }, [candidates, clients, isCrossClient]);
+
+  // Support ESC key to close modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // Cannot forward if no candidates selected
+    if (candidates.length === 0) {
+      setError('Please select at least one candidate application to forward.');
+      return;
+    }
 
     // US-32 / Bonny UI review: Prevent submitting candidates from multiple client companies
     if (isCrossClient) {
@@ -143,6 +174,11 @@ export function ForwardCandidatesModal({
       role="dialog"
       aria-modal="true"
       data-testid="modal-forward-candidates"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs overflow-y-auto"
     >
       <div className="relative w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl border border-[#d9dbd1] my-8 animate-in fade-in zoom-in-95 duration-150">
@@ -165,7 +201,7 @@ export function ForwardCandidatesModal({
             type="button"
             onClick={onClose}
             data-testid="button-close-forward-modal"
-            className="rounded-lg p-1.5 text-[#7b8490] hover:bg-[#eef0e7] hover:text-[#253142] transition"
+            className="rounded-lg p-1.5 text-[#7b8490] hover:bg-[#eef0e7] hover:text-[#253142] transition cursor-pointer"
           >
             <X size={18} />
           </button>
@@ -210,7 +246,7 @@ export function ForwardCandidatesModal({
               value={selectedClientId}
               onChange={(e) => handleClientChange(Number(e.target.value))}
               disabled={isCrossClient || (sameClient && candidates.length > 0)}
-              className="w-full rounded-xl border border-[#d9dbd1] bg-white px-3.5 py-2.5 text-xs font-semibold text-[#253142] focus:border-[#277254] focus:outline-hidden focus:ring-2 focus:ring-[#277254]/20 transition disabled:bg-[#f6f6f3] disabled:text-[#526072]"
+              className="w-full rounded-xl border border-[#d9dbd1] bg-white px-3.5 py-2.5 text-xs font-semibold text-[#253142] focus:border-[#277254] focus:outline-hidden focus:ring-2 focus:ring-[#277254]/20 transition disabled:bg-[#f6f6f3] disabled:text-[#526072] cursor-pointer"
             >
               {isCrossClient && (
                 <option value={0}>-- Multiple Client Companies (Cannot Submit) --</option>
@@ -275,51 +311,59 @@ export function ForwardCandidatesModal({
           <div>
             <label className="block text-xs font-bold text-[#526072] mb-1.5 flex items-center justify-between">
               <span>Candidates Included in Dossier ({candidates.length})</span>
-              <span className="text-[11px] text-[#277254] font-semibold flex items-center gap-1">
-                <CheckCircle2 size={12} /> All verified shortlisted
-              </span>
+              {candidates.length > 0 && (
+                <span className="text-[11px] text-[#277254] font-semibold flex items-center gap-1">
+                  <CheckCircle2 size={12} /> All verified shortlisted
+                </span>
+              )}
             </label>
 
             <div
               data-testid="container-forward-candidates-list"
               className="max-h-48 overflow-y-auto space-y-2 rounded-xl border border-[#eef0e7] bg-[#fafaf7] p-2.5"
             >
-              {candidates.map((cand) => (
-                <div
-                  key={cand.id}
-                  data-testid={`forward-candidate-item-${cand.id}`}
-                  className="flex items-center justify-between gap-3 rounded-lg bg-white p-2.5 border border-[#eef0e7] shadow-2xs text-xs"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="grid h-7 w-7 place-items-center rounded-md bg-[#e2f0e9] text-[#277254] font-bold text-xs shrink-0">
-                      {cand.candidate_name
-                        .split(' ')
-                        .map((n) => n[0])
-                        .slice(0, 2)
-                        .join('')}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-bold text-[#253142] truncate">
-                        {cand.candidate_name}
+              {candidates.length === 0 ? (
+                <div className="py-6 text-center text-xs text-[#7b8490]">
+                  No candidates selected. Please close this modal and select shortlisted candidates using the checkboxes.
+                </div>
+              ) : (
+                candidates.map((cand) => (
+                  <div
+                    key={cand.id}
+                    data-testid={`forward-candidate-item-${cand.id}`}
+                    className="flex items-center justify-between gap-3 rounded-lg bg-white p-2.5 border border-[#eef0e7] shadow-2xs text-xs"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="grid h-7 w-7 place-items-center rounded-md bg-[#e2f0e9] text-[#277254] font-bold text-xs shrink-0">
+                        {(cand.candidate_name || 'C')
+                          .split(' ')
+                          .map((n) => n[0])
+                          .slice(0, 2)
+                          .join('')}
                       </div>
-                      <div className="text-[11px] text-[#7b8490] truncate">
-                        {cand.client_company_name} • {cand.room_title} • {cand.candidate_email}
+                      <div className="min-w-0">
+                        <div className="font-bold text-[#253142] truncate">
+                          {cand.candidate_name}
+                        </div>
+                        <div className="text-[11px] text-[#7b8490] truncate">
+                          {cand.client_company_name} • {cand.room_title} • {cand.candidate_email}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="text-right">
-                      <span className="inline-block px-2 py-0.5 rounded-md bg-[#e2f0e9] text-[#277254] font-bold text-[11px]">
-                        {cand.final_score !== null ? `${Math.round(cand.final_score)}%` : 'N/A'} Final
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="text-right">
+                        <span className="inline-block px-2 py-0.5 rounded-md bg-[#e2f0e9] text-[#277254] font-bold text-[11px]">
+                          {cand.final_score !== null ? `${Math.round(cand.final_score)}%` : 'N/A'} Final
+                        </span>
+                      </div>
+                      <span className="inline-flex items-center gap-0.5 rounded-md bg-[#fff1c9] px-1.5 py-0.5 text-[10px] font-bold text-[#8a6a16]">
+                        <Star size={10} className="fill-[#8a6a16]" /> Shortlisted
                       </span>
                     </div>
-                    <span className="inline-flex items-center gap-0.5 rounded-md bg-[#fff1c9] px-1.5 py-0.5 text-[10px] font-bold text-[#8a6a16]">
-                      <Star size={10} className="fill-[#8a6a16]" /> Shortlisted
-                    </span>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 
@@ -344,16 +388,25 @@ export function ForwardCandidatesModal({
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="rounded-xl border border-[#d9dbd1] bg-white px-4 py-2 text-xs font-bold text-[#526072] hover:bg-[#eef0e7] transition"
+              data-testid="button-cancel-forward"
+              className="rounded-xl border border-[#d9dbd1] bg-white px-4 py-2 text-xs font-bold text-[#526072] hover:bg-[#eef0e7] transition cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={submitting || candidates.length === 0 || isCrossClient}
+              disabled={submitting || candidates.length === 0 || isCrossClient || !recipientEmail.trim()}
               data-testid="button-submit-forward"
-              title={isCrossClient ? 'Cannot forward candidates from multiple client companies' : undefined}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#277254] px-5 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#205e45] transition disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                candidates.length === 0
+                  ? 'Please select at least 1 candidate to forward'
+                  : isCrossClient
+                  ? 'Cannot forward candidates from multiple client companies'
+                  : !recipientEmail.trim()
+                  ? 'Please provide recipient email'
+                  : undefined
+              }
+              className="inline-flex items-center gap-2 rounded-xl bg-[#277254] px-5 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#205e45] transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {submitting ? (
                 <>
@@ -361,7 +414,7 @@ export function ForwardCandidatesModal({
                 </>
               ) : (
                 <>
-                  <Send size={14} /> Forward {candidates.length} Candidate{candidates.length > 1 ? 's' : ''}
+                  <Send size={14} /> Forward {candidates.length} Candidate{candidates.length === 1 ? '' : 's'}
                 </>
               )}
             </button>
