@@ -135,3 +135,4 @@ export function SettingsPage({ notify }: { notify: Notify }) {
     </AppShell>
   );
 }
+

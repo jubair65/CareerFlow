@@ -499,3 +499,4 @@ export function ApplicantStatusPage({ notify }: { notify: Notify }) {
     </AppShell>
   );
 }
+

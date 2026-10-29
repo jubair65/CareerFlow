@@ -173,3 +173,4 @@ def dispatch_status_notification(
     except Exception as fatal_err:
         logger.error(f"Unexpected error in dispatch_status_notification for app #{getattr(application, 'id', None)}: {fatal_err}", exc_info=True)
         return {"success": False, "error": str(fatal_err)}
+

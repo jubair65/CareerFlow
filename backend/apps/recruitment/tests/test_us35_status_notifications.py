@@ -267,3 +267,4 @@ class US35StatusNotificationTests(APITestCase):
         self.client.force_authenticate(user=None)
         response = self.client.get('/api/recruitment/applications/my-status/')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+

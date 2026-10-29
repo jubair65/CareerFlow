@@ -155,3 +155,4 @@ export function ProfilePage({ notify }: { notify: Notify }) {
     </AppShell>
   );
 }
+
