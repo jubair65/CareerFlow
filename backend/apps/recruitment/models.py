@@ -449,3 +449,59 @@ class CandidateForwardRecord(models.Model):
     def __str__(self):
         return f"Forward #{self.id} -> {self.client_company.name} ({self.recipient_email})"
 
+
+
+class StatusNotificationLog(models.Model):
+    """
+    US-35: Audit log for applicant status notification dispatches.
+    Records delivery status of in-app alerts and transactional emails when
+    shortlisting or HR decisions change.
+    """
+    class StatusType(models.TextChoices):
+        SHORTLISTED = 'SHORTLISTED', 'Shortlisted'
+        REJECTED = 'REJECTED', 'Rejected'
+        CONFIRMED = 'CONFIRMED', 'Confirmed'
+        OVERRIDDEN = 'OVERRIDDEN', 'Overridden'
+        ON_HOLD = 'ON_HOLD', 'On Hold'
+
+    application = models.ForeignKey(
+        CandidateApplication,
+        on_delete=models.CASCADE,
+        related_name='status_notification_logs',
+        help_text="The application whose status change triggered this notification"
+    )
+    recipient_email = models.EmailField(
+        max_length=255,
+        help_text="Candidate email address where notification was dispatched"
+    )
+    status_type = models.CharField(
+        max_length=50,
+        choices=StatusType.choices,
+        help_text="Status state or decision triggering the notification"
+    )
+    email_sent = models.BooleanField(
+        default=False,
+        help_text="Whether the transactional email was successfully dispatched"
+    )
+    error_message = models.TextField(
+        blank=True,
+        default="",
+        help_text="Error message if email transmission encountered an exception"
+    )
+    dispatched_at = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,
+        help_text="Timestamp when status notification was triggered"
+    )
+
+    class Meta:
+        db_table = 'careerflow_status_notification_logs'
+        ordering = ['-dispatched_at']
+        indexes = [
+            models.Index(fields=['application', '-dispatched_at']),
+            models.Index(fields=['recipient_email', '-dispatched_at']),
+        ]
+
+    def __str__(self):
+        sent_status = "Delivered" if self.email_sent else "Failed/Skipped"
+        return f"[{self.status_type}] App #{self.application_id} -> {self.recipient_email} ({sent_status})"

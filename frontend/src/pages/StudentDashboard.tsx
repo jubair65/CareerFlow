@@ -102,20 +102,32 @@ export function StudentDashboard({ notify }: { notify: Notify }) {
           />
         </div>
 
-        <StatCard
-          label="Practice attempts"
-          value="12"
-          detail="3 this week"
-          icon={Target}
-          accent="blue"
-        />
-        <StatCard
-          label="Applications"
-          value="5"
-          detail="2 in review"
-          icon={BriefcaseBusiness}
-          accent="coral"
-        />
+        <div
+          onClick={() => setLocation('/student/videos')}
+          className="cursor-pointer transition hover:scale-[1.01]"
+          data-testid="card-practice-attempts"
+        >
+          <StatCard
+            label="Practice attempts"
+            value="12"
+            detail="3 this week"
+            icon={Target}
+            accent="blue"
+          />
+        </div>
+        <div
+          onClick={() => setLocation('/student/applications')}
+          className="cursor-pointer transition hover:scale-[1.01]"
+          data-testid="card-applications-status"
+        >
+          <StatCard
+            label="Applications"
+            value="5"
+            detail="2 in review"
+            icon={BriefcaseBusiness}
+            accent="coral"
+          />
+        </div>
       </div>
 
       {/* Confidence Chart & AI Recommendation */}
@@ -128,7 +140,7 @@ export function StudentDashboard({ notify }: { notify: Notify }) {
             </div>
             <button
               type="button"
-              onClick={() => handleAction('View Progress')}
+              onClick={() => setLocation('/presentation/trends')}
               data-testid="link-dashboard-progress"
               className="flex items-center gap-1 text-xs font-bold text-[#277254] hover:underline"
             >
@@ -158,7 +170,7 @@ export function StudentDashboard({ notify }: { notify: Notify }) {
           </div>
           <button
             type="button"
-            onClick={() => handleAction('Try this practice')}
+            onClick={() => setLocation('/student/presentation')}
             data-testid="button-ai-recommendation"
             className="mt-6 inline-flex w-fit items-center gap-2 rounded-xl bg-[#e2f0e9] px-4 py-2.5 text-xs font-bold text-[#277254] hover:bg-[#d2e7dc] transition"
           >
@@ -174,7 +186,7 @@ export function StudentDashboard({ notify }: { notify: Notify }) {
             <h2 className="font-bold text-[#253142] text-lg">Your next actions</h2>
             <button
               type="button"
-              onClick={() => handleAction('View all actions')}
+              onClick={() => setLocation('/student/presentation')}
               data-testid="button-view-all-actions"
               className="text-xs font-bold text-[#277254] hover:underline"
             >
@@ -184,7 +196,7 @@ export function StudentDashboard({ notify }: { notify: Notify }) {
           <div className="mt-4 space-y-2.5">
             <button
               type="button"
-              onClick={() => handleAction('Practice introduction')}
+              onClick={() => setLocation('/student/presentation')}
               data-testid="action-practice-intro"
               className="flex w-full items-center gap-3 rounded-xl bg-[#fbfaf5] border border-[#eef0e7] p-3.5 text-left hover:bg-[#fff1c9] transition"
             >

@@ -1350,3 +1350,66 @@ export function triggerPdfDownload(blob: Blob, defaultFilename: string) {
 
 
 
+
+
+// ============================================================================
+// US-35: Applicant Application Status & Stage Milestones
+// ============================================================================
+
+export interface StatusNotificationLogItem {
+  id: number;
+  status_type: string;
+  status_type_display: string;
+  email_sent: boolean;
+  error_message: string;
+  dispatched_at: string;
+}
+
+export interface ApplicationStage {
+  stage: number;
+  key: string;
+  title: string;
+  description: string;
+  is_completed: boolean;
+  is_active: boolean;
+  outcome?: string;
+  timestamp: string | null;
+}
+
+export interface ApplicantApplicationStatus {
+  id: number;
+  room_id: number;
+  room_title: string;
+  room_department: string;
+  company_name: string;
+  status: 'PENDING' | 'ANALYZING' | 'COMPLETED' | 'FAILED';
+  status_display: string;
+  applied_at: string;
+  final_score: number | null;
+  cv_score: number | null;
+  video_score: number | null;
+  is_partial_score: boolean;
+  score_calculated_at: string | null;
+  is_shortlisted: boolean;
+  shortlisted_at: string | null;
+  shortlist_reason: string;
+  hr_decision: 'UNDECIDED' | 'CONFIRMED' | 'OVERRIDDEN' | 'REJECTED' | 'ON_HOLD';
+  hr_decision_display: string;
+  hr_decision_notes: string;
+  hr_decided_at: string | null;
+  current_stage: 'SUBMITTED' | 'AI_ANALYSIS' | 'HR_REVIEW' | 'FINAL_DECISION';
+  stages: ApplicationStage[];
+  notification_logs: StatusNotificationLogItem[];
+}
+
+export async function apiGetMyApplicationStatuses(): Promise<ApplicantApplicationStatus[]> {
+  const response = await apiClient.get<ApplicantApplicationStatus[]>('/recruitment/applications/my-status/');
+  return response.data;
+}
+
+export async function apiGetApplicationStatusDetail(
+  applicationId: number | string
+): Promise<ApplicantApplicationStatus> {
+  const response = await apiClient.get<ApplicantApplicationStatus>(`/recruitment/applications/${applicationId}/status/`);
+  return response.data;
+}

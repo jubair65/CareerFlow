@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from apps.authentication.models import User
-from .models import RecruitmentRoom, ClientCompany, CandidateApplication, CandidateForwardRecord
+from .models import RecruitmentRoom, ClientCompany, CandidateApplication, CandidateForwardRecord, StatusNotificationLog
 
 
 class RecruitmentRoomSerializer(serializers.ModelSerializer):
@@ -1020,3 +1020,142 @@ class CandidateForwardRecordSerializer(serializers.ModelSerializer):
 
 
 
+
+
+
+# ============================================================================
+# US-35: Applicant Application Status & Notification History Serializers
+# ============================================================================
+
+class StatusNotificationLogSerializer(serializers.ModelSerializer):
+    status_type_display = serializers.CharField(source='get_status_type_display', read_only=True)
+
+    class Meta:
+        model = StatusNotificationLog
+        fields = [
+            'id',
+            'status_type',
+            'status_type_display',
+            'email_sent',
+            'error_message',
+            'dispatched_at',
+        ]
+        read_only_fields = fields
+
+
+class ApplicantApplicationStatusSerializer(serializers.ModelSerializer):
+    room_id = serializers.IntegerField(source='room.id', read_only=True)
+    room_title = serializers.CharField(source='room.title', read_only=True)
+    room_department = serializers.CharField(source='room.department', read_only=True)
+    company_name = serializers.SerializerMethodField()
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    hr_decision_display = serializers.CharField(source='get_hr_decision_display', read_only=True)
+    current_stage = serializers.SerializerMethodField()
+    stages = serializers.SerializerMethodField()
+    notification_logs = StatusNotificationLogSerializer(many=True, read_only=True, source='status_notification_logs')
+
+    class Meta:
+        model = CandidateApplication
+        fields = [
+            'id',
+            'room_id',
+            'room_title',
+            'room_department',
+            'company_name',
+            'status',
+            'status_display',
+            'applied_at',
+            'final_score',
+            'cv_score',
+            'video_score',
+            'is_partial_score',
+            'score_calculated_at',
+            'is_shortlisted',
+            'shortlisted_at',
+            'shortlist_reason',
+            'hr_decision',
+            'hr_decision_display',
+            'hr_decision_notes',
+            'hr_decided_at',
+            'current_stage',
+            'stages',
+            'notification_logs',
+        ]
+        read_only_fields = fields
+
+    def get_company_name(self, obj):
+        if obj.room and obj.room.client_company:
+            return obj.room.client_company.name
+        if obj.room and obj.room.company_name:
+            return obj.room.company_name
+        return 'CareerFlow Hiring Partner'
+
+    def get_current_stage(self, obj):
+        if obj.hr_decision in [CandidateApplication.HrDecision.CONFIRMED, CandidateApplication.HrDecision.REJECTED, CandidateApplication.HrDecision.OVERRIDDEN]:
+            return 'FINAL_DECISION'
+        if obj.status == CandidateApplication.Status.COMPLETED or obj.final_score is not None:
+            return 'HR_REVIEW'
+        if obj.status == CandidateApplication.Status.ANALYZING:
+            return 'AI_ANALYSIS'
+        return 'SUBMITTED'
+
+    def get_stages(self, obj):
+        is_submitted = True
+        is_analyzed = obj.status == CandidateApplication.Status.COMPLETED or obj.final_score is not None
+        has_decision = obj.hr_decision in [
+            CandidateApplication.HrDecision.CONFIRMED,
+            CandidateApplication.HrDecision.REJECTED,
+            CandidateApplication.HrDecision.OVERRIDDEN,
+        ]
+
+        outcome = 'PENDING'
+        if obj.hr_decision == CandidateApplication.HrDecision.CONFIRMED:
+            outcome = 'SHORTLISTED'
+        elif obj.hr_decision == CandidateApplication.HrDecision.REJECTED:
+            outcome = 'REJECTED'
+        elif obj.hr_decision == CandidateApplication.HrDecision.OVERRIDDEN:
+            outcome = 'SHORTLISTED' if obj.is_shortlisted else 'REJECTED'
+        elif obj.is_shortlisted:
+            outcome = 'SHORTLISTED'
+        elif obj.hr_decision == CandidateApplication.HrDecision.ON_HOLD:
+            outcome = 'ON_HOLD'
+
+        return [
+            {
+                'stage': 1,
+                'key': 'SUBMITTED',
+                'title': 'Application Submitted',
+                'description': 'Candidate CV and presentation video successfully received',
+                'is_completed': is_submitted,
+                'is_active': not is_analyzed,
+                'timestamp': obj.applied_at,
+            },
+            {
+                'stage': 2,
+                'key': 'AI_ANALYSIS',
+                'title': 'AI Assessment',
+                'description': 'Multi-modal CV skill matching and video delivery analysis',
+                'is_completed': is_analyzed,
+                'is_active': is_analyzed and not has_decision,
+                'timestamp': obj.score_calculated_at,
+            },
+            {
+                'stage': 3,
+                'key': 'HR_REVIEW',
+                'title': 'HR Hiring Committee Review',
+                'description': 'HR review of candidate dossier, score breakdown, and recommendations',
+                'is_completed': has_decision,
+                'is_active': is_analyzed and not has_decision,
+                'timestamp': obj.hr_decided_at,
+            },
+            {
+                'stage': 4,
+                'key': 'FINAL_DECISION',
+                'title': 'Application Decision',
+                'description': f'Outcome: {outcome.replace("_", " ").title()}',
+                'is_completed': has_decision,
+                'is_active': has_decision,
+                'outcome': outcome,
+                'timestamp': obj.hr_decided_at or obj.shortlisted_at,
+            },
+        ]

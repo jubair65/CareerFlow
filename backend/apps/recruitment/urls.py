@@ -14,6 +14,8 @@ from .views import (
     AgencyForwardHistoryView,
     CandidateApplicationReportPdfView,
     RecruitmentRoomSummaryPdfView,
+    ApplicantStatusListView,
+    ApplicantStatusDetailView,
 )
 
 app_name = 'recruitment'
@@ -25,6 +27,10 @@ router.register(r'agency/rooms', AgencyRoomViewSet, basename='agency-rooms')
 router.register(r'agency/applicants', AgencyCrossClientApplicantViewSet, basename='agency-applicants')
 
 urlpatterns = [
+    # US-35: Applicant Application Status & Stage Milestones Endpoints
+    path('applications/my-status/', ApplicantStatusListView.as_view(), name='applicant-status-list'),
+    path('applications/<int:application_id>/status/', ApplicantStatusDetailView.as_view(), name='applicant-status-detail'),
+
     # US-33: Downloadable Candidate & Room PDF Reports Endpoints
     path('applications/<int:application_id>/report-pdf/', CandidateApplicationReportPdfView.as_view(), name='application-report-pdf'),
     path('rooms/<int:room_id>/summary-pdf/', RecruitmentRoomSummaryPdfView.as_view(), name='room-summary-pdf'),
@@ -44,5 +50,3 @@ urlpatterns = [
     path('apply/<str:token>/', PublicApplicationView.as_view(), name='public-apply'),
     path('', include(router.urls)),
 ]
-
-

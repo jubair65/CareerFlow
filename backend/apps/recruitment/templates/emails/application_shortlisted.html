@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }} - CareerFlow</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f5f1e6;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #253142;
+    }
+    .wrapper {
+      width: 100%;
+      background-color: #f5f1e6;
+      padding: 40px 15px;
+    }
+    .container {
+      max-width: 580px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 18px;
+      border: 1px solid #d9dbd1;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(37, 49, 66, 0.05);
+    }
+    .header {
+      background-color: #253142;
+      padding: 28px 32px;
+      text-align: left;
+    }
+    .logo-container {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo-badge {
+      background-color: #f5c84b;
+      color: #253142;
+      font-weight: 900;
+      font-size: 14px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      display: inline-block;
+    }
+    .brand-title {
+      color: #faf7ef;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      display: inline-block;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .content {
+      padding: 36px 32px;
+    }
+    .badge-status {
+      display: inline-block;
+      background-color: #e2f0e9;
+      color: #277254;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 800;
+      color: #253142;
+      margin: 0 0 16px 0;
+      line-height: 1.3;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.6;
+      color: #526072;
+      margin: 0 0 20px 0;
+    }
+    .card-highlight {
+      background-color: #f8f7f2;
+      border: 1px solid #e5e6df;
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .card-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    .card-row:last-child {
+      margin-bottom: 0;
+    }
+    .card-label {
+      color: #7b8490;
+      font-weight: 500;
+    }
+    .card-value {
+      color: #253142;
+      font-weight: 700;
+    }
+    .btn-container {
+      margin: 30px 0 24px 0;
+      text-align: center;
+    }
+    .btn {
+      display: inline-block;
+      background-color: #277254;
+      color: #ffffff !important;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 15px;
+      padding: 14px 32px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(39, 114, 84, 0.25);
+    }
+    .footer {
+      background-color: #f8f7f2;
+      padding: 24px 32px;
+      border-top: 1px solid #dedfd6;
+      text-align: center;
+      font-size: 12px;
+      color: #7b8490;
+      line-height: 1.5;
+    }
+    .footer a {
+      color: #253142;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <div class="header">
+        <div class="logo-container">
+          <span class="logo-badge">CF</span>
+          <span class="brand-title">CareerFlow</span>
+        </div>
+      </div>
+      <div class="content">
+        <span class="badge-status">Application Shortlisted</span>
+        <h1>Congratulations, {{ candidate_name|default:user.first_name|default:"Candidate" }}!</h1>
+        <p>Great news! The hiring committee has reviewed your application and shortlisted your profile for the next stage of the hiring process.</p>
+        
+        <div class="card-highlight">
+          <div class="card-row">
+            <span class="card-label">Position:</span>
+            <span class="card-value">{{ room_title }}</span>
+          </div>
+          {% if company_name %}
+          <div class="card-row">
+            <span class="card-label">Organization:</span>
+            <span class="card-value">{{ company_name }}</span>
+          </div>
+          {% endif %}
+          <div class="card-row">
+            <span class="card-label">Current Status:</span>
+            <span class="card-value" style="color: #277254;">Shortlisted</span>
+          </div>
+          {% if decision_notes %}
+          <div class="card-row" style="margin-top: 10px; border-top: 1px dashed #dedfd6; padding-top: 8px;">
+            <span class="card-label">HR Feedback:</span>
+            <span class="card-value" style="font-weight: normal; color: #526072;">{{ decision_notes }}</span>
+          </div>
+          {% endif %}
+        </div>
+
+        <p>You can check the full status of your application, evaluation milestones, and next interview preparation steps in your candidate portal.</p>
+
+        <div class="btn-container">
+          <a href="{{ link_url }}" class="btn">View Application Status</a>
+        </div>
+
+        <p style="font-size: 13px; color: #7b8490; margin-bottom: 0;">
+          If the button above does not work, copy and paste this link into your browser:<br>
+          <a href="{{ link_url }}" style="color: #277254; word-break: break-all;">{{ link_url }}</a>
+        </p>
+      </div>
+      <div class="footer">
+        <p>CareerFlow AI Recruitment & Career Intelligence Platform<br>
+        Questions? Contact us at <a href="mailto:{{ support_email|default:'support@careerflow.com' }}">{{ support_email|default:'support@careerflow.com' }}</a></p>
+        <p>&copy; 2026 CareerFlow. All rights reserved.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
