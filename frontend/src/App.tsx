@@ -693,7 +693,7 @@ function RoutedApp({ notify }: { notify: Notify }) {
     );
   }
 
-  if (path === '/presentation/trends' || path === '/student/presentation/trends' || path === '/student/trends') {
+  if (path === '/presentation/trends' || path === '/student/presentation/trends' || path === '/student/trends' || path === '/student/progress') {
     return (
       <ProtectedRoute allowedRoles={['student']} notify={notify}>
         <ScoreTrendsPage notify={notify} />

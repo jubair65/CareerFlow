@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { useLocation } from 'wouter';
 import {
@@ -22,6 +22,10 @@ import {
 import type { Role, Notify } from '../dashboard/DashboardShared';
 import { apiLogout, getStoredUser, apiGetCurrentUser } from '../../api/auth';
 import { NotificationCenter } from './NotificationCenter';
+import {
+  apiGetNotifications,
+  onNotificationsUpdated,
+} from '../../api/notifications';
 
 export function Logo({ dark = false }: { dark?: boolean }) {
   return (
@@ -56,15 +60,21 @@ export function Logo({ dark = false }: { dark?: boolean }) {
   );
 }
 
+export interface AppShellProps {
+  role?: Role;
+  activeTab?: string;
+  activeNav?: string;
+  children: ReactNode;
+  notify?: Notify;
+}
+
 export function AppShell({
   role,
+  activeTab,
+  activeNav,
   children,
-  notify,
-}: {
-  role: Role;
-  children: ReactNode;
-  notify: Notify;
-}) {
+  notify = () => {},
+}: AppShellProps) {
   const [path, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<any>(() => {
@@ -74,6 +84,7 @@ export function AppShell({
       return null;
     }
   });
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   useEffect(() => {
     apiGetCurrentUser()
@@ -83,8 +94,53 @@ export function AppShell({
       });
   }, []);
 
+  const refreshUnreadCount = useCallback(async () => {
+    try {
+      const data = await apiGetNotifications();
+      setUnreadCount(data.unread_count ?? 0);
+    } catch {
+      // Ignore network/auth errors in polling
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshUnreadCount();
+    const unsubscribe = onNotificationsUpdated((count) => {
+      if (typeof count === 'number') {
+        setUnreadCount(count);
+      } else {
+        refreshUnreadCount();
+      }
+    });
+    const interval = setInterval(refreshUnreadCount, 30000);
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
+  }, [refreshUnreadCount]);
+
+  const storedUser = getStoredUser();
+  const rawRole =
+    user?.role ||
+    storedUser?.role ||
+    (() => {
+      try {
+        return JSON.parse(localStorage.getItem('careerflow-session') || '{}')?.role;
+      } catch {
+        return 'STUDENT';
+      }
+    })();
+
+  const effectiveRole: Role =
+    role ||
+    (rawRole === 'HR_MANAGER' || rawRole === 'hr'
+      ? 'hr'
+      : rawRole === 'AGENCY_ADMIN' || rawRole === 'agency'
+      ? 'agency'
+      : 'student');
+
   const nav =
-    role === 'student'
+    effectiveRole === 'student'
       ? [
           { icon: LayoutDashboard, label: 'Overview', path: '/student/dashboard', active: true },
           { icon: Presentation, label: 'Practice', path: '/student/practice' },
@@ -93,7 +149,7 @@ export function AppShell({
           { icon: BriefcaseBusiness, label: 'Applications', path: '/student/applications' },
           { icon: TrendingUp, label: 'My progress', path: '/student/progress' },
         ]
-      : role === 'hr'
+      : effectiveRole === 'hr'
       ? [
           { icon: LayoutDashboard, label: 'Overview', path: '/hr/dashboard', active: true },
           { icon: FolderOpen, label: 'Recruitment rooms', path: '/hr/rooms' },
@@ -110,7 +166,7 @@ export function AppShell({
           { icon: BarChart3, label: 'Reports', path: '/agency/reports' },
         ];
 
-  const defaultName = role === 'student' ? 'Alex Rahman' : role === 'hr' ? 'Mira Chowdhury' : 'Nadia Karim';
+  const defaultName = effectiveRole === 'student' ? 'Alex Rahman' : effectiveRole === 'hr' ? 'Mira Chowdhury' : 'Nadia Karim';
   const displayName = user?.full_name || user?.user || defaultName;
   const initials = displayName
     .split(' ')
@@ -130,29 +186,72 @@ export function AppShell({
 
   const handleNavClick = (targetPath: string, isOverview?: boolean) => {
     setMobileOpen(false);
+    if (!targetPath) return;
+
     if (
       isOverview ||
-      targetPath === '/hr/rooms' ||
-      targetPath === '/hr/dashboard' ||
-      targetPath === '/student/cv' ||
+      targetPath === '/notifications' ||
+      targetPath === '/student/notifications' ||
+      targetPath === '/profile' ||
+      targetPath === '/settings' ||
+      targetPath === '/student/dashboard' ||
       targetPath === '/student/practice' ||
-      targetPath === '/student/videos' ||
       targetPath === '/student/presentation' ||
+      targetPath === '/student/videos' ||
+      targetPath === '/student/cv' ||
+      targetPath === '/student/cv/results' ||
+      targetPath === '/student/cv/feedback' ||
+      targetPath === '/student/cv/match' ||
+      targetPath === '/student/applications' ||
+      targetPath === '/student/progress' ||
+      targetPath === '/student/trends' ||
+      targetPath === '/presentation/trends' ||
+      targetPath === '/presentation/history' ||
+      targetPath === '/hr/dashboard' ||
+      targetPath === '/hr/rooms' ||
+      targetPath === '/hr/applicants' ||
+      targetPath === '/hr/shortlisted' ||
+      targetPath === '/hr/reports' ||
+      targetPath === '/agency/dashboard' ||
       targetPath === '/agency/clients' ||
+      targetPath === '/agency/client-companies' ||
       targetPath === '/agency/rooms' ||
       targetPath === '/agency/pipeline' ||
-      targetPath === '/agency/applicants'
+      targetPath === '/agency/applicants' ||
+      targetPath === '/agency/shortlisted' ||
+      targetPath === '/agency/reports' ||
+      targetPath.startsWith('/presentation/history/') ||
+      targetPath.startsWith('/student/cv/') ||
+      targetPath.startsWith('/apply/') ||
+      targetPath.startsWith('/dashboard')
     ) {
-      setLocation(targetPath);
+      let dest = targetPath;
+      if (dest === '/student/progress') {
+        dest = '/presentation/trends';
+      } else if (dest === '/dashboard') {
+        dest =
+          effectiveRole === 'hr'
+            ? '/hr/dashboard'
+            : effectiveRole === 'agency'
+            ? '/agency/dashboard'
+            : '/student/dashboard';
+      }
+      setLocation(dest);
     } else {
-      notify('Sprint 2 feature: Full interactive workflow coming in next sprint!', 'info');
+      notify('This feature is coming soon!', 'info');
     }
   };
 
+  const isNotificationsActive =
+    path === '/notifications' ||
+    path === '/student/notifications' ||
+    activeNav === '/notifications' ||
+    activeNav === 'notifications';
+
   const roleBadgeStyle =
-    role === 'hr'
+    effectiveRole === 'hr'
       ? 'bg-[#fff1c9] text-[#8a6a16] border-[#f5c84b]'
-      : role === 'agency'
+      : effectiveRole === 'agency'
       ? 'bg-[#e4edf5] text-[#2a557a] border-[#3a6384]'
       : 'bg-[#e2f0e9] text-[#277254] border-[#277254]';
 
@@ -168,16 +267,19 @@ export function AppShell({
 
         <div className="mt-8 flex-1 overflow-y-auto">
           <div className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[.18em] text-[#8d9aab]">
-            {role === 'student' ? 'Your workspace' : `${role} workspace`}
+            {effectiveRole === 'student' ? 'Your workspace' : `${effectiveRole} workspace`}
           </div>
 
           <nav className="space-y-1">
             {nav.map(({ icon: Icon, label, path: itemPath, active }) => {
               const isCurrent =
                 path === itemPath ||
-                (active && path.startsWith(itemPath)) ||
+                (active && path === itemPath) ||
                 (itemPath === '/student/cv' && path.startsWith('/student/cv')) ||
-                (itemPath === '/agency/pipeline' && path === '/agency/applicants');
+                (itemPath === '/agency/pipeline' && (path === '/agency/applicants' || path === '/agency/pipeline')) ||
+                (itemPath === '/student/videos' && (path === '/presentation/history' || path.startsWith('/presentation/history'))) ||
+                (itemPath === '/student/progress' && (path === '/student/progress' || path === '/presentation/trends' || path === '/student/trends')) ||
+                (activeTab && activeTab.toLowerCase() === label.toLowerCase());
               return (
                 <button
                   key={itemPath}
@@ -204,28 +306,44 @@ export function AppShell({
               type="button"
               onClick={() => handleNavClick('/notifications')}
               data-testid="nav-notifications"
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#b7c0cc] hover:bg-[#303e50]"
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
+                isNotificationsActive
+                  ? 'bg-[#f5c84b] text-[#253142]'
+                  : 'text-[#b7c0cc] hover:bg-[#303e50] hover:text-[#faf7ef]'
+              }`}
             >
-              <Bell size={17} /> Notifications
-              <span className="ml-auto grid h-5 w-5 place-items-center rounded-full bg-[#ee7564] text-[10px] text-white">
-                2
-              </span>
+              <Bell size={17} />
+              <span>Notifications</span>
+              {unreadCount > 0 && (
+                <span
+                  data-testid="sidebar-notification-badge"
+                  className={`ml-auto grid min-h-5 min-w-5 place-items-center rounded-full px-1.5 text-[10px] font-bold ${
+                    isNotificationsActive
+                      ? 'bg-[#253142] text-[#f5c84b]'
+                      : 'bg-[#ee7564] text-white shadow-xs'
+                  }`}
+                >
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </button>
             <button
               type="button"
               onClick={() => handleNavClick('/profile')}
               data-testid="nav-profile"
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#b7c0cc] hover:bg-[#303e50]"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#b7c0cc] hover:bg-[#303e50] hover:text-[#faf7ef] transition"
             >
-              <UserRound size={17} /> Profile
+              <UserRound size={17} />
+              <span>Profile</span>
             </button>
             <button
               type="button"
               onClick={() => handleNavClick('/settings')}
               data-testid="nav-settings"
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#b7c0cc] hover:bg-[#303e50]"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#b7c0cc] hover:bg-[#303e50] hover:text-[#faf7ef] transition"
             >
-              <Settings size={17} /> Settings
+              <Settings size={17} />
+              <span>Settings</span>
             </button>
           </nav>
         </div>
@@ -243,7 +361,7 @@ export function AppShell({
                   data-testid="user-role-badge"
                   className={`rounded border px-1.5 py-0.2 text-[10px] font-bold capitalize ${roleBadgeStyle}`}
                 >
-                  {role}
+                  {effectiveRole}
                 </span>
                 <span className="text-[10px] text-[#9ca9b8]">workspace</span>
               </div>
@@ -284,15 +402,18 @@ export function AppShell({
           </button>
 
           <div className="hidden text-sm font-semibold text-[#7b8490] md:block truncate">
-            {role === 'student'
+            {effectiveRole === 'student'
               ? 'Build your next yes.'
-              : role === 'hr'
+              : effectiveRole === 'hr'
               ? 'Make every hiring decision clearer.'
               : 'Move the right people forward.'}
           </div>
 
           <div className="ml-auto flex items-center gap-3 shrink-0">
-            <NotificationCenter onNotificationClick={handleNavClick} />
+            <NotificationCenter
+              onNotificationClick={handleNavClick}
+              onUnreadCountChange={setUnreadCount}
+            />
             <div
               data-testid="button-header-profile"
               className="grid h-9 w-9 place-items-center rounded-full bg-[#dce8e1] text-xs font-bold text-[#277254]"

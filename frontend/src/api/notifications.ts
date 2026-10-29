@@ -68,3 +68,22 @@ export async function apiDeleteNotification(
   return response.data;
 }
 
+export const NOTIFICATIONS_UPDATED_EVENT = 'careerflow:notifications-updated';
+
+export function notifyNotificationsUpdated(unreadCount?: number) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent(NOTIFICATIONS_UPDATED_EVENT, { detail: { unreadCount } })
+    );
+  }
+}
+
+export function onNotificationsUpdated(callback: (unreadCount?: number) => void) {
+  if (typeof window === 'undefined') return () => {};
+  const handler = (event: Event) => {
+    const customEvent = event as CustomEvent<{ unreadCount?: number }>;
+    callback(customEvent.detail?.unreadCount);
+  };
+  window.addEventListener(NOTIFICATIONS_UPDATED_EVENT, handler);
+  return () => window.removeEventListener(NOTIFICATIONS_UPDATED_EVENT, handler);
+}

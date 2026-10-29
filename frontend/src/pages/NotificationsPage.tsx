@@ -10,15 +10,17 @@ import {
   AlertTriangle,
   Trash2,
   ExternalLink,
-  ArrowLeft,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
-import type { Notify } from '../components/dashboard/DashboardShared';
+import type { Role, Notify } from '../components/dashboard/DashboardShared';
+import { getStoredUser } from '../api/auth';
 import {
   apiGetNotifications,
   apiMarkNotificationAsRead,
   apiMarkAllNotificationsAsRead,
   apiDeleteNotification,
+  notifyNotificationsUpdated,
+  onNotificationsUpdated,
   type NotificationItem,
 } from '../api/notifications';
 
@@ -33,12 +35,23 @@ export function NotificationsPage({ notify }: NotificationsPageProps) {
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [isLoading, setIsLoading] = useState(true);
 
+  const storedUser = getStoredUser();
+  const rawRole = storedUser?.role || 'STUDENT';
+  const userRole: Role =
+    rawRole === 'HR_MANAGER' || rawRole === 'hr'
+      ? 'hr'
+      : rawRole === 'AGENCY_ADMIN' || rawRole === 'agency'
+      ? 'agency'
+      : 'student';
+
   const fetchNotifications = async () => {
     try {
       setIsLoading(true);
       const data = await apiGetNotifications();
       setNotifications(data.notifications || []);
-      setUnreadCount(data.unread_count || 0);
+      const count = data.unread_count || 0;
+      setUnreadCount(count);
+      notifyNotificationsUpdated(count);
     } catch (err: any) {
       notify?.(err?.response?.data?.error || 'Failed to load notifications', 'error');
     } finally {
@@ -48,6 +61,16 @@ export function NotificationsPage({ notify }: NotificationsPageProps) {
 
   useEffect(() => {
     fetchNotifications();
+
+    const unsubscribe = onNotificationsUpdated((count) => {
+      if (typeof count === 'number') {
+        setUnreadCount(count);
+      } else {
+        fetchNotifications();
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const handleMarkAsRead = async (id: number) => {
@@ -56,7 +79,9 @@ export function NotificationsPage({ notify }: NotificationsPageProps) {
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
       );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
+      const newCount = Math.max(0, unreadCount - 1);
+      setUnreadCount(newCount);
+      notifyNotificationsUpdated(newCount);
       notify?.('Notification marked as read', 'success');
     } catch {
       notify?.('Failed to update notification', 'error');
@@ -68,6 +93,7 @@ export function NotificationsPage({ notify }: NotificationsPageProps) {
       await apiMarkAllNotificationsAsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
       setUnreadCount(0);
+      notifyNotificationsUpdated(0);
       notify?.('All notifications marked as read', 'success');
     } catch {
       notify?.('Failed to mark all as read', 'error');
@@ -78,7 +104,14 @@ export function NotificationsPage({ notify }: NotificationsPageProps) {
     e.stopPropagation();
     try {
       await apiDeleteNotification(id);
+      const target = notifications.find((n) => n.id === id);
+      const wasUnread = target && !target.is_read;
       setNotifications((prev) => prev.filter((n) => n.id !== id));
+      if (wasUnread) {
+        const newCount = Math.max(0, unreadCount - 1);
+        setUnreadCount(newCount);
+        notifyNotificationsUpdated(newCount);
+      }
       notify?.('Notification removed', 'info');
     } catch {
       notify?.('Failed to delete notification', 'error');
@@ -134,7 +167,7 @@ export function NotificationsPage({ notify }: NotificationsPageProps) {
   );
 
   return (
-    <AppShell activeNav="/notifications" notify={notify || (() => {})}>
+    <AppShell role={userRole} activeNav="/notifications" notify={notify || (() => {})}>
       <div className="mx-auto max-w-4xl space-y-6">
         {/* Top Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -144,7 +177,10 @@ export function NotificationsPage({ notify }: NotificationsPageProps) {
                 Notifications Center
               </h1>
               {unreadCount > 0 && (
-                <span className="rounded-full bg-[#ee7564] px-2.5 py-0.5 text-xs font-bold text-white">
+                <span
+                  data-testid="notifications-unread-count-badge"
+                  className="rounded-full bg-[#ee7564] px-2.5 py-0.5 text-xs font-bold text-white shadow-xs"
+                >
                   {unreadCount} unread
                 </span>
               )}
@@ -174,6 +210,7 @@ export function NotificationsPage({ notify }: NotificationsPageProps) {
           <button
             type="button"
             onClick={() => setFilter('all')}
+            data-testid="filter-notifications-all"
             className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
               filter === 'all'
                 ? 'bg-[#253142] text-white'
@@ -185,6 +222,7 @@ export function NotificationsPage({ notify }: NotificationsPageProps) {
           <button
             type="button"
             onClick={() => setFilter('unread')}
+            data-testid="filter-notifications-unread"
             className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
               filter === 'unread'
                 ? 'bg-[#253142] text-white'
@@ -268,6 +306,7 @@ export function NotificationsPage({ notify }: NotificationsPageProps) {
                         handleMarkAsRead(notif.id);
                       }}
                       title="Mark as read"
+                      data-testid={`button-mark-read-${notif.id}`}
                       className="rounded-lg p-1.5 text-[#6e7887] hover:bg-[#eef0e7] hover:text-[#253142]"
                     >
                       <Check size={16} />
@@ -277,6 +316,7 @@ export function NotificationsPage({ notify }: NotificationsPageProps) {
                     type="button"
                     onClick={(e) => handleDelete(notif.id, e)}
                     title="Delete"
+                    data-testid={`button-delete-${notif.id}`}
                     className="rounded-lg p-1.5 text-[#6e7887] hover:bg-[#fee4e2] hover:text-[#d92d20]"
                   >
                     <Trash2 size={16} />
@@ -290,4 +330,3 @@ export function NotificationsPage({ notify }: NotificationsPageProps) {
     </AppShell>
   );
 }
-

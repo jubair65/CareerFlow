@@ -8,18 +8,20 @@ import {
   Video,
   Info,
   AlertTriangle,
-  X,
   ExternalLink,
 } from 'lucide-react';
 import {
   apiGetNotifications,
   apiMarkNotificationAsRead,
   apiMarkAllNotificationsAsRead,
+  notifyNotificationsUpdated,
+  onNotificationsUpdated,
   type NotificationItem,
 } from '../../api/notifications';
 
 interface NotificationCenterProps {
   onNotificationClick?: (linkUrl: string) => void;
+  onUnreadCountChange?: (count: number) => void;
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -43,7 +45,10 @@ function formatRelativeTime(dateString: string): string {
   }
 }
 
-export function NotificationCenter({ onNotificationClick }: NotificationCenterProps) {
+export function NotificationCenter({
+  onNotificationClick,
+  onUnreadCountChange,
+}: NotificationCenterProps) {
   const [, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -55,7 +60,10 @@ export function NotificationCenter({ onNotificationClick }: NotificationCenterPr
     try {
       const data = await apiGetNotifications();
       setNotifications(data.notifications || []);
-      setUnreadCount(data.unread_count || 0);
+      const count = data.unread_count || 0;
+      setUnreadCount(count);
+      onUnreadCountChange?.(count);
+      notifyNotificationsUpdated(count);
     } catch {
       // Silently ignore network or unauthorized errors in polling
     }
@@ -63,9 +71,22 @@ export function NotificationCenter({ onNotificationClick }: NotificationCenterPr
 
   useEffect(() => {
     fetchNotifications();
+
+    const unsubscribe = onNotificationsUpdated((count) => {
+      if (typeof count === 'number') {
+        setUnreadCount(count);
+        onUnreadCountChange?.(count);
+      } else {
+        fetchNotifications();
+      }
+    });
+
     // Poll every 30 seconds
     const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
   }, []);
 
   // Handle outside click to close popover
@@ -97,7 +118,10 @@ export function NotificationCenter({ onNotificationClick }: NotificationCenterPr
         setNotifications((prev) =>
           prev.map((item) => (item.id === notif.id ? { ...item, is_read: true } : item))
         );
-        setUnreadCount((prev) => Math.max(0, prev - 1));
+        const newCount = Math.max(0, unreadCount - 1);
+        setUnreadCount(newCount);
+        onUnreadCountChange?.(newCount);
+        notifyNotificationsUpdated(newCount);
       } catch {
         // Continue even if mark as read fails
       }
@@ -120,6 +144,8 @@ export function NotificationCenter({ onNotificationClick }: NotificationCenterPr
       await apiMarkAllNotificationsAsRead();
       setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
       setUnreadCount(0);
+      onUnreadCountChange?.(0);
+      notifyNotificationsUpdated(0);
     } catch {
       // Ignore
     } finally {
@@ -273,9 +299,27 @@ export function NotificationCenter({ onNotificationClick }: NotificationCenterPr
               ))
             )}
           </div>
+
+          {/* Footer View All Link */}
+          <div className="border-t border-[#eef0e7] p-2.5 bg-[#faf7ef] text-center">
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                if (onNotificationClick) {
+                  onNotificationClick('/notifications');
+                } else {
+                  setLocation('/notifications');
+                }
+              }}
+              data-testid="button-view-all-notifications"
+              className="text-xs font-semibold text-[#277254] hover:text-[#1e5841] transition-colors inline-flex items-center gap-1"
+            >
+              Open Notifications Center &rarr;
+            </button>
+          </div>
         </div>
       )}
     </div>
   );
 }
-
