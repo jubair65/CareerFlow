@@ -316,6 +316,17 @@ class PipelineManager:
             video.status = final_status
             video.save(update_fields=['status'])
 
+            # US-34: Generate notification upon Presentation analysis completion
+            try:
+                from apps.core.services.notification_service import NotificationService
+                NotificationService.notify_presentation_analysis_complete(
+                    user=video.user,
+                    video=video,
+                    overall_score=getattr(score_obj, 'overall_score', None)
+                )
+            except Exception as notif_err:
+                logger.warning(f"[US-34] Notification generation failed for video {video.id}: {notif_err}")
+
             elapsed_total_ms = int((time.perf_counter() - overall_start) * 1000)
             PipelineExecutionLog.objects.create(
                 video=video,

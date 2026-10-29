@@ -27,6 +27,7 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { AgencyClientManagementPage } from './pages/AgencyClientManagementPage';
 import { AgencyRoomsPage } from './pages/AgencyRoomsPage';
 import { AgencyApplicantsPipelinePage } from './pages/AgencyApplicantsPipelinePage';
+import { NotificationsPage } from './pages/NotificationsPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 
@@ -745,6 +746,14 @@ function RoutedApp({ notify }: { notify: Notify }) {
     return (
       <ProtectedRoute allowedRoles={['agency']} notify={notify}>
         <AgencyApplicantsPipelinePage notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (path === '/notifications' || path === '/student/notifications') {
+    return (
+      <ProtectedRoute allowedRoles={['student', 'hr', 'agency']} notify={notify}>
+        <NotificationsPage notify={notify} />
       </ProtectedRoute>
     );
   }

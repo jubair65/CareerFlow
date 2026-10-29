@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }} - CareerFlow</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f5f1e6;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #253142;
+    }
+    .wrapper {
+      width: 100%;
+      background-color: #f5f1e6;
+      padding: 40px 15px;
+    }
+    .container {
+      max-width: 540px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #d9dbd1;
+      box-shadow: 0 4px 12px rgba(37, 49, 66, 0.06);
+    }
+    .header {
+      background-color: #253142;
+      padding: 28px 32px;
+      text-align: left;
+    }
+    .brand-title {
+      color: #f5c84b;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0;
+    }
+    .content {
+      padding: 36px 32px 28px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #253142;
+      margin-top: 0;
+      margin-bottom: 16px;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.6;
+      color: #526072;
+      margin: 0 0 20px;
+    }
+    .btn-container {
+      margin: 28px 0;
+      text-align: center;
+    }
+    .btn {
+      display: inline-block;
+      background-color: #253142;
+      color: #faf7ef !important;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 600;
+      padding: 13px 28px;
+      border-radius: 12px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .badge {
+      display: inline-block;
+      background-color: #dce8e1;
+      color: #277254;
+      border: 1px solid #c2dbcd;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 18px;
+    }
+    .highlight-card {
+      background-color: #faf7ef;
+      border: 1px solid #eef0e7;
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 24px;
+    }
+    .highlight-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #7b8490;
+      margin: 0 0 6px;
+    }
+    .highlight-text {
+      font-size: 15px;
+      color: #253142;
+      font-weight: 600;
+      margin: 0;
+    }
+    .fallback-box {
+      background-color: #fbfaf5;
+      border: 1px solid #e5e6df;
+      border-radius: 8px;
+      padding: 12px 16px;
+      word-break: break-all;
+      font-size: 12px;
+      color: #78818d;
+      margin-top: 24px;
+    }
+    .footer {
+      background-color: #faf7ef;
+      border-top: 1px solid #eef0e7;
+      padding: 20px 32px;
+      font-size: 12px;
+      color: #8a929c;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <div class="header">
+        <h2 class="brand-title">CareerFlow</h2>
+      </div>
+      <div class="content">
+        <span class="badge">AI Analysis Completed</span>
+        <h1>{{ title }}</h1>
+        <p>Hello {{ user.first_name|default:user.email }},</p>
+        <p>{{ message }}</p>
+
+        {% if overall_score %}
+        <div class="highlight-card">
+          <p class="highlight-title">Evaluated Score</p>
+          <p class="highlight-text">{{ overall_score }}/100</p>
+        </div>
+        {% endif %}
+
+        {% if link_url %}
+        <div class="btn-container">
+          <a href="{{ link_url }}" class="btn">View Analysis Results &rarr;</a>
+        </div>
+        <div class="fallback-box">
+          Button not working? Copy and paste this link into your browser:<br>
+          <a href="{{ link_url }}" style="color: #277254;">{{ link_url }}</a>
+        </div>
+        {% endif %}
+
+        <p style="margin-top: 24px; font-size: 13px; color: #8a929c;">
+          If you have any questions or feedback, reach out to us at <a href="mailto:{{ support_email }}" style="color: #526072;">{{ support_email }}</a>.
+        </p>
+      </div>
+      <div class="footer">
+        &copy; 2026 CareerFlow. Objective, multi-modal talent intelligence.
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+

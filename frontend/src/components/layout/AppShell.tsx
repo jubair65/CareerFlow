@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import type { Role, Notify } from '../dashboard/DashboardShared';
 import { apiLogout, getStoredUser, apiGetCurrentUser } from '../../api/auth';
+import { NotificationCenter } from './NotificationCenter';
 
 export function Logo({ dark = false }: { dark?: boolean }) {
   return (
@@ -291,15 +292,7 @@ export function AppShell({
           </div>
 
           <div className="ml-auto flex items-center gap-3 shrink-0">
-            <button
-              type="button"
-              onClick={() => notify('Sprint 2 feature: In-app notifications coming soon!', 'info')}
-              data-testid="button-header-notifications"
-              className="relative rounded-xl p-2 text-[#526072] hover:bg-[#eef0e7]"
-            >
-              <Bell size={18} />
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[#ee7564]" />
-            </button>
+            <NotificationCenter onNotificationClick={handleNavClick} />
             <div
               data-testid="button-header-profile"
               className="grid h-9 w-9 place-items-center rounded-full bg-[#dce8e1] text-xs font-bold text-[#277254]"
