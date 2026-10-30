@@ -141,3 +141,15 @@ export async function apiPasswordResetConfirm(data: {
     return response.data;
 }
 
+export async function apiGetCandidateProfile() {
+    const response = await apiClient.get('/auth/profile/');
+    return response.data;
+}
+
+export async function apiUpdateCandidateProfile(data: FormData | Record<string, any>) {
+    const isFormData = data instanceof FormData;
+    const response = await apiClient.patch('/auth/profile/', data, {
+        headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
+    });
+    return response.data;
+}

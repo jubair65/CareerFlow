@@ -183,3 +183,56 @@ class PasswordResetToken(models.Model):
         cls.objects.filter(user=user, is_used=False).update(is_used=True)
 
         return True
+
+
+class CandidateProfile(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='candidate_profile',
+        help_text="User owning this candidate profile"
+    )
+    phone_number = models.CharField(
+        max_length=30,
+        blank=True,
+        null=True,
+        help_text="Contact phone number (international format e.g. +1234567890)"
+    )
+    linkedin_url = models.URLField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Public LinkedIn profile URL"
+    )
+    github_url = models.URLField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Public GitHub profile URL"
+    )
+    target_role = models.CharField(
+        max_length=150,
+        blank=True,
+        null=True,
+        help_text="Target job title or specialization (e.g. Senior Frontend Engineer)"
+    )
+    bio = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Short career objective / professional bio"
+    )
+    avatar = models.ImageField(
+        upload_to='avatars/',
+        blank=True,
+        null=True,
+        help_text="Profile picture / avatar"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'careerflow_candidate_profiles'
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"CandidateProfile({self.user.email} - {self.target_role or 'No Role'})"

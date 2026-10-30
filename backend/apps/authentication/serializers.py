@@ -190,3 +190,94 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         user.set_password(new_password)
         user.save()
         return user
+
+
+import re
+from urllib.parse import urlparse
+from .models import CandidateProfile
+
+
+class CandidateProfileSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source='user.email', read_only=True)
+    full_name = serializers.CharField(source='user.full_name', required=False, allow_blank=True)
+    role = serializers.CharField(source='user.role', read_only=True)
+    role_display = serializers.CharField(source='user.get_role_display', read_only=True)
+    avatar_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CandidateProfile
+        fields = [
+            'id', 'user_id', 'email', 'full_name', 'role', 'role_display',
+            'phone_number', 'linkedin_url', 'github_url', 'target_role',
+            'bio', 'avatar', 'avatar_url', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'user_id', 'email', 'role', 'role_display', 'avatar_url', 'created_at', 'updated_at']
+
+    def to_internal_value(self, data):
+        if hasattr(data, 'copy'):
+            data = data.copy()
+        elif isinstance(data, dict):
+            data = dict(data)
+        for field in ['linkedin_url', 'github_url']:
+            val = data.get(field)
+            if val and isinstance(val, str):
+                val_clean = val.strip()
+                if val_clean and not (val_clean.startswith('http://') or val_clean.startswith('https://')):
+                    data[field] = f"https://{val_clean}"
+        return super().to_internal_value(data)
+
+    def get_avatar_url(self, obj):
+        if obj.avatar and hasattr(obj.avatar, 'url'):
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.avatar.url)
+            return obj.avatar.url
+        return None
+
+    def validate_phone_number(self, value):
+        if not value:
+            return value
+        clean = str(value).strip()
+        digits_only = re.sub(r'\D', '', clean)
+        if len(digits_only) < 7 or len(digits_only) > 16:
+            raise serializers.ValidationError("Enter a valid phone number with 7 to 15 digits (e.g. +1 555-123-4567).")
+        if not re.match(r'^\+?[0-9\s\-()]+$', clean):
+            raise serializers.ValidationError("Phone number contains invalid characters.")
+        return clean
+
+    def validate_linkedin_url(self, value):
+        if not value:
+            return value
+        clean = str(value).strip()
+        parsed = urlparse(clean)
+        if not parsed.scheme or not parsed.netloc:
+            clean = f"https://{clean}"
+            parsed = urlparse(clean)
+        domain = parsed.netloc.lower()
+        if not (domain == 'linkedin.com' or domain.endswith('.linkedin.com')):
+            raise serializers.ValidationError("Please provide a valid LinkedIn URL (e.g. https://www.linkedin.com/in/yourname).")
+        return clean
+
+    def validate_github_url(self, value):
+        if not value:
+            return value
+        clean = str(value).strip()
+        parsed = urlparse(clean)
+        if not parsed.scheme or not parsed.netloc:
+            clean = f"https://{clean}"
+            parsed = urlparse(clean)
+        domain = parsed.netloc.lower()
+        if not (domain == 'github.com' or domain.endswith('.github.com')):
+            raise serializers.ValidationError("Please provide a valid GitHub URL (e.g. https://github.com/yourusername).")
+        return clean
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop('user', {})
+        if 'full_name' in user_data:
+            instance.user.full_name = user_data['full_name']
+            instance.user.save(update_fields=['full_name'])
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
