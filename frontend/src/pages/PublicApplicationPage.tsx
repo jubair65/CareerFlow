@@ -18,6 +18,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { apiGetPublicRoomByToken, apiSubmitApplication, type PublicRoomDetails } from '../api/recruitment';
+import { apiGetCandidateProfile, getStoredUser } from '../api/auth';
 export function PublicApplicationPage({
   notify,
 }: {
@@ -76,6 +77,31 @@ export function PublicApplicationPage({
 
     fetchPublicRoom();
   }, [token]);
+
+  // US-42-T5: Autofill candidate profile data into room application flow
+  useEffect(() => {
+    const loadProfileAutofill = async () => {
+      try {
+        const stored = getStoredUser();
+        if (stored?.full_name && !fullName) {
+          setFullName(stored.full_name);
+        }
+        if (stored?.email && !email) {
+          setEmail(stored.email);
+        }
+        const profileData = await apiGetCandidateProfile();
+        if (profileData?.full_name) {
+          setFullName(profileData.full_name);
+        }
+        if (profileData?.email) {
+          setEmail(profileData.email);
+        }
+      } catch {
+        // Visitor not logged in or profile not set: manual input allowed
+      }
+    };
+    loadProfileAutofill();
+  }, []);
 
   if (loading) {
     return (

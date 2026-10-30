@@ -246,3 +246,50 @@ class PasswordResetConfirmView(APIView):
             'error': error_msg,
             'errors': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
+
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from .models import CandidateProfile
+from .serializers import CandidateProfileSerializer
+
+
+class CandidateProfileView(APIView):
+    """
+    US-42-T2: Profile retrieval and update REST API.
+    GET: Retrieve current authenticated candidate's profile.
+    PUT/PATCH: Update candidate profile fields and full_name.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get(self, request):
+        profile, _ = CandidateProfile.objects.get_or_create(user=request.user)
+        serializer = CandidateProfileSerializer(profile, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def put(self, request):
+        return self._update_profile(request, partial=False)
+
+    def patch(self, request):
+        return self._update_profile(request, partial=True)
+
+    def _update_profile(self, request, partial=True):
+        profile, _ = CandidateProfile.objects.get_or_create(user=request.user)
+        serializer = CandidateProfileSerializer(
+            profile,
+            data=request.data,
+            partial=partial,
+            context={'request': request}
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                'message': 'Profile updated successfully.',
+                'profile': serializer.data
+            }, status=status.HTTP_200_OK)
+
+        first_err = next(iter(serializer.errors.values()))
+        err_msg = first_err[0] if isinstance(first_err, list) else str(first_err)
+        return Response({
+            'error': err_msg,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
