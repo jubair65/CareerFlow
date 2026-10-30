@@ -101,7 +101,7 @@ export function AgencyDashboard({ notify }: { notify: Notify }) {
             </div>
             <button
               type="button"
-              onClick={() => handleAction('View Agency Reports')}
+              onClick={() => setLocation('/agency/pipeline')}
               data-testid="link-agency-reports"
               className="text-xs font-bold text-[#277254] hover:underline"
             >

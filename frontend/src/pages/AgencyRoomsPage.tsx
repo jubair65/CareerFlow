@@ -21,6 +21,7 @@ import {
   Globe,
   Lock,
   RefreshCw,
+  Star,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { PageHeading, StatCard, type Notify } from '../components/dashboard/DashboardShared';
@@ -38,6 +39,7 @@ import {
 import { AgencyRoomCreateModal } from '../components/agency/AgencyRoomCreateModal';
 import { JobRequirementsForm } from '../components/recruitment/JobRequirementsForm';
 import { WeightingConfigCard } from '../components/recruitment/WeightingConfigCard';
+import { ShortlistConfigModal } from '../components/recruitment/ShortlistConfigModal';
 
 export function AgencyRoomsPage({ notify }: { notify: Notify }) {
   // Data state
@@ -62,6 +64,7 @@ export function AgencyRoomsPage({ notify }: { notify: Notify }) {
   const [createInitialClientId, setCreateInitialClientId] = useState<number | undefined>(undefined);
   const [requirementsModalRoom, setRequirementsModalRoom] = useState<RecruitmentRoom | null>(null);
   const [weightingModalRoom, setWeightingModalRoom] = useState<RecruitmentRoom | null>(null);
+  const [shortlistModalRoom, setShortlistModalRoom] = useState<RecruitmentRoom | null>(null);
 
   // Link copy feedback
   const [copiedRoomId, setCopiedRoomId] = useState<number | null>(null);
@@ -553,6 +556,15 @@ export function AgencyRoomsPage({ notify }: { notify: Notify }) {
                                     >
                                       <SlidersHorizontal size={12} className="text-[#277254]" /> Weights
                                     </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setShortlistModalRoom(room)}
+                                      data-testid={`button-config-shortlist-${room.id}`}
+                                      className="inline-flex items-center gap-1 rounded-lg border border-[#d9dbd1] bg-white px-2 py-1 text-[11px] font-bold text-[#253142] hover:bg-[#eef0e7] transition cursor-pointer"
+                                      title="Configure automatic shortlisting rules"
+                                    >
+                                      <Star size={12} className="text-[#8a6a16]" /> Shortlist
+                                    </button>
                                   </div>
 
                                   {/* Quick Status Select */}
@@ -596,6 +608,20 @@ export function AgencyRoomsPage({ notify }: { notify: Notify }) {
             isOpen={Boolean(requirementsModalRoom)}
             onClose={() => setRequirementsModalRoom(null)}
             onRoomUpdated={handleRoomUpdated}
+            notify={notify}
+          />
+        )}
+
+        {/* Modal: Shortlist Configuration (US-25 Reuse) */}
+        {shortlistModalRoom && (
+          <ShortlistConfigModal
+            isOpen={Boolean(shortlistModalRoom)}
+            onClose={() => setShortlistModalRoom(null)}
+            room={shortlistModalRoom}
+            onShortlistUpdated={() => {
+              fetchData();
+              setShortlistModalRoom(null);
+            }}
             notify={notify}
           />
         )}

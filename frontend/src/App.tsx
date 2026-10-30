@@ -29,6 +29,14 @@ import { AgencyRoomsPage } from './pages/AgencyRoomsPage';
 import { AgencyApplicantsPipelinePage } from './pages/AgencyApplicantsPipelinePage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { ApplicantStatusPage } from './pages/ApplicantStatusPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { SettingsPage } from './pages/SettingsPage';
+import { HrApplicantsPage } from './pages/HrApplicantsPage';
+import { HrShortlistedPage } from './pages/HrShortlistedPage';
+import { HrReportsPage } from './pages/HrReportsPage';
+import { AgencyShortlistedPage } from './pages/AgencyShortlistedPage';
+import { AgencyReportsPage } from './pages/AgencyReportsPage';
 
 
 const queryClient = new QueryClient();
@@ -754,6 +762,85 @@ function RoutedApp({ notify }: { notify: Notify }) {
     return (
       <ProtectedRoute allowedRoles={['student', 'hr', 'agency']} notify={notify}>
         <NotificationsPage notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (
+    path === '/student/applications' ||
+    path === '/applications/my-status' ||
+    path === '/applications' ||
+    path === '/my-applications'
+  ) {
+    return (
+      <ProtectedRoute allowedRoles={['student']} notify={notify}>
+        <ApplicantStatusPage notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (
+    path === '/profile' ||
+    path === '/student/profile' ||
+    path === '/hr/profile' ||
+    path === '/agency/profile'
+  ) {
+    return (
+      <ProtectedRoute allowedRoles={['student', 'hr', 'agency']} notify={notify}>
+        <ProfilePage notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (
+    path === '/settings' ||
+    path === '/student/settings' ||
+    path === '/hr/settings' ||
+    path === '/agency/settings'
+  ) {
+    return (
+      <ProtectedRoute allowedRoles={['student', 'hr', 'agency']} notify={notify}>
+        <SettingsPage notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (path === '/hr/applicants') {
+    return (
+      <ProtectedRoute allowedRoles={['hr']} notify={notify}>
+        <HrApplicantsPage notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (path === '/hr/shortlisted') {
+    return (
+      <ProtectedRoute allowedRoles={['hr']} notify={notify}>
+        <HrShortlistedPage notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (path === '/hr/reports') {
+    return (
+      <ProtectedRoute allowedRoles={['hr']} notify={notify}>
+        <HrReportsPage notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (path === '/agency/shortlisted') {
+    return (
+      <ProtectedRoute allowedRoles={['agency']} notify={notify}>
+        <AgencyShortlistedPage notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (path === '/agency/reports') {
+    return (
+      <ProtectedRoute allowedRoles={['agency']} notify={notify}>
+        <AgencyReportsPage notify={notify} />
       </ProtectedRoute>
     );
   }

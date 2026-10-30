@@ -188,58 +188,20 @@ export function AppShell({
     setMobileOpen(false);
     if (!targetPath) return;
 
-    if (
-      isOverview ||
-      targetPath === '/notifications' ||
-      targetPath === '/student/notifications' ||
-      targetPath === '/profile' ||
-      targetPath === '/settings' ||
-      targetPath === '/student/dashboard' ||
-      targetPath === '/student/practice' ||
-      targetPath === '/student/presentation' ||
-      targetPath === '/student/videos' ||
-      targetPath === '/student/cv' ||
-      targetPath === '/student/cv/results' ||
-      targetPath === '/student/cv/feedback' ||
-      targetPath === '/student/cv/match' ||
-      targetPath === '/student/applications' ||
-      targetPath === '/student/progress' ||
-      targetPath === '/student/trends' ||
-      targetPath === '/presentation/trends' ||
-      targetPath === '/presentation/history' ||
-      targetPath === '/hr/dashboard' ||
-      targetPath === '/hr/rooms' ||
-      targetPath === '/hr/applicants' ||
-      targetPath === '/hr/shortlisted' ||
-      targetPath === '/hr/reports' ||
-      targetPath === '/agency/dashboard' ||
-      targetPath === '/agency/clients' ||
-      targetPath === '/agency/client-companies' ||
-      targetPath === '/agency/rooms' ||
-      targetPath === '/agency/pipeline' ||
-      targetPath === '/agency/applicants' ||
-      targetPath === '/agency/shortlisted' ||
-      targetPath === '/agency/reports' ||
-      targetPath.startsWith('/presentation/history/') ||
-      targetPath.startsWith('/student/cv/') ||
-      targetPath.startsWith('/apply/') ||
-      targetPath.startsWith('/dashboard')
-    ) {
-      let dest = targetPath;
-      if (dest === '/student/progress') {
-        dest = '/presentation/trends';
-      } else if (dest === '/dashboard') {
-        dest =
-          effectiveRole === 'hr'
-            ? '/hr/dashboard'
-            : effectiveRole === 'agency'
-            ? '/agency/dashboard'
-            : '/student/dashboard';
-      }
-      setLocation(dest);
-    } else {
-      notify('This feature is coming soon!', 'info');
+    let dest = targetPath;
+    if (dest === '/student/progress') {
+      dest = '/presentation/trends';
+    } else if (dest === '/student/applications') {
+      dest = '/applications/my-status';
+    } else if (dest === '/dashboard') {
+      dest =
+        effectiveRole === 'hr'
+          ? '/hr/dashboard'
+          : effectiveRole === 'agency'
+          ? '/agency/dashboard'
+          : '/student/dashboard';
     }
+    setLocation(dest);
   };
 
   const isNotificationsActive =
@@ -247,6 +209,18 @@ export function AppShell({
     path === '/student/notifications' ||
     activeNav === '/notifications' ||
     activeNav === 'notifications';
+
+  const isProfileActive =
+    path === '/profile' ||
+    path === '/student/profile' ||
+    path === '/hr/profile' ||
+    path === '/agency/profile';
+
+  const isSettingsActive =
+    path === '/settings' ||
+    path === '/student/settings' ||
+    path === '/hr/settings' ||
+    path === '/agency/settings';
 
   const roleBadgeStyle =
     effectiveRole === 'hr'
@@ -276,6 +250,7 @@ export function AppShell({
                 path === itemPath ||
                 (active && path === itemPath) ||
                 (itemPath === '/student/cv' && path.startsWith('/student/cv')) ||
+                (itemPath === '/student/applications' && (path === '/student/applications' || path.startsWith('/applications'))) ||
                 (itemPath === '/agency/pipeline' && (path === '/agency/applicants' || path === '/agency/pipeline')) ||
                 (itemPath === '/student/videos' && (path === '/presentation/history' || path.startsWith('/presentation/history'))) ||
                 (itemPath === '/student/progress' && (path === '/student/progress' || path === '/presentation/trends' || path === '/student/trends')) ||
@@ -331,7 +306,11 @@ export function AppShell({
               type="button"
               onClick={() => handleNavClick('/profile')}
               data-testid="nav-profile"
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#b7c0cc] hover:bg-[#303e50] hover:text-[#faf7ef] transition"
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
+                isProfileActive
+                  ? 'bg-[#f5c84b] text-[#253142]'
+                  : 'text-[#b7c0cc] hover:bg-[#303e50] hover:text-[#faf7ef]'
+              }`}
             >
               <UserRound size={17} />
               <span>Profile</span>
@@ -340,7 +319,11 @@ export function AppShell({
               type="button"
               onClick={() => handleNavClick('/settings')}
               data-testid="nav-settings"
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#b7c0cc] hover:bg-[#303e50] hover:text-[#faf7ef] transition"
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
+                isSettingsActive
+                  ? 'bg-[#f5c84b] text-[#253142]'
+                  : 'text-[#b7c0cc] hover:bg-[#303e50] hover:text-[#faf7ef]'
+              }`}
             >
               <Settings size={17} />
               <span>Settings</span>
@@ -414,12 +397,15 @@ export function AppShell({
               onNotificationClick={handleNavClick}
               onUnreadCountChange={setUnreadCount}
             />
-            <div
+            <button
+              type="button"
+              onClick={() => handleNavClick('/profile')}
               data-testid="button-header-profile"
-              className="grid h-9 w-9 place-items-center rounded-full bg-[#dce8e1] text-xs font-bold text-[#277254]"
+              title="View Profile"
+              className="grid h-9 w-9 place-items-center rounded-full bg-[#dce8e1] text-xs font-bold text-[#277254] hover:ring-2 hover:ring-[#277254]/30 transition cursor-pointer"
             >
               {initials || 'U'}
-            </div>
+            </button>
           </div>
         </header>
 

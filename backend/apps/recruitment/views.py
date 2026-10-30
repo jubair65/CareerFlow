@@ -31,6 +31,8 @@ from .serializers import (
     AgencyCrossClientSummaryStatsSerializer,
     ForwardShortlistRequestSerializer,
     CandidateForwardRecordSerializer,
+    ApplicantApplicationStatusSerializer,
+    StatusNotificationLogSerializer,
 )
 from .permissions import (
     IsHRManager,
@@ -1322,3 +1324,52 @@ class RecruitmentRoomSummaryPdfView(APIView):
 
 
 
+
+
+# ============================================================================
+# US-35: Applicant Application Status & Notification History Views
+# ============================================================================
+
+class ApplicantStatusListView(APIView):
+    """
+    US-35-T4: Retrieves all applications submitted by the logged-in candidate
+    along with multi-stage progress timeline, HR decisions, scores, and notification logs.
+    Enforces candidate privacy (AC #4): candidates only see their own applications.
+    GET /api/recruitment/applications/my-status/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        applications = (
+            CandidateApplication.objects
+            .filter(candidate=request.user)
+            .select_related('room', 'room__client_company', 'cv', 'video')
+            .prefetch_related('status_notification_logs')
+            .order_by('-applied_at')
+        )
+        serializer = ApplicantApplicationStatusSerializer(applications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ApplicantStatusDetailView(APIView):
+    """
+    US-35-T4: Retrieves single application status details, evaluation stage milestone,
+    and decision records for the application owner.
+    Enforces strict candidate privacy: raises 403 Forbidden if not application owner.
+    GET /api/recruitment/applications/<application_id>/status/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, application_id):
+        application = get_object_or_404(
+            CandidateApplication.objects.select_related('room', 'room__client_company', 'cv', 'video').prefetch_related('status_notification_logs'),
+            id=application_id
+        )
+        if application.candidate != request.user:
+            return Response(
+                {"detail": "Access forbidden: You may only view your own application status."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = ApplicantApplicationStatusSerializer(application)
+        return Response(serializer.data, status=status.HTTP_200_OK)
