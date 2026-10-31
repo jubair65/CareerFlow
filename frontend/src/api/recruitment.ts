@@ -1376,6 +1376,31 @@ export interface ApplicationStage {
   timestamp: string | null;
 }
 
+export interface StatusBadge {
+  label: string;
+  tone: 'emerald' | 'amber' | 'blue' | 'rose';
+  key: string;
+  status_type: string;
+}
+
+export interface SubmittedCvDetails {
+  id: number;
+  original_filename: string;
+  file_size: number;
+  file_type: string;
+  uploaded_at: string;
+  score?: number | null;
+}
+
+export interface SubmittedVideoDetails {
+  id: number;
+  original_filename: string;
+  duration_seconds: number;
+  status: string;
+  uploaded_at: string;
+  score?: number | null;
+}
+
 export interface ApplicantApplicationStatus {
   id: number;
   room_id: number;
@@ -1400,6 +1425,34 @@ export interface ApplicantApplicationStatus {
   current_stage: 'SUBMITTED' | 'AI_ANALYSIS' | 'HR_REVIEW' | 'FINAL_DECISION';
   stages: ApplicationStage[];
   notification_logs: StatusNotificationLogItem[];
+  badge?: StatusBadge;
+  cv_details?: SubmittedCvDetails | null;
+  video_details?: SubmittedVideoDetails | null;
+  room_role_category?: string;
+  room_experience_level?: string;
+  room_description?: string;
+  room_requirements?: string;
+  cv_weight?: number;
+  video_weight?: number;
+}
+
+export async function apiGetMyApplications(params?: {
+  status?: string;
+  search?: string;
+}): Promise<ApplicantApplicationStatus[]> {
+  const response = await apiClient.get<ApplicantApplicationStatus[]>('/recruitment/applications/my/', {
+    params,
+  });
+  return response.data;
+}
+
+export async function apiGetMyApplicationDetail(
+  applicationId: number | string
+): Promise<ApplicantApplicationStatus> {
+  const response = await apiClient.get<ApplicantApplicationStatus>(
+    `/recruitment/applications/my/${applicationId}/`
+  );
+  return response.data;
 }
 
 export async function apiGetMyApplicationStatuses(): Promise<ApplicantApplicationStatus[]> {

@@ -1047,11 +1047,20 @@ class ApplicantApplicationStatusSerializer(serializers.ModelSerializer):
     room_id = serializers.IntegerField(source='room.id', read_only=True)
     room_title = serializers.CharField(source='room.title', read_only=True)
     room_department = serializers.CharField(source='room.department', read_only=True)
+    room_role_category = serializers.CharField(source='room.role_category', read_only=True, default='')
+    room_experience_level = serializers.CharField(source='room.get_experience_level_display', read_only=True, default='')
+    room_description = serializers.CharField(source='room.description', read_only=True, default='')
+    room_requirements = serializers.CharField(source='room.requirements_text', read_only=True, default='')
+    cv_weight = serializers.IntegerField(source='room.cv_weight', read_only=True, default=50)
+    video_weight = serializers.IntegerField(source='room.video_weight', read_only=True, default=50)
     company_name = serializers.SerializerMethodField()
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     hr_decision_display = serializers.CharField(source='get_hr_decision_display', read_only=True)
     current_stage = serializers.SerializerMethodField()
     stages = serializers.SerializerMethodField()
+    badge = serializers.SerializerMethodField()
+    cv_details = serializers.SerializerMethodField()
+    video_details = serializers.SerializerMethodField()
     notification_logs = StatusNotificationLogSerializer(many=True, read_only=True, source='status_notification_logs')
 
     class Meta:
@@ -1061,6 +1070,12 @@ class ApplicantApplicationStatusSerializer(serializers.ModelSerializer):
             'room_id',
             'room_title',
             'room_department',
+            'room_role_category',
+            'room_experience_level',
+            'room_description',
+            'room_requirements',
+            'cv_weight',
+            'video_weight',
             'company_name',
             'status',
             'status_display',
@@ -1079,6 +1094,9 @@ class ApplicantApplicationStatusSerializer(serializers.ModelSerializer):
             'hr_decided_at',
             'current_stage',
             'stages',
+            'badge',
+            'cv_details',
+            'video_details',
             'notification_logs',
         ]
         read_only_fields = fields
@@ -1159,3 +1177,79 @@ class ApplicantApplicationStatusSerializer(serializers.ModelSerializer):
                 'timestamp': obj.hr_decided_at or obj.shortlisted_at,
             },
         ]
+
+    def get_badge(self, obj):
+        if (
+            obj.hr_decision == CandidateApplication.HrDecision.CONFIRMED or
+            (obj.hr_decision == CandidateApplication.HrDecision.OVERRIDDEN and obj.is_shortlisted) or
+            (obj.is_shortlisted and obj.hr_decision == CandidateApplication.HrDecision.UNDECIDED)
+        ):
+            return {
+                'label': 'Shortlisted',
+                'tone': 'emerald',
+                'key': 'SHORTLISTED',
+                'status_type': 'SHORTLISTED'
+            }
+        if (
+            obj.hr_decision == CandidateApplication.HrDecision.REJECTED or
+            (obj.hr_decision == CandidateApplication.HrDecision.OVERRIDDEN and not obj.is_shortlisted)
+        ):
+            return {
+                'label': 'Not Selected',
+                'tone': 'rose',
+                'key': 'REJECTED',
+                'status_type': 'REJECTED'
+            }
+        if obj.hr_decision == CandidateApplication.HrDecision.ON_HOLD:
+            return {
+                'label': 'On Hold',
+                'tone': 'amber',
+                'key': 'ON_HOLD',
+                'status_type': 'ON_HOLD'
+            }
+        if obj.status == CandidateApplication.Status.COMPLETED or obj.final_score is not None:
+            return {
+                'label': 'In HR Review',
+                'tone': 'amber',
+                'key': 'UNDER_REVIEW',
+                'status_type': 'UNDER_REVIEW'
+            }
+        if obj.status == CandidateApplication.Status.ANALYZING:
+            return {
+                'label': 'Analyzing',
+                'tone': 'blue',
+                'key': 'ANALYZING',
+                'status_type': 'ANALYZING'
+            }
+        return {
+            'label': 'Submitted',
+            'tone': 'blue',
+            'key': 'SUBMITTED',
+            'status_type': 'SUBMITTED'
+        }
+
+    def get_cv_details(self, obj):
+        if obj.cv:
+            filename = obj.cv.original_filename or (obj.cv.file.name.split('/')[-1] if obj.cv.file else 'CV.pdf')
+            return {
+                'id': obj.cv.id,
+                'original_filename': filename,
+                'file_size': obj.cv.file_size,
+                'file_type': obj.cv.file_type,
+                'uploaded_at': obj.cv.uploaded_at,
+                'score': obj.cv_score,
+            }
+        return None
+
+    def get_video_details(self, obj):
+        if obj.video:
+            filename = obj.video.original_filename or (obj.video.file.name.split('/')[-1] if obj.video.file else 'Presentation.mp4')
+            return {
+                'id': obj.video.id,
+                'original_filename': filename,
+                'duration_seconds': obj.video.duration_seconds,
+                'status': obj.video.status,
+                'uploaded_at': obj.video.uploaded_at,
+                'score': obj.video_score,
+            }
+        return None
