@@ -21,6 +21,8 @@ import {
   MoreVertical,
   Star,
   FileDown,
+  Clock,
+  AlertTriangle,
 } from 'lucide-react';
 import type { RecruitmentRoom } from '../../api/recruitment';
 import {
@@ -28,6 +30,8 @@ import {
   apiDeleteRoom,
   apiDownloadRoomSummaryPdf,
   triggerPdfDownload,
+  apiUpdateRoomStatus,
+  apiUpdateRoomDeadline,
 } from '../../api/recruitment';
 import { JobRequirementsForm } from './JobRequirementsForm';
 import { WeightingConfigCard } from './WeightingConfigCard';
@@ -54,11 +58,16 @@ export function RoomList({
   notify,
 }: RoomListProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'PAUSED' | 'CLOSED'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'OPEN' | 'PAUSED' | 'CLOSED' | 'DRAFT'>('ALL');
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [downloadingRoomId, setDownloadingRoomId] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // US-45: Quick Deadline Modal State
+  const [deadlineModalRoom, setDeadlineModalRoom] = useState<RecruitmentRoom | null>(null);
+  const [quickDeadlineValue, setQuickDeadlineValue] = useState('');
+  const [savingDeadline, setSavingDeadline] = useState(false);
 
   const handleDownloadRoomPdf = async (room: RecruitmentRoom) => {
     try {
@@ -91,7 +100,8 @@ export function RoomList({
   const [editCompany, setEditCompany] = useState('');
   const [editDept, setEditDept] = useState('');
   const [editDesc, setEditDesc] = useState('');
-  const [editStatus, setEditStatus] = useState<'ACTIVE' | 'PAUSED' | 'CLOSED'>('ACTIVE');
+  const [editStatus, setEditStatus] = useState<'DRAFT' | 'OPEN' | 'ACTIVE' | 'PAUSED' | 'CLOSED'>('OPEN');
+  const [editDeadline, setEditDeadline] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
   // US-19 Job Requirements Modal State
@@ -126,7 +136,12 @@ export function RoomList({
         r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.department?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchStatus = statusFilter === 'ALL' || r.status === statusFilter;
+      let matchStatus = true;
+      if (statusFilter === 'OPEN') {
+        matchStatus = r.status === 'OPEN' || r.status === 'ACTIVE';
+      } else if (statusFilter !== 'ALL') {
+        matchStatus = r.status === statusFilter;
+      }
       return matchSearch && matchStatus;
     });
   }, [rooms, searchTerm, statusFilter]);
@@ -139,14 +154,71 @@ export function RoomList({
     setTimeout(() => setCopiedId(null), 2500);
   };
 
+  // US-45 AC-5: Toggle status / manual reopen
   const handleToggleStatus = async (room: RecruitmentRoom) => {
-    const nextStatus = room.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+    const isCurrentlyOpen = room.status === 'OPEN' || room.status === 'ACTIVE';
+    const nextStatus = isCurrentlyOpen ? 'PAUSED' : 'OPEN';
     try {
-      const res = await apiUpdateRoom(room.id, { status: nextStatus });
+      const res = await apiUpdateRoomStatus(room.id, nextStatus);
       onRoomUpdated(res.room);
-      notify?.(`Room "${room.title}" is now ${nextStatus.toLowerCase()}.`, 'success');
+      const actionMsg = nextStatus === 'OPEN' ? 'reopened/activated' : 'paused';
+      notify?.(`Room "${room.title}" is now ${actionMsg}.`, 'success');
     } catch {
       notify?.(`Failed to update room status.`, 'error');
+    }
+  };
+
+  const handleSetStatus = async (room: RecruitmentRoom, targetStatus: 'DRAFT' | 'OPEN' | 'PAUSED' | 'CLOSED') => {
+    try {
+      const res = await apiUpdateRoomStatus(room.id, targetStatus);
+      onRoomUpdated(res.room);
+      notify?.(`Room "${room.title}" status updated to ${targetStatus.toLowerCase()}.`, 'success');
+    } catch {
+      notify?.(`Failed to update room status.`, 'error');
+    }
+  };
+
+  const openDeadlineModal = (room: RecruitmentRoom) => {
+    setDeadlineModalRoom(room);
+    if (room.application_deadline) {
+      const d = new Date(room.application_deadline);
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      setQuickDeadlineValue(
+        `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+      );
+    } else {
+      setQuickDeadlineValue('');
+    }
+  };
+
+  const handleSaveQuickDeadline = async () => {
+    if (!deadlineModalRoom) return;
+    try {
+      setSavingDeadline(true);
+      const isoVal = quickDeadlineValue ? new Date(quickDeadlineValue).toISOString() : null;
+      const res = await apiUpdateRoomDeadline(deadlineModalRoom.id, isoVal);
+      onRoomUpdated(res.room);
+      notify?.('Application deadline updated successfully!', 'success');
+      setDeadlineModalRoom(null);
+    } catch {
+      notify?.('Failed to update application deadline.', 'error');
+    } finally {
+      setSavingDeadline(false);
+    }
+  };
+
+  const handleClearDeadline = async () => {
+    if (!deadlineModalRoom) return;
+    try {
+      setSavingDeadline(true);
+      const res = await apiUpdateRoomDeadline(deadlineModalRoom.id, null);
+      onRoomUpdated(res.room);
+      notify?.('Application deadline cleared.', 'info');
+      setDeadlineModalRoom(null);
+    } catch {
+      notify?.('Failed to clear application deadline.', 'error');
+    } finally {
+      setSavingDeadline(false);
     }
   };
 
@@ -167,7 +239,16 @@ export function RoomList({
     setEditCompany(room.company_name);
     setEditDept(room.department || '');
     setEditDesc(room.description || '');
-    setEditStatus(room.status);
+    setEditStatus(room.status === 'ACTIVE' ? 'OPEN' : room.status);
+    if (room.application_deadline) {
+      const d = new Date(room.application_deadline);
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      setEditDeadline(
+        `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+      );
+    } else {
+      setEditDeadline('');
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -184,6 +265,7 @@ export function RoomList({
         department: editDept.trim(),
         description: editDesc.trim(),
         status: editStatus,
+        application_deadline: editDeadline ? new Date(editDeadline).toISOString() : null,
       });
       onRoomUpdated(res.room);
       notify?.('Room details updated successfully!', 'success');
@@ -213,19 +295,25 @@ export function RoomList({
 
         <div className="flex items-center gap-2 w-full sm:w-auto justify-start sm:justify-end min-w-0">
           <div className="flex items-center gap-1 bg-[#f5f1e6] p-1 rounded-xl shrink-0 overflow-x-auto max-w-full">
-            {(['ALL', 'ACTIVE', 'PAUSED', 'CLOSED'] as const).map((st) => (
+            {[
+              { id: 'ALL' as const, label: 'All', testId: 'filter-status-all' },
+              { id: 'OPEN' as const, label: 'Open', testId: 'filter-status-open' },
+              { id: 'PAUSED' as const, label: 'Paused', testId: 'filter-status-paused' },
+              { id: 'CLOSED' as const, label: 'Closed', testId: 'filter-status-closed' },
+              { id: 'DRAFT' as const, label: 'Draft', testId: 'filter-status-draft' },
+            ].map(({ id, label, testId }) => (
               <button
-                key={st}
+                key={id}
                 type="button"
-                onClick={() => setStatusFilter(st)}
-                data-testid={`filter-status-${st.toLowerCase()}`}
+                onClick={() => setStatusFilter(id)}
+                data-testid={testId}
                 className={`rounded-lg px-2.5 py-1 text-xs font-bold transition whitespace-nowrap ${
-                  statusFilter === st
-                    ? 'bg-[#253142] text-white'
+                  statusFilter === id
+                    ? 'bg-[#253142] text-white shadow-2xs'
                     : 'text-[#687382] hover:text-[#253142]'
                 }`}
               >
-                {st === 'ALL' ? 'All' : st}
+                {label}
               </button>
             ))}
           </div>
@@ -291,14 +379,16 @@ export function RoomList({
                 <span
                   data-testid={`room-status-${room.id}`}
                   className={`shrink-0 inline-flex items-center rounded-lg px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider whitespace-nowrap ${
-                    room.status === 'ACTIVE'
+                    room.status === 'ACTIVE' || room.status === 'OPEN'
                       ? 'bg-[#e2f0e9] text-[#277254]'
                       : room.status === 'PAUSED'
                       ? 'bg-[#fef3c7] text-[#92400e]'
+                      : room.status === 'CLOSED'
+                      ? 'bg-[#fee2e2] text-[#991b1b]'
                       : 'bg-[#f1f3f5] text-[#687382]'
                   }`}
                 >
-                  {room.status}
+                  {room.status === 'ACTIVE' ? 'OPEN' : room.status}
                 </span>
               </div>
 
@@ -394,6 +484,63 @@ export function RoomList({
                 </div>
               </button>
 
+              {/* US-45: Application Deadline & Expiration Display */}
+              <div
+                data-testid={`room-deadline-card-${room.id}`}
+                className="mt-3.5 rounded-xl bg-[#fbfaf5] p-2.5 border border-[#eef0e7] min-w-0"
+              >
+                <div className="flex items-center justify-between mb-1 min-w-0 gap-1">
+                  <span className="text-[11px] font-bold text-[#526072] flex items-center gap-1 shrink-0">
+                    <Clock size={12} className="text-[#277254]" /> Application Deadline:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => openDeadlineModal(room)}
+                    data-testid={`button-set-deadline-${room.id}`}
+                    className="text-[11px] font-bold text-[#277254] hover:text-[#1f5b43] hover:underline transition shrink-0"
+                  >
+                    {room.application_deadline ? 'Edit' : 'Set Deadline'}
+                  </button>
+                </div>
+                <div className="flex items-center justify-between gap-1 text-xs">
+                  {room.application_deadline ? (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span
+                        data-testid={`room-deadline-value-${room.id}`}
+                        className="font-semibold text-[#253142]"
+                      >
+                        {new Date(room.application_deadline).toLocaleString([], {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                      {room.is_past_deadline ? (
+                        <span
+                          data-testid={`room-deadline-expired-badge-${room.id}`}
+                          className="inline-flex items-center gap-1 rounded-md bg-[#fee2e2] border border-[#fca5a5] px-1.5 py-0.5 text-[10px] font-bold text-[#991b1b]"
+                        >
+                          <AlertTriangle size={10} /> Expired
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-md bg-[#e2f0e9] border border-[#c4e3d3] px-1.5 py-0.5 text-[10px] font-bold text-[#1f5b43]">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span
+                      data-testid={`room-deadline-value-${room.id}`}
+                      className="text-[11px] text-[#98a09c] italic"
+                    >
+                      No deadline set (Open indefinitely)
+                    </span>
+                  )}
+                </div>
+              </div>
+
               {/* 7. Creation Date & Options Dropdown */}
               <div className="mt-3.5 flex items-center justify-between gap-2 text-[11px] text-[#98a09c] min-w-0">
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -406,11 +553,15 @@ export function RoomList({
                   <button
                     type="button"
                     onClick={() => handleToggleStatus(room)}
-                    title={room.status === 'ACTIVE' ? 'Pause room' : 'Activate room'}
+                    title={
+                      room.status === 'ACTIVE' || room.status === 'OPEN'
+                        ? 'Pause room'
+                        : 'Reopen / Open room'
+                    }
                     data-testid={`button-toggle-status-${room.id}`}
                     className="rounded-lg p-1 text-[#7b8490] hover:bg-[#eef0e7] hover:text-[#253142] transition"
                   >
-                    {room.status === 'ACTIVE' ? (
+                    {room.status === 'ACTIVE' || room.status === 'OPEN' ? (
                       <PauseCircle size={15} className="text-[#92400e]" />
                     ) : (
                       <PlayCircle size={15} className="text-[#277254]" />
@@ -434,17 +585,62 @@ export function RoomList({
                       className="absolute right-0 bottom-full mb-1.5 z-30 w-52 rounded-xl border border-[#d9dbd1] bg-white shadow-xl py-1 animate-in fade-in slide-in-from-bottom-2"
                       data-testid={`menu-more-actions-${room.id}`}
                     >
-                      {/* Toggle Status */}
+                      {/* US-45: Lifecycle State Actions */}
+                      {room.status === 'ACTIVE' || room.status === 'OPEN' ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => { handleSetStatus(room, 'PAUSED'); setOpenMenuId(null); }}
+                            data-testid={`button-pause-room-${room.id}`}
+                            className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#92400e] hover:bg-[#fef3c7] transition"
+                          >
+                            <PauseCircle size={14} className="text-[#92400e]" />
+                            Pause Applications
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { handleSetStatus(room, 'CLOSED'); setOpenMenuId(null); }}
+                            data-testid={`button-close-room-${room.id}`}
+                            className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#991b1b] hover:bg-[#fee2e2] transition"
+                          >
+                            <X size={14} className="text-[#991b1b]" />
+                            Close Room
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => { handleSetStatus(room, 'OPEN'); setOpenMenuId(null); }}
+                            data-testid={`button-reopen-room-${room.id}`}
+                            className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#277254] hover:bg-[#e2f0e9] transition"
+                          >
+                            <PlayCircle size={14} className="text-[#277254]" />
+                            Reopen / Open Room
+                          </button>
+                          {room.status !== 'CLOSED' && (
+                            <button
+                              type="button"
+                              onClick={() => { handleSetStatus(room, 'CLOSED'); setOpenMenuId(null); }}
+                              data-testid={`button-close-room-${room.id}`}
+                              className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#991b1b] hover:bg-[#fee2e2] transition"
+                            >
+                              <X size={14} className="text-[#991b1b]" />
+                              Close Room
+                            </button>
+                          )}
+                        </>
+                      )}
+
+                      {/* Set Deadline */}
                       <button
                         type="button"
-                        onClick={() => { handleToggleStatus(room); setOpenMenuId(null); }}
-                        data-testid={`button-toggle-status-${room.id}`}
+                        onClick={() => { openDeadlineModal(room); setOpenMenuId(null); }}
+                        data-testid={`button-action-set-deadline-${room.id}`}
                         className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-[#526072] hover:bg-[#f5f1e6] hover:text-[#253142] transition"
                       >
-                        {room.status === 'ACTIVE'
-                          ? <PauseCircle size={14} className="text-[#92400e]" />
-                          : <PlayCircle size={14} className="text-[#277254]" />}
-                        {room.status === 'ACTIVE' ? 'Pause Room' : 'Activate Room'}
+                        <Clock size={14} className="text-[#277254]" />
+                        Set Application Deadline
                       </button>
 
                       {/* Configure Skills */}
@@ -657,10 +853,22 @@ export function RoomList({
                   data-testid="select-edit-room-status"
                   className="w-full rounded-xl border border-[#d9dbd1] bg-[#fbfaf5] px-3 py-2 text-xs text-[#253142] font-semibold"
                 >
-                  <option value="ACTIVE">ACTIVE</option>
+                  <option value="OPEN">OPEN</option>
                   <option value="PAUSED">PAUSED</option>
                   <option value="CLOSED">CLOSED</option>
+                  <option value="DRAFT">DRAFT</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#253142] mb-1">Application Deadline</label>
+                <input
+                  type="datetime-local"
+                  value={editDeadline}
+                  onChange={(e) => setEditDeadline(e.target.value)}
+                  data-testid="input-edit-room-deadline"
+                  className="w-full rounded-xl border border-[#d9dbd1] bg-[#fbfaf5] px-3.5 py-2 text-sm text-[#253142] focus:outline-none"
+                />
               </div>
 
               <div>
@@ -694,6 +902,85 @@ export function RoomList({
                 {savingEdit && <Loader2 size={14} className="animate-spin" />}
                 Save Changes
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Deadline Modal (US-45) */}
+      {deadlineModalRoom && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          data-testid="modal-set-deadline"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in"
+        >
+          <div className="relative w-full max-w-md rounded-2xl bg-white border border-[#d9dbd1] shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#eef0e7] pb-3">
+              <div className="flex items-center gap-2">
+                <Clock size={18} className="text-[#277254]" />
+                <h3 className="text-base font-bold text-[#253142]">Set Application Deadline</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeadlineModalRoom(null)}
+                data-testid="button-cancel-deadline"
+                className="rounded-lg p-1 text-[#7b8490] hover:bg-[#eef0e7]"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs text-[#687382]">
+              Set an expiration date and time for candidates submitting applications to{' '}
+              <strong className="text-[#253142]">{deadlineModalRoom.title}</strong>. Submissions will be automatically blocked once this deadline passes.
+            </p>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-[#253142]">Deadline Date & Time</label>
+              <input
+                type="datetime-local"
+                value={quickDeadlineValue}
+                onChange={(e) => setQuickDeadlineValue(e.target.value)}
+                data-testid="input-room-deadline"
+                className="w-full rounded-xl border border-[#d9dbd1] bg-[#fbfaf5] px-3.5 py-2.5 text-sm text-[#253142] focus:outline-none focus:ring-2 focus:ring-[#277254]/30"
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-[#eef0e7]">
+              <div>
+                {deadlineModalRoom.application_deadline && (
+                  <button
+                    type="button"
+                    onClick={handleClearDeadline}
+                    disabled={savingDeadline}
+                    data-testid="button-clear-deadline"
+                    className="rounded-xl px-3 py-2 text-xs font-semibold text-[#b34a40] hover:bg-[#f7e5e1] transition disabled:opacity-50"
+                  >
+                    Clear Deadline
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDeadlineModalRoom(null)}
+                  data-testid="button-close-deadline-modal"
+                  className="rounded-xl px-4 py-2 text-xs font-semibold text-[#526072] hover:bg-[#eef0e7]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveQuickDeadline}
+                  disabled={savingDeadline}
+                  data-testid="button-save-deadline"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#277254] px-4 py-2 text-xs font-bold text-white hover:bg-[#1f5b43] transition disabled:opacity-50"
+                >
+                  {savingDeadline && <Loader2 size={14} className="animate-spin" />}
+                  Save Deadline
+                </button>
+              </div>
             </div>
           </div>
         </div>

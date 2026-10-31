@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRoute, useLocation } from 'wouter';
 import {
   Building2,
@@ -43,6 +43,41 @@ export function PublicApplicationPage({
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  // US-45: Live Countdown Timer & State Management
+  const [now, setNow] = useState<Date>(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const deadlineDate = room?.application_deadline ? new Date(room.application_deadline) : null;
+  const isExpired = deadlineDate ? now.getTime() > deadlineDate.getTime() : false;
+  const msRemaining = deadlineDate ? deadlineDate.getTime() - now.getTime() : null;
+
+  const isUrgent = msRemaining !== null && msRemaining > 0 && msRemaining < 24 * 60 * 60 * 1000;
+
+  const remainingFormatted = useMemo(() => {
+    if (msRemaining === null || msRemaining <= 0) return null;
+    const totalSecs = Math.floor(msRemaining / 1000);
+    const days = Math.floor(totalSecs / 86400);
+    const hours = Math.floor((totalSecs % 86400) / 3600);
+    const minutes = Math.floor((totalSecs % 3600) / 60);
+    const seconds = totalSecs % 60;
+    if (days > 0) {
+      return `${days}d ${hours}h ${minutes}m`;
+    }
+    return `${hours}h ${minutes}m ${seconds}s`;
+  }, [msRemaining]);
+
+  const isRoomOpen = (room?.status === 'OPEN' || room?.status === 'ACTIVE') && !isExpired;
+  const isRoomPaused = room?.status === 'PAUSED';
+  const isRoomClosed = room?.status === 'CLOSED' || isExpired;
+  const isRoomDraft = room?.status === 'DRAFT';
+
   useEffect(() => {
     if (!token) {
       setErrorStatus({
@@ -143,7 +178,15 @@ export function PublicApplicationPage({
                 Status Code: {errorStatus?.code || '410 GONE'}
               </span>
               <h1 className="text-2xl font-black text-[#253142]">
-                Application Link Inactive or Expired
+                {errorStatus?.code === 'DEADLINE_PASSED'
+                  ? 'Application Deadline Has Passed'
+                  : errorStatus?.code === 'ROOM_PAUSED'
+                  ? 'Applications Temporarily Paused'
+                  : errorStatus?.code === 'ROOM_CLOSED'
+                  ? 'Recruitment Room Closed'
+                  : errorStatus?.code === 'ROOM_DRAFT'
+                  ? 'Recruitment Room Not Yet Published'
+                  : 'Application Link Inactive or Expired'}
               </h1>
               <p className="text-sm text-[#526072] leading-relaxed max-w-md mx-auto">
                 {errorStatus?.message}
@@ -186,9 +229,38 @@ export function PublicApplicationPage({
           </div>
         </div>
 
-        <div className="inline-flex items-center gap-2 rounded-full bg-[#edfdf4] px-3 py-1 text-xs font-bold text-[#03543f] border border-[#bcf0da]">
-          <span className="h-2 w-2 rounded-full bg-[#277254] animate-pulse" />
-          <span>Accepting Applications</span>
+        <div
+          data-testid="public-room-status-badge"
+          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold border ${
+            isRoomOpen
+              ? 'bg-[#edfdf4] text-[#03543f] border-[#bcf0da]'
+              : isRoomPaused
+              ? 'bg-[#fef3c7] text-[#92400e] border-[#fde68a]'
+              : isRoomClosed
+              ? 'bg-[#fee2e2] text-[#991b1b] border-[#fca5a5]'
+              : 'bg-[#f1f3f5] text-[#526072] border-[#d9dbd1]'
+          }`}
+        >
+          <span
+            className={`h-2 w-2 rounded-full ${
+              isRoomOpen
+                ? 'bg-[#277254] animate-pulse'
+                : isRoomPaused
+                ? 'bg-[#d97706]'
+                : isRoomClosed
+                ? 'bg-[#dc2626]'
+                : 'bg-[#687382]'
+            }`}
+          />
+          <span>
+            {isRoomOpen
+              ? 'Accepting Applications'
+              : isRoomPaused
+              ? 'Applications Paused'
+              : isRoomClosed
+              ? 'Applications Closed'
+              : 'Draft Room'}
+          </span>
         </div>
       </header>
 
@@ -257,6 +329,63 @@ export function PublicApplicationPage({
                 </div>
               </div>
             )}
+
+            {/* US-45: Application Deadline & Live Countdown Card */}
+            {room.application_deadline && (
+              <div
+                data-testid="public-room-deadline-card"
+                className={`mt-4 rounded-2xl p-4 border transition ${
+                  isExpired
+                    ? 'bg-[#fdf2f2] border-[#f8b4b4] text-[#991b1b]'
+                    : isUrgent
+                    ? 'bg-[#fffbeb] border-[#fde68a] text-[#92400e]'
+                    : 'bg-[#fbfaf5] border-[#eef0e7] text-[#253142]'
+                }`}
+              >
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Clock size={16} className={isExpired ? 'text-[#991b1b]' : isUrgent ? 'text-[#d97706]' : 'text-[#277254]'} />
+                    <span className="text-xs font-bold uppercase tracking-wider">
+                      {isExpired ? 'Application Deadline Expired' : 'Application Deadline'}
+                    </span>
+                  </div>
+                  <span
+                    data-testid="public-room-deadline"
+                    className="text-xs font-bold font-mono"
+                  >
+                    {new Date(room.application_deadline).toLocaleString([], {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+
+                {/* Urgency countdown indicator */}
+                {isUrgent && !isExpired && remainingFormatted && (
+                  <div
+                    data-testid="public-deadline-urgency-banner"
+                    className="mt-2.5 flex items-center gap-2 rounded-xl bg-[#fef3c7] px-3.5 py-2 text-xs font-bold text-[#b45309] border border-[#fde68a]"
+                  >
+                    <span>⚡ Applications Close Soon:</span>
+                    <span className="font-mono">{remainingFormatted} remaining</span>
+                  </div>
+                )}
+
+                {/* Expired warning indicator */}
+                {isExpired && (
+                  <div
+                    data-testid="public-deadline-passed-alert"
+                    className="mt-2.5 flex items-center gap-2 rounded-xl bg-[#fee2e2] px-3.5 py-2 text-xs font-bold text-[#b91c1c] border border-[#fca5a5]"
+                  >
+                    <AlertCircle size={14} className="shrink-0" />
+                    <span>The deadline has passed. Submissions are no longer accepted for this opening.</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Evaluation Formula Card (US-20 Weighting Exposure) */}
@@ -305,9 +434,36 @@ export function PublicApplicationPage({
               </p>
             </div>
 
+            {/* US-45: Status Notice Banner */}
+            {!isRoomOpen && (
+              <div
+                data-testid={isRoomPaused ? 'alert-room-paused' : isRoomClosed ? 'alert-room-closed' : 'alert-room-draft'}
+                className={`rounded-2xl p-4 text-xs font-semibold flex items-center gap-2.5 border ${
+                  isRoomPaused
+                    ? 'bg-[#fffbeb] border-[#fde68a] text-[#92400e]'
+                    : isRoomClosed
+                    ? 'bg-[#fdf2f2] border-[#f8b4b4] text-[#991b1b]'
+                    : 'bg-[#f1f3f5] border-[#d9dbd1] text-[#526072]'
+                }`}
+              >
+                <AlertCircle size={16} className="shrink-0" />
+                <span>
+                  {isRoomPaused
+                    ? 'Applications for this position are temporarily paused by the hiring team. Submissions are currently disabled.'
+                    : isRoomClosed
+                    ? 'Applications for this opening are closed. Submissions can no longer be accepted.'
+                    : 'This recruitment room is in draft mode. Applications are not currently open.'}
+                </span>
+              </div>
+            )}
+
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
+                if (!isRoomOpen) {
+                  notify?.('Submissions are closed or paused for this room.', 'error');
+                  return;
+                }
                 if (!cvFile || !videoFile) {
                   notify?.('Please upload both a CV and a Video Presentation.', 'error');
                   return;
@@ -428,15 +584,23 @@ export function PublicApplicationPage({
 
                   <button
                     type="submit"
-                    disabled={submitting}
+                    disabled={submitting || !isRoomOpen}
                     data-testid="button-submit-application"
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#277254] py-3 text-xs font-bold text-white shadow-md hover:bg-[#1f5b43] transition disabled:opacity-70 disabled:cursor-not-allowed"
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#277254] py-3 text-xs font-bold text-white shadow-md hover:bg-[#1f5b43] transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {submitting ? (
                       <>
                         <Loader2 size={15} className="animate-spin" />
                         <span>Submitting Application...</span>
                       </>
+                    ) : !isRoomOpen ? (
+                      <span>
+                        {isRoomPaused
+                          ? 'Applications Paused'
+                          : isRoomClosed
+                          ? 'Applications Closed'
+                          : 'Submissions Disabled'}
+                      </span>
                     ) : (
                       <>
                         <span>Submit Candidate Application</span>
