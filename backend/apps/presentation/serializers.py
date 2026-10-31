@@ -146,6 +146,7 @@ class PresentationVideoSerializer(serializers.ModelSerializer):
     formatted_raw_size = serializers.ReadOnlyField()
     formatted_compressed_size = serializers.ReadOnlyField()
     compression_savings_percent = serializers.ReadOnlyField()
+    display_title = serializers.ReadOnlyField()
     file_url = serializers.SerializerMethodField()
     speech_analysis = SpeechAnalysisSerializer(read_only=True)
     behavioral_analysis = BehavioralAnalysisSerializer(read_only=True)
@@ -157,6 +158,8 @@ class PresentationVideoSerializer(serializers.ModelSerializer):
         model = PresentationVideo
         fields = [
             'id',
+            'title',
+            'display_title',
             'original_filename',
             'file',
             'file_url',
@@ -207,3 +210,29 @@ class VideoUploadSerializer(serializers.Serializer):
     def validate_file(self, value):
         validate_video_file(value)
         return value
+
+
+class PracticeSessionRenameSerializer(serializers.Serializer):
+    """
+    US-44-T2: Input validation serializer for renaming practice session attempts.
+    """
+    title = serializers.CharField(
+        max_length=100,
+        required=True,
+        allow_blank=False,
+        trim_whitespace=True,
+        error_messages={
+            'blank': 'Title cannot be empty.',
+            'required': 'Title is required.',
+            'max_length': 'Title cannot exceed 100 characters.'
+        }
+    )
+
+    def validate_title(self, value):
+        stripped = value.strip()
+        if not stripped:
+            raise serializers.ValidationError('Title cannot be empty.')
+        if len(stripped) > 100:
+            raise serializers.ValidationError('Title cannot exceed 100 characters.')
+        return stripped
+

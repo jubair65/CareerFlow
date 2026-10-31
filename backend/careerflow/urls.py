@@ -10,6 +10,7 @@ urlpatterns = [
     path('api/notifications/', include('apps.core.notification_urls')),
     path('api/cv/', include('apps.cv.urls')),
     path('api/presentation/', include('apps.presentation.urls')),
+    path('api/practice/', include('apps.presentation.practice_urls')),
     path('api/recruitment/', include('apps.recruitment.urls')),
 ]
 

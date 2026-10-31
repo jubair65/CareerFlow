@@ -34,6 +34,12 @@ class PresentationVideo(models.Model):
         help_text="Path to compressed, normalized video"
     )
     original_filename = models.CharField(max_length=255)
+    title = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        help_text="Custom student-assigned title or tag for this practice session (US-44)"
+    )
     raw_file_size = models.PositiveIntegerField(
         help_text="Original uploaded size in bytes (up to 250MB)"
     )
@@ -57,7 +63,14 @@ class PresentationVideo(models.Model):
         ordering = ['-uploaded_at']
 
     def __str__(self):
-        return f"{self.user.username} - {self.original_filename} ({self.status})"
+        name = self.title if self.title else self.original_filename
+        return f"{self.user.username} - {name} ({self.status})"
+
+    @property
+    def display_title(self) -> str:
+        if self.title and self.title.strip():
+            return self.title.strip()
+        return self.original_filename
 
     @property
     def formatted_raw_size(self) -> str:

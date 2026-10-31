@@ -23,6 +23,7 @@ from .serializers import (
     PresentationScoreSerializer,
     PresentationFeedbackSerializer,
     PipelineExecutionLogSerializer,
+    PracticeSessionRenameSerializer,
 )
 from .validators import (
     validate_video_file,
@@ -427,15 +428,67 @@ class PresentationVideoDetailView(APIView):
 
         self.check_object_permissions(request, video)
 
-        # Remove physical file if exists
-        if video.file and os.path.exists(video.file.path):
+        # US-44-T3: Safely remove physical video file from media storage
+        if video.file:
             try:
-                os.remove(video.file.path)
-            except OSError:
+                if hasattr(video.file, 'path') and os.path.exists(video.file.path):
+                    os.remove(video.file.path)
+                elif hasattr(video.file, 'storage') and video.file.name:
+                    video.file.storage.delete(video.file.name)
+            except (OSError, ValueError):
                 pass
 
+        deleted_id = video.id
         video.delete()
-        return Response({'message': 'Presentation video deleted successfully.'}, status=status.HTTP_200_OK)
+        return Response({
+            'message': 'Presentation video deleted successfully.',
+            'deleted_id': deleted_id
+        }, status=status.HTTP_200_OK)
+
+
+class PracticeSessionRenameView(APIView):
+    """
+    US-44-T2:
+    PATCH /api/presentation/<pk>/rename/
+    PATCH /api/practice/<pk>/rename/
+    Rename a practice session recording attempt with a custom title or tag (max 100 chars).
+    Strictly verifies ownership to prevent unauthorized cross-user modifications.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsVideoOwner]
+
+    def get_object(self, pk):
+        return PresentationVideo.objects.filter(pk=pk).select_related(
+            'speech_analysis',
+            'behavioral_analysis',
+            'presentation_score',
+            'ai_feedback'
+        ).first()
+
+    def patch(self, request, pk):
+        video = self.get_object(pk)
+        if not video:
+            return Response({'error': 'Practice session not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if video.user != request.user and not request.user.is_staff:
+            return Response(
+                {'error': 'You do not have permission to rename this practice session.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        self.check_object_permissions(request, video)
+
+        serializer = PracticeSessionRenameSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        video.title = serializer.validated_data['title']
+        video.save(update_fields=['title'])
+
+        return Response({
+            'message': 'Practice session renamed successfully.',
+            'video': PresentationVideoSerializer(video, context={'request': request}).data
+        }, status=status.HTTP_200_OK)
+
 
 
 class PresentationSpeechAnalysisView(APIView):

@@ -2,6 +2,8 @@ import { apiClient } from './auth';
 
 export interface PresentationVideo {
   id: number;
+  title?: string;
+  display_title?: string;
   original_filename: string;
   file: string;
   file_url: string;
@@ -141,10 +143,24 @@ export async function apiGetPresentationVideoDetail(id: number): Promise<Present
 }
 
 /**
- * Delete a presentation video by ID.
+ * US-44-T3: Delete a presentation video by ID.
  */
 export async function apiDeletePresentationVideo(id: number): Promise<void> {
   await apiClient.delete(`/presentation/${id}/`);
+}
+
+/**
+ * US-44-T2: Rename a presentation practice session attempt.
+ */
+export async function apiRenamePresentationVideo(
+  id: number,
+  title: string
+): Promise<{ message: string; video: PresentationVideo }> {
+  const response = await apiClient.patch<{ message: string; video: PresentationVideo }>(
+    `/presentation/${id}/rename/`,
+    { title }
+  );
+  return response.data;
 }
 
 /**

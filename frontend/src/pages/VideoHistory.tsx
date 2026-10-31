@@ -24,7 +24,8 @@ import {
   TrendingUp,
   BarChart2,
   Copy,
-  Check
+  Check,
+  Edit2
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { type Notify } from '../components/dashboard/DashboardShared';
@@ -32,6 +33,7 @@ import {
   apiGetPresentationVideoHistory,
   apiGetPresentationVideoDetail,
   apiDeletePresentationVideo,
+  apiRenamePresentationVideo,
   apiGetSpeechAnalysis,
   apiGetBehavioralAnalysis,
   apiTriggerSpeechAnalysis,
@@ -69,6 +71,16 @@ export function VideoHistory({ notify }: { notify: Notify }) {
   const [isMirroredModal, setIsMirroredModal] = useState(true);
   const [copiedTranscript, setCopiedTranscript] = useState(false);
 
+  // US-44 Rename State (AC-1, US-44-T4)
+  const [editingVideoId, setEditingVideoId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [isSavingRename, setIsSavingRename] = useState(false);
+
+  // US-44 Delete Modal State (AC-3, US-44-T4)
+  const [deletingVideo, setDeletingVideo] = useState<PresentationVideo | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const loadHistory = async () => {
     setIsLoading(true);
     try {
@@ -103,16 +115,98 @@ export function VideoHistory({ notify }: { notify: Notify }) {
     }
   }, [videoHistory]);
 
-  const handleDeleteVideo = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this practice take?')) return;
+  const handleStartRename = (video: PresentationVideo) => {
+    setEditingVideoId(video.id);
+    setEditTitle(getVideoTitle(video));
+    setRenameError(null);
+  };
+
+  const handleCancelRename = () => {
+    setEditingVideoId(null);
+    setEditTitle('');
+    setRenameError(null);
+  };
+
+  const handleSaveRename = async (video: PresentationVideo) => {
+    const trimmed = editTitle.trim();
+    if (!trimmed) {
+      setRenameError('Title cannot be empty.');
+      return;
+    }
+    if (trimmed.length > 100) {
+      setRenameError('Title cannot exceed 100 characters.');
+      return;
+    }
+
+    setIsSavingRename(true);
+    setRenameError(null);
     try {
-      await apiDeletePresentationVideo(id);
+      await apiRenamePresentationVideo(video.id, trimmed);
+      notify('Practice session renamed successfully.', 'success');
+      setVideoHistory((prev) =>
+        prev.map((v) => (v.id === video.id ? { ...v, title: trimmed, display_title: trimmed } : v))
+      );
+      if (previewVideo?.id === video.id) {
+        setPreviewVideo((prev) => (prev ? { ...prev, title: trimmed, display_title: trimmed } : null));
+      }
+      if (analysisVideo?.id === video.id) {
+        setAnalysisVideo((prev) => (prev ? { ...prev, title: trimmed, display_title: trimmed } : null));
+      }
+      setEditingVideoId(null);
+      setEditTitle('');
+    } catch (err: any) {
+      const msg =
+        err.response?.data?.title?.[0] ||
+        err.response?.data?.title ||
+        err.response?.data?.error ||
+        'Failed to rename practice session.';
+      setRenameError(msg);
+      notify(msg, 'error');
+    } finally {
+      setIsSavingRename(false);
+    }
+  };
+
+  const handleOpenDeleteModal = (video: PresentationVideo) => {
+    setDeletingVideo(video);
+  };
+
+  const handleCloseDeleteModal = () => {
+    if (!isDeleting) {
+      setDeletingVideo(null);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingVideo) return;
+    setIsDeleting(true);
+    const targetId = deletingVideo.id;
+    try {
+      await apiDeletePresentationVideo(targetId);
       notify('Practice take deleted.', 'info');
-      setVideoHistory((prev) => prev.filter((v) => v.id !== id));
-      if (previewVideo?.id === id) setPreviewVideo(null);
-      if (analysisVideo?.id === id) setAnalysisVideo(null);
+      setVideoHistory((prev) => prev.filter((v) => v.id !== targetId));
+      if (previewVideo?.id === targetId) setPreviewVideo(null);
+      if (analysisVideo?.id === targetId) setAnalysisVideo(null);
+      setDeletingVideo(null);
     } catch (err: any) {
       notify('Failed to delete video.', 'error');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteVideo = async (id: number) => {
+    const target = videoHistory.find((v) => v.id === id);
+    if (target) {
+      handleOpenDeleteModal(target);
+    } else {
+      try {
+        await apiDeletePresentationVideo(id);
+        notify('Practice take deleted.', 'info');
+        setVideoHistory((prev) => prev.filter((v) => v.id !== id));
+      } catch (err: any) {
+        notify('Failed to delete video.', 'error');
+      }
     }
   };
 
@@ -206,6 +300,12 @@ export function VideoHistory({ notify }: { notify: Notify }) {
   };
 
   const getVideoTitle = (video: PresentationVideo) => {
+    if (video.title && video.title.trim()) {
+      return video.title.trim();
+    }
+    if (video.display_title && video.display_title.trim()) {
+      return video.display_title.trim();
+    }
     const raw =
       video.original_filename ||
       (video.file ? video.file.split('/').pop()?.split('\\').pop() : '') ||
@@ -382,9 +482,10 @@ export function VideoHistory({ notify }: { notify: Notify }) {
           </div>
         </div>
 
-        {/* Tab 2: Score Trends Dashboard (US-17) */}
+        {/* Tab 2: Score Trends Dashboard (US-17, US-44-T5) */}
         {activeMainTab === 'trends' && (
           <ScoreTrendsDashboard
+            key={`trends-${videoHistory.length}-${videoHistory.map((v) => v.id).join('-')}`}
             notify={notify}
             onSelectAttempt={(vidId) => {
               const vid = videoHistory.find((v) => v.id === vidId);
@@ -522,8 +623,8 @@ export function VideoHistory({ notify }: { notify: Notify }) {
               <p className="mt-3 text-sm font-semibold">Loading your practice takes...</p>
             </div>
           ) : videoHistory.length === 0 ? (
-            /* Empty State (AC 5) */
-            <div className="flex flex-col items-center justify-center p-14 text-center" data-testid="history-empty-state">
+            /* Empty State (AC 5, US-44-T5) */
+            <div className="flex flex-col items-center justify-center p-14 text-center" data-testid="empty-practice-history" id="history-empty-state">
               <div className="grid h-16 w-16 place-items-center rounded-2xl bg-[#f4f6ef] text-[#253142] mb-3">
                 <VideoIcon size={30} />
               </div>
@@ -591,21 +692,86 @@ export function VideoHistory({ notify }: { notify: Notify }) {
                         >
                           <Play size={16} fill="currentColor" className="ml-0.5 text-[#f5c84b]" />
                         </button>
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold text-[#253142] truncate" title={title}>
-                            {title}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[11px] text-[#687382] font-mono">
-                              {formatDuration(video.duration_seconds)}
-                            </span>
-                            {video.is_active && (
-                              <span className="rounded bg-[#e2f0e9] px-1.5 py-0.2 text-[10px] font-bold text-[#277254]">
-                                Active
+                        {editingVideoId === video.id ? (
+                          <div className="flex flex-col gap-1 w-full max-w-xs">
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveRename(video);
+                                  if (e.key === 'Escape') handleCancelRename();
+                                }}
+                                maxLength={100}
+                                disabled={isSavingRename}
+                                data-testid={`input-rename-session-${video.id}`}
+                                autoFocus
+                                className="flex-1 rounded-md border border-[#277254] bg-white px-2 py-1 text-xs font-semibold text-[#253142] focus:outline-none focus:ring-1 focus:ring-[#277254]"
+                                placeholder="Enter session title..."
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSaveRename(video)}
+                                disabled={isSavingRename}
+                                title="Save Title (Enter)"
+                                data-testid={`button-save-rename-${video.id}`}
+                                className="rounded-md bg-[#277254] p-1.5 text-white hover:bg-[#1f5c43] disabled:opacity-50 cursor-pointer"
+                              >
+                                {isSavingRename ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCancelRename}
+                                disabled={isSavingRename}
+                                title="Cancel (Esc)"
+                                data-testid={`button-cancel-rename-${video.id}`}
+                                className="rounded-md bg-[#ecefe7] p-1.5 text-[#687382] hover:bg-[#d9dbd1] disabled:opacity-50 cursor-pointer"
+                              >
+                                <X size={13} />
+                              </button>
+                            </div>
+                            {renameError && (
+                              <span
+                                data-testid={`text-rename-error-${video.id}`}
+                                className="text-[11px] font-medium text-[#dc2626]"
+                              >
+                                {renameError}
                               </span>
                             )}
                           </div>
-                        </div>
+                        ) : (
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p
+                                className="text-sm font-bold text-[#253142] truncate"
+                                title={title}
+                                data-testid={`session-title-${video.id}`}
+                              >
+                                {title}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => handleStartRename(video)}
+                                title="Rename practice session"
+                                data-testid={`button-rename-session-${video.id}`}
+                                className="text-[#687382] hover:text-[#277254] transition p-0.5 rounded cursor-pointer"
+                              >
+                                <Edit2 size={13} />
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[11px] text-[#687382] font-mono">
+                                {formatDuration(video.duration_seconds)}
+                              </span>
+                              {video.is_active && (
+                                <span className="rounded bg-[#e2f0e9] px-1.5 py-0.2 text-[10px] font-bold text-[#277254]">
+                                  Active
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* DATE Column */}
@@ -686,6 +852,17 @@ export function VideoHistory({ notify }: { notify: Notify }) {
 
                       {/* ACTIONS Column */}
                       <div className="flex items-center justify-end gap-1 text-[#687382]">
+                        {/* Rename Take (US-44-T4) */}
+                        <button
+                          type="button"
+                          onClick={() => handleStartRename(video)}
+                          title="Rename take"
+                          data-testid={`button-rename-${video.id}`}
+                          className="rounded-lg p-2 hover:bg-[#f4f6ef] hover:text-[#277254] transition cursor-pointer"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+
                         {/* Preview / External Replay */}
                         <button
                           type="button"
@@ -708,12 +885,13 @@ export function VideoHistory({ notify }: { notify: Notify }) {
                           <Sparkles size={16} className="text-[#277254]" />
                         </button>
 
-                        {/* Delete Take */}
+                        {/* Delete Take (US-44-T3 / T4) */}
                         <button
                           type="button"
-                          onClick={() => handleDeleteVideo(video.id)}
+                          onClick={() => handleOpenDeleteModal(video)}
                           title="Delete take"
-                          data-testid={`button-delete-${video.id}`}
+                          data-testid={`button-delete-session-${video.id}`}
+                          id={`button-delete-${video.id}`}
                           className="rounded-lg p-2 text-[#a33d35]/70 hover:bg-[#f7e5e1] hover:text-[#a33d35] transition cursor-pointer"
                         >
                           <Trash2 size={16} />
@@ -729,6 +907,79 @@ export function VideoHistory({ notify }: { notify: Notify }) {
       </div>
     )}
   </div>
+
+      {/* US-44-T4: Delete Confirmation Modal Dialog (AC-3) */}
+      {deletingVideo && (
+        <div
+          data-testid="modal-delete-session"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-session-title"
+          onClick={handleCloseDeleteModal}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-[#ecefe7]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-4">
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#fee2e2] text-[#dc2626]">
+                <AlertCircle size={24} />
+              </div>
+              <div className="flex-1">
+                <h3
+                  id="delete-session-title"
+                  className="text-base font-bold text-[#253142]"
+                >
+                  Delete Practice Take
+                </h3>
+                <p className="mt-1 text-xs text-[#687382] leading-relaxed">
+                  Are you sure you want to permanently delete{' '}
+                  <span className="font-bold text-[#253142]">
+                    "{getVideoTitle(deletingVideo)}"
+                  </span>
+                  ? This will permanently delete the recorded video file from storage, along with all associated AI speech metrics, behavioral tracking, and score analyses.
+                </p>
+                <div className="mt-3 rounded-lg bg-[#fff1f2] border border-[#fecdd3] p-2.5 text-[11px] text-[#9f1239] font-medium flex items-center gap-1.5">
+                  <AlertCircle size={14} className="shrink-0 text-[#e11d48]" />
+                  <span>This action is permanent and cannot be undone.</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3 border-t border-[#ecefe7] pt-4">
+              <button
+                type="button"
+                onClick={handleCloseDeleteModal}
+                disabled={isDeleting}
+                data-testid="button-cancel-delete"
+                className="rounded-xl border border-[#d9dbd1] bg-white px-4 py-2 text-xs font-bold text-[#526072] hover:bg-[#f4f6ef] disabled:opacity-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                data-testid="button-confirm-delete"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#dc2626] px-4 py-2 text-xs font-bold text-white hover:bg-[#b91c1c] disabled:opacity-50 transition shadow-xs cursor-pointer"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={14} />
+                    <span>Delete Permanently</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL 1: VIDEO PREVIEW PLAYER MODAL */}
       {previewVideo && (
