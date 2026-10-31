@@ -52,13 +52,22 @@ def validate_share_token(token: str) -> Tuple[bool, Optional[RecruitmentRoom], O
     if not room.link_is_active:
         return False, room, "This application link has been deactivated by the hiring manager.", 410
 
+    # US-45 AC-4: Check if application deadline has passed
+    if room.application_deadline and timezone.now() > room.application_deadline:
+        room.check_deadline_and_auto_close()
+        return False, room, "The application deadline for this opening has passed and it is no longer accepting submissions.", 410
+
     # Check if link has expired
     if is_token_expired(room):
         return False, room, "This application link has expired and is no longer accepting submissions.", 410
 
-    # Check room operational status
-    if room.status == 'CLOSED':
-        return False, room, "This recruitment opening is currently closed.", 410
+    # US-45 AC-2 & AC-3: Check room operational status
+    if room.status == RecruitmentRoom.Status.DRAFT:
+        return False, room, "This recruitment opening is currently in draft and not yet accepting applications.", 410
+    elif room.status == RecruitmentRoom.Status.PAUSED:
+        return False, room, "This recruitment opening is temporarily paused and not accepting applications.", 410
+    elif room.status == RecruitmentRoom.Status.CLOSED:
+        return False, room, "This recruitment opening is currently closed and no longer accepting applications.", 410
 
     return True, room, None, 200
 

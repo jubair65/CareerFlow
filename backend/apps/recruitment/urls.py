@@ -20,6 +20,7 @@ from .views import (
     CandidateMyApplicationDetailView,
     PublicJobRoomsListView,
     PublicJobRoomDetailView,
+    ApplicationSubmissionGatekeeperView,
 )
 
 app_name = 'recruitment'
@@ -34,6 +35,9 @@ urlpatterns = [
     # US-43B: Applicant Job Room Discovery Dashboard (Job Board) Endpoints
     path('rooms/public/', PublicJobRoomsListView.as_view(), name='public-job-rooms-list'),
     path('rooms/public/<int:room_id>/', PublicJobRoomDetailView.as_view(), name='public-job-room-detail'),
+
+    # US-45-T3: Room Status & Deadline Application Submission Gatekeeper
+    path('applications/submit/', ApplicationSubmissionGatekeeperView.as_view(), name='application-submit-gatekeeper'),
 
     # US-43: Candidate "My Applications" Tracking Dashboard Endpoints
     path('applications/my/', CandidateMyApplicationsListView.as_view(), name='candidate-my-applications-list'),

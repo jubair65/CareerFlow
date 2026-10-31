@@ -36,6 +36,8 @@ from .serializers import (
     ApplicantApplicationStatusSerializer,
     StatusNotificationLogSerializer,
     JobBoardRoomSerializer,
+    RoomStatusUpdateSerializer,
+    RoomDeadlineUpdateSerializer,
 )
 from .permissions import (
     IsHRManager,
@@ -105,13 +107,34 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
         if not user or not user.is_authenticated:
             return RecruitmentRoom.objects.none()
         if user.role == User.Role.HR_MANAGER:
-            return RecruitmentRoom.objects.filter(created_by=user).order_by('-created_at')
+            qs = RecruitmentRoom.objects.filter(created_by=user).order_by('-created_at')
         elif user.role == User.Role.AGENCY_ADMIN:
-            return RecruitmentRoom.objects.filter(created_by=user).select_related('client_company').order_by('-created_at')
-        return RecruitmentRoom.objects.none()
+            qs = RecruitmentRoom.objects.filter(created_by=user).select_related('client_company').order_by('-created_at')
+        else:
+            return RecruitmentRoom.objects.none()
+
+        # US-45 AC-6: Filter rooms by lifecycle status
+        status_param = self.request.query_params.get('status')
+        if status_param and status_param.upper() != 'ALL':
+            st = status_param.strip().upper()
+            if st in ['OPEN', 'ACTIVE']:
+                qs = qs.filter(status__in=['OPEN', 'ACTIVE'])
+            else:
+                qs = qs.filter(status=st)
+
+        return qs
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        if 'application_deadline' in serializer.validated_data:
+            dl = serializer.validated_data['application_deadline']
+            if dl is not None and instance.link_expires_at != dl:
+                instance.link_expires_at = dl
+                instance.save(update_fields=['link_expires_at'])
+            instance.check_deadline_and_auto_close()
 
     def create(self, request, *args, **kwargs):
         if request.user.role == User.Role.AGENCY_ADMIN:
@@ -309,6 +332,85 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
             {
                 "message": "Application link has been regenerated with a new secure token.",
                 "link": serializer.data,
+            },
+            status=status.HTTP_200_OK
+        )
+
+    @action(detail=True, methods=['get', 'patch', 'put'], url_path='status')
+    def status(self, request, pk=None):
+        """
+        US-45-T2: Update room operational status (Draft, Open, Paused, Closed).
+        Allows manual reopening of paused and closed rooms (AC-5).
+        """
+        room = self.get_object()
+
+        if request.method == 'GET':
+            return Response(
+                {
+                    "room_id": room.id,
+                    "title": room.title,
+                    "status": room.status,
+                    "status_display": room.get_status_display(),
+                },
+                status=status.HTTP_200_OK
+            )
+
+        serializer = RoomStatusUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        new_status = serializer.validated_data['status']
+
+        room.status = new_status
+        room.save(update_fields=['status', 'updated_at'])
+
+        full_serializer = RecruitmentRoomSerializer(room, context={'request': request})
+        return Response(
+            {
+                "message": f"Room status updated to {room.get_status_display()}.",
+                "room": full_serializer.data,
+                "status": room.status,
+                "status_display": room.get_status_display(),
+            },
+            status=status.HTTP_200_OK
+        )
+
+    @action(detail=True, methods=['get', 'patch', 'put'], url_path='deadline')
+    def deadline(self, request, pk=None):
+        """
+        US-45-T2: Set or update room application deadline.
+        Accepts ISO datetime or null/empty to clear.
+        """
+        room = self.get_object()
+
+        if request.method == 'GET':
+            return Response(
+                {
+                    "room_id": room.id,
+                    "title": room.title,
+                    "application_deadline": room.application_deadline,
+                    "is_past_deadline": room.is_past_deadline,
+                },
+                status=status.HTTP_200_OK
+            )
+
+        serializer = RoomDeadlineUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        new_deadline = serializer.validated_data.get('application_deadline')
+
+        room.application_deadline = new_deadline
+        if new_deadline is not None:
+            room.link_expires_at = new_deadline
+        room.save(update_fields=['application_deadline', 'link_expires_at', 'updated_at'])
+
+        # AC-4: Auto close if room was open and newly set deadline is already in the past
+        room.check_deadline_and_auto_close()
+
+        full_serializer = RecruitmentRoomSerializer(room, context={'request': request})
+        return Response(
+            {
+                "message": "Application deadline updated successfully.",
+                "room": full_serializer.data,
+                "application_deadline": room.application_deadline,
+                "is_past_deadline": room.is_past_deadline,
             },
             status=status.HTTP_200_OK
         )
@@ -550,10 +652,16 @@ class PublicApplicationView(APIView):
         if not is_valid:
             if status_code == 404:
                 error_code = "LINK_NOT_FOUND"
-            elif room and room.status == 'CLOSED':
-                error_code = "ROOM_CLOSED"
+            elif room and room.application_deadline and timezone.now() > room.application_deadline:
+                error_code = "DEADLINE_PASSED"
             elif room and is_token_expired(room):
                 error_code = "LINK_EXPIRED"
+            elif room and room.status == 'DRAFT':
+                error_code = "ROOM_DRAFT"
+            elif room and room.status == 'PAUSED':
+                error_code = "ROOM_PAUSED"
+            elif room and room.status == 'CLOSED':
+                error_code = "ROOM_CLOSED"
             else:
                 error_code = "LINK_DEACTIVATED"
             return Response(
@@ -563,6 +671,8 @@ class PublicApplicationView(APIView):
                     "is_active": False,
                     "room_title": room.title if room else None,
                     "company_name": room.company_name if room else None,
+                    "status": room.status if room else None,
+                    "application_deadline": room.application_deadline if room else None,
                 },
                 status=status_code
             )
@@ -582,7 +692,18 @@ class PublicApplicationSubmitView(APIView):
     def post(self, request, token):
         is_valid, room, error_message, status_code = validate_share_token(token)
         if not is_valid:
-            return Response({"error": error_message}, status=status_code)
+            error_code = "ROOM_CLOSED"
+            if room and room.application_deadline and timezone.now() > room.application_deadline:
+                error_code = "DEADLINE_PASSED"
+            elif room and is_token_expired(room):
+                error_code = "LINK_EXPIRED"
+            elif room and room.status == 'DRAFT':
+                error_code = "ROOM_DRAFT"
+            elif room and room.status == 'PAUSED':
+                error_code = "ROOM_PAUSED"
+            elif room and room.status == 'CLOSED':
+                error_code = "ROOM_CLOSED"
+            return Response({"error": error_message, "code": error_code}, status=status_code)
 
         full_name = request.data.get('full_name')
         email = request.data.get('email')
@@ -671,6 +792,83 @@ class PublicApplicationSubmitView(APIView):
             },
             status=status.HTTP_201_CREATED
         )
+
+
+class ApplicationSubmissionGatekeeperView(APIView):
+    """
+    US-45-T3: Central submission gatekeeper endpoint checking room status and deadline.
+    POST /api/recruitment/applications/submit/
+    Accepts application submissions, intercepting and rejecting submissions if
+    the room is DRAFT, PAUSED, CLOSED, or if the application deadline has expired.
+    """
+    permission_classes = [permissions.AllowAny]
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request):
+        token = request.data.get('token')
+        room_id = request.data.get('room_id') or request.data.get('room')
+
+        if not token and not room_id:
+            return Response(
+                {"error": "Application token or room_id is required.", "code": "MISSING_IDENTIFIER"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if token:
+            is_valid, room, error_message, status_code = validate_share_token(token)
+            if not is_valid:
+                error_code = "ROOM_CLOSED"
+                if room and room.status == 'DRAFT':
+                    error_code = "ROOM_DRAFT"
+                elif room and room.status == 'PAUSED':
+                    error_code = "ROOM_PAUSED"
+                elif room and room.status == 'CLOSED':
+                    error_code = "ROOM_CLOSED"
+                elif room and (room.is_past_deadline or is_token_expired(room)):
+                    error_code = "DEADLINE_PASSED"
+                return Response({"error": error_message, "code": error_code}, status=status_code)
+        else:
+            try:
+                room = RecruitmentRoom.objects.get(id=room_id)
+            except RecruitmentRoom.DoesNotExist:
+                return Response(
+                    {"error": "The specified recruitment room does not exist.", "code": "ROOM_NOT_FOUND"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            if not room.link_is_active:
+                return Response(
+                    {"error": "This application link has been deactivated by the hiring manager.", "code": "LINK_DEACTIVATED"},
+                    status=status.HTTP_410_GONE
+                )
+
+            if room.is_past_deadline:
+                room.check_deadline_and_auto_close()
+                return Response(
+                    {"error": "The application deadline for this opening has passed and it is no longer accepting submissions.", "code": "DEADLINE_PASSED"},
+                    status=status.HTTP_410_GONE
+                )
+
+            if room.status == RecruitmentRoom.Status.DRAFT:
+                return Response(
+                    {"error": "This recruitment opening is currently in draft and not yet accepting applications.", "code": "ROOM_DRAFT"},
+                    status=status.HTTP_410_GONE
+                )
+            elif room.status == RecruitmentRoom.Status.PAUSED:
+                return Response(
+                    {"error": "This recruitment opening is temporarily paused and not accepting applications.", "code": "ROOM_PAUSED"},
+                    status=status.HTTP_410_GONE
+                )
+            elif room.status == RecruitmentRoom.Status.CLOSED:
+                return Response(
+                    {"error": "This recruitment opening is currently closed and no longer accepting applications.", "code": "ROOM_CLOSED"},
+                    status=status.HTTP_410_GONE
+                )
+
+            token = room.share_token
+
+        # Delegate to PublicApplicationSubmitView with the verified room token
+        return PublicApplicationSubmitView().post(request, token=token)
 
 
 # ============================================================================
@@ -1488,11 +1686,14 @@ class PublicJobRoomsListView(APIView):
         qs = (
             RecruitmentRoom.objects
             .filter(
-                status=RecruitmentRoom.Status.ACTIVE,
+                status__in=[RecruitmentRoom.Status.ACTIVE, RecruitmentRoom.Status.OPEN],
                 link_is_active=True
             )
             .filter(
                 Q(link_expires_at__isnull=True) | Q(link_expires_at__gt=now)
+            )
+            .filter(
+                Q(application_deadline__isnull=True) | Q(application_deadline__gt=now)
             )
             .select_related('client_company', 'created_by')
             .order_by('-created_at')
@@ -1569,10 +1770,12 @@ class PublicJobRoomDetailView(APIView):
         now = timezone.now()
         room = get_object_or_404(
             RecruitmentRoom.objects.filter(
-                status=RecruitmentRoom.Status.ACTIVE,
+                status__in=[RecruitmentRoom.Status.ACTIVE, RecruitmentRoom.Status.OPEN],
                 link_is_active=True
             ).filter(
                 Q(link_expires_at__isnull=True) | Q(link_expires_at__gt=now)
+            ).filter(
+                Q(application_deadline__isnull=True) | Q(application_deadline__gt=now)
             ),
             id=room_id
         )

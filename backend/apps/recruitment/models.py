@@ -1,6 +1,7 @@
 import secrets
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 
@@ -71,7 +72,9 @@ class ClientCompany(models.Model):
 
 class RecruitmentRoom(models.Model):
     class Status(models.TextChoices):
-        ACTIVE = 'ACTIVE', 'Active'
+        DRAFT = 'DRAFT', 'Draft'
+        OPEN = 'OPEN', 'Open'
+        ACTIVE = 'ACTIVE', 'Active'  # Backward compatibility alias for OPEN
         PAUSED = 'PAUSED', 'Paused'
         CLOSED = 'CLOSED', 'Closed'
 
@@ -162,6 +165,13 @@ class RecruitmentRoom(models.Model):
         help_text="Optional expiration timestamp for the shareable link"
     )
 
+    # US-45: Recruitment Room Lifecycle & Expiration Management
+    application_deadline = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Application submission deadline date and time for the room"
+    )
+
     # US-25: Automatic Candidate Shortlisting Foundation
     class ShortlistStrategy(models.TextChoices):
         NONE = 'NONE', 'None (Disabled)'
@@ -249,6 +259,43 @@ class RecruitmentRoom(models.Model):
                 if s:
                     names.append(s)
         return names
+
+    # US-45: Lifecycle State & Deadline Helper Properties
+    @property
+    def is_past_deadline(self) -> bool:
+        """
+        AC-4: Checks if room application deadline has passed.
+        Checks application_deadline first, then falls back to link_expires_at.
+        """
+        now = timezone.now()
+        if self.application_deadline is not None:
+            return now > self.application_deadline
+        if self.link_expires_at is not None:
+            return now > self.link_expires_at
+        return False
+
+    @property
+    def is_open(self) -> bool:
+        """Returns True if the room is actively open for applications."""
+        return self.status in [self.Status.OPEN, self.Status.ACTIVE]
+
+    @property
+    def is_accepting_applications(self) -> bool:
+        """
+        Returns True only if room is OPEN/ACTIVE, deadline has not passed, and link is active.
+        """
+        return self.is_open and not self.is_past_deadline and self.link_is_active
+
+    def check_deadline_and_auto_close(self) -> bool:
+        """
+        AC-4: Room automatically transitions to Closed or rejects applications past deadline.
+        Returns True if the room was transitioned to CLOSED.
+        """
+        if self.status in [self.Status.OPEN, self.Status.ACTIVE] and self.is_past_deadline:
+            self.status = self.Status.CLOSED
+            self.save(update_fields=['status', 'updated_at'])
+            return True
+        return False
 
 
 class CandidateApplication(models.Model):

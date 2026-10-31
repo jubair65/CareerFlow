@@ -25,7 +25,10 @@ export interface RecruitmentRoom {
   experience_level?: 'ENTRY' | 'MID' | 'SENIOR' | 'LEAD';
   experience_level_display?: string;
   description: string;
-  status: 'ACTIVE' | 'PAUSED' | 'CLOSED';
+  status: 'DRAFT' | 'OPEN' | 'ACTIVE' | 'PAUSED' | 'CLOSED';
+  status_display?: string;
+  application_deadline?: string | null;
+  is_past_deadline?: boolean;
   requirements_text: string;
   skills_required: (string | SkillItem)[];
   cv_weight: number;
@@ -50,6 +53,8 @@ export interface CreateRoomPayload {
   company_name: string;
   department?: string;
   description?: string;
+  status?: 'DRAFT' | 'OPEN' | 'ACTIVE' | 'PAUSED' | 'CLOSED';
+  application_deadline?: string | null;
 }
 
 export interface UpdateRoomPayload {
@@ -57,7 +62,8 @@ export interface UpdateRoomPayload {
   company_name?: string;
   department?: string;
   description?: string;
-  status?: 'ACTIVE' | 'PAUSED' | 'CLOSED';
+  status?: 'DRAFT' | 'OPEN' | 'ACTIVE' | 'PAUSED' | 'CLOSED';
+  application_deadline?: string | null;
 }
 
 export interface RoomRequirementsPayload {
@@ -131,6 +137,35 @@ export async function apiCreateRoom(payload: CreateRoomPayload): Promise<RoomApi
  */
 export async function apiUpdateRoom(id: number | string, payload: UpdateRoomPayload): Promise<RoomApiResponse> {
   const response = await apiClient.patch<RoomApiResponse>(`/recruitment/rooms/${id}/`, payload);
+  return response.data;
+}
+
+/**
+ * US-45-T2: Update operational status of a room (DRAFT, OPEN, ACTIVE, PAUSED, CLOSED).
+ * Allows manual reopening of paused and closed rooms (AC-5).
+ */
+export async function apiUpdateRoomStatus(
+  id: number | string,
+  status: 'DRAFT' | 'OPEN' | 'ACTIVE' | 'PAUSED' | 'CLOSED'
+): Promise<{ message: string; room: RecruitmentRoom; status: string; status_display: string }> {
+  const response = await apiClient.patch<{ message: string; room: RecruitmentRoom; status: string; status_display: string }>(
+    `/recruitment/rooms/${id}/status/`,
+    { status }
+  );
+  return response.data;
+}
+
+/**
+ * US-45-T2: Set or update application submission deadline for a room (AC-1).
+ */
+export async function apiUpdateRoomDeadline(
+  id: number | string,
+  deadline: string | null
+): Promise<{ message: string; room: RecruitmentRoom; application_deadline: string | null; is_past_deadline: boolean }> {
+  const response = await apiClient.patch<{ message: string; room: RecruitmentRoom; application_deadline: string | null; is_past_deadline: boolean }>(
+    `/recruitment/rooms/${id}/deadline/`,
+    { application_deadline: deadline }
+  );
   return response.data;
 }
 
@@ -259,7 +294,10 @@ export interface PublicRoomDetails {
   share_url: string;
   link_is_active: boolean;
   link_expires_at: string | null;
-  status: 'ACTIVE' | 'PAUSED' | 'CLOSED';
+  application_deadline?: string | null;
+  is_past_deadline?: boolean;
+  status: 'DRAFT' | 'OPEN' | 'ACTIVE' | 'PAUSED' | 'CLOSED';
+  status_display?: string;
   created_at: string;
 }
 

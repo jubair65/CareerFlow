@@ -8,6 +8,8 @@ class RecruitmentRoomSerializer(serializers.ModelSerializer):
     created_by_name = serializers.ReadOnlyField(source='created_by.full_name')
     created_by_email = serializers.ReadOnlyField(source='created_by.email')
     experience_level_display = serializers.CharField(source='get_experience_level_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    is_past_deadline = serializers.BooleanField(read_only=True)
     share_url = serializers.SerializerMethodField()
     company_name = serializers.CharField(required=False, allow_blank=True)
     client_company = serializers.PrimaryKeyRelatedField(
@@ -33,6 +35,9 @@ class RecruitmentRoomSerializer(serializers.ModelSerializer):
             'experience_level_display',
             'description',
             'status',
+            'status_display',
+            'application_deadline',
+            'is_past_deadline',
             'requirements_text',
             'skills_required',
             'cv_weight',
@@ -56,6 +61,8 @@ class RecruitmentRoomSerializer(serializers.ModelSerializer):
             'share_url',
             'client_company_name',
             'client_company_details',
+            'status_display',
+            'is_past_deadline',
             'created_by',
             'created_by_name',
             'created_by_email',
@@ -310,6 +317,37 @@ class RoomShareLinkSerializer(serializers.ModelSerializer):
         return is_token_expired(obj)
 
 
+class RoomStatusUpdateSerializer(serializers.Serializer):
+    """
+    US-45-T2: Serializer for updating recruitment room operational status.
+    Supports DRAFT, OPEN, ACTIVE, PAUSED, CLOSED.
+    """
+    status = serializers.ChoiceField(
+        choices=[
+            ('DRAFT', 'Draft'),
+            ('OPEN', 'Open'),
+            ('ACTIVE', 'Active'),
+            ('PAUSED', 'Paused'),
+            ('CLOSED', 'Closed'),
+        ]
+    )
+
+    def validate_status(self, value):
+        val = value.strip().upper()
+        valid = ['DRAFT', 'OPEN', 'ACTIVE', 'PAUSED', 'CLOSED']
+        if val not in valid:
+            raise serializers.ValidationError(f"Invalid status '{value}'. Must be one of: {', '.join(valid)}.")
+        return val
+
+
+class RoomDeadlineUpdateSerializer(serializers.Serializer):
+    """
+    US-45-T2: Serializer for setting or updating recruitment room application deadline.
+    Accepts ISO datetime or null/None to clear deadline.
+    """
+    application_deadline = serializers.DateTimeField(required=False, allow_null=True)
+
+
 class PublicRoomDetailsSerializer(serializers.ModelSerializer):
     """
     US-21-T3: Public unauthenticated serializer for candidate application page.
@@ -318,6 +356,8 @@ class PublicRoomDetailsSerializer(serializers.ModelSerializer):
     share_url = serializers.SerializerMethodField()
     skill_names = serializers.SerializerMethodField()
     experience_level_display = serializers.CharField(source='get_experience_level_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    is_past_deadline = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = RecruitmentRoom
@@ -339,7 +379,10 @@ class PublicRoomDetailsSerializer(serializers.ModelSerializer):
             'share_url',
             'link_is_active',
             'link_expires_at',
+            'application_deadline',
+            'is_past_deadline',
             'status',
+            'status_display',
             'created_at',
         ]
         read_only_fields = fields
