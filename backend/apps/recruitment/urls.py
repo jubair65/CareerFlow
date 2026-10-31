@@ -14,6 +14,8 @@ from .views import (
     AgencyForwardHistoryView,
     CandidateApplicationReportPdfView,
     RecruitmentRoomSummaryPdfView,
+    RecruitmentRoomExportCsvView,
+    RecruitmentRoomExportExcelView,
     ApplicantStatusListView,
     ApplicantStatusDetailView,
     CandidateMyApplicationsListView,
@@ -32,6 +34,10 @@ router.register(r'agency/rooms', AgencyRoomViewSet, basename='agency-rooms')
 router.register(r'agency/applicants', AgencyCrossClientApplicantViewSet, basename='agency-applicants')
 
 urlpatterns = [
+    # US-46: Bulk Applicant Data Export (CSV / Excel) Endpoints
+    path('rooms/<int:room_id>/export/csv/', RecruitmentRoomExportCsvView.as_view(), name='room-export-csv'),
+    path('rooms/<int:room_id>/export/excel/', RecruitmentRoomExportExcelView.as_view(), name='room-export-excel'),
+
     # US-43B: Applicant Job Room Discovery Dashboard (Job Board) Endpoints
     path('rooms/public/', PublicJobRoomsListView.as_view(), name='public-job-rooms-list'),
     path('rooms/public/<int:room_id>/', PublicJobRoomDetailView.as_view(), name='public-job-room-detail'),
