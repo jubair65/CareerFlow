@@ -436,7 +436,7 @@ export function AgencyRoomsPage({ notify }: { notify: Notify }) {
                           </div>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                           {group.rooms.map((room) => {
                             const origin = window.location.origin;
                             const shareUrl = `${origin}/apply/${room.share_token}`;
@@ -536,13 +536,13 @@ export function AgencyRoomsPage({ notify }: { notify: Notify }) {
                                 </div>
 
                                 {/* Room Action Buttons */}
-                                <div className="mt-4 pt-3 border-t border-[#eef0e7] flex items-center justify-between gap-1.5">
-                                  <div className="flex items-center gap-1.5">
+                                <div className="mt-4 pt-3 border-t border-[#eef0e7] flex flex-wrap items-center justify-between gap-2 min-w-0">
+                                  <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                                     <button
                                       type="button"
                                       onClick={() => setRequirementsModalRoom(room)}
                                       data-testid={`button-config-reqs-${room.id}`}
-                                      className="inline-flex items-center gap-1 rounded-lg border border-[#d9dbd1] bg-white px-2 py-1 text-[11px] font-bold text-[#253142] hover:bg-[#eef0e7] transition"
+                                      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#d9dbd1] bg-white px-2 py-1 text-[11px] font-bold text-[#253142] hover:bg-[#eef0e7] transition cursor-pointer"
                                       title="Configure criteria & skills"
                                     >
                                       <FileText size={12} className="text-[#277254]" /> Criteria
@@ -551,7 +551,7 @@ export function AgencyRoomsPage({ notify }: { notify: Notify }) {
                                       type="button"
                                       onClick={() => setWeightingModalRoom(room)}
                                       data-testid={`button-config-weights-${room.id}`}
-                                      className="inline-flex items-center gap-1 rounded-lg border border-[#d9dbd1] bg-white px-2 py-1 text-[11px] font-bold text-[#253142] hover:bg-[#eef0e7] transition"
+                                      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#d9dbd1] bg-white px-2 py-1 text-[11px] font-bold text-[#253142] hover:bg-[#eef0e7] transition cursor-pointer"
                                       title="Configure CV/Video weighting"
                                     >
                                       <SlidersHorizontal size={12} className="text-[#277254]" /> Weights
@@ -560,7 +560,7 @@ export function AgencyRoomsPage({ notify }: { notify: Notify }) {
                                       type="button"
                                       onClick={() => setShortlistModalRoom(room)}
                                       data-testid={`button-config-shortlist-${room.id}`}
-                                      className="inline-flex items-center gap-1 rounded-lg border border-[#d9dbd1] bg-white px-2 py-1 text-[11px] font-bold text-[#253142] hover:bg-[#eef0e7] transition cursor-pointer"
+                                      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#d9dbd1] bg-white px-2 py-1 text-[11px] font-bold text-[#253142] hover:bg-[#eef0e7] transition cursor-pointer"
                                       title="Configure automatic shortlisting rules"
                                     >
                                       <Star size={12} className="text-[#8a6a16]" /> Shortlist
@@ -572,7 +572,7 @@ export function AgencyRoomsPage({ notify }: { notify: Notify }) {
                                     data-testid={`select-room-status-${room.id}`}
                                     value={room.status}
                                     onChange={(e) => handleToggleRoomStatus(room, e.target.value as any)}
-                                    className="rounded-lg border border-[#d9dbd1] bg-white px-1.5 py-1 text-[10px] font-semibold text-[#526072] focus:border-[#277254] focus:outline-hidden"
+                                    className="shrink-0 rounded-lg border border-[#d9dbd1] bg-white px-2 py-1 text-[11px] font-semibold text-[#526072] focus:border-[#277254] focus:outline-hidden cursor-pointer min-w-[80px]"
                                   >
                                     <option value="ACTIVE">Active</option>
                                     <option value="PAUSED">Paused</option>

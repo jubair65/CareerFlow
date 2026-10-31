@@ -18,6 +18,8 @@ from .views import (
     ApplicantStatusDetailView,
     CandidateMyApplicationsListView,
     CandidateMyApplicationDetailView,
+    PublicJobRoomsListView,
+    PublicJobRoomDetailView,
 )
 
 app_name = 'recruitment'
@@ -29,6 +31,10 @@ router.register(r'agency/rooms', AgencyRoomViewSet, basename='agency-rooms')
 router.register(r'agency/applicants', AgencyCrossClientApplicantViewSet, basename='agency-applicants')
 
 urlpatterns = [
+    # US-43B: Applicant Job Room Discovery Dashboard (Job Board) Endpoints
+    path('rooms/public/', PublicJobRoomsListView.as_view(), name='public-job-rooms-list'),
+    path('rooms/public/<int:room_id>/', PublicJobRoomDetailView.as_view(), name='public-job-room-detail'),
+
     # US-43: Candidate "My Applications" Tracking Dashboard Endpoints
     path('applications/my/', CandidateMyApplicationsListView.as_view(), name='candidate-my-applications-list'),
     path('applications/my/<int:application_id>/', CandidateMyApplicationDetailView.as_view(), name='candidate-my-application-detail'),

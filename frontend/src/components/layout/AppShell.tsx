@@ -6,6 +6,7 @@ import {
   Presentation,
   Video,
   FileText,
+  Briefcase,
   BriefcaseBusiness,
   TrendingUp,
   FolderOpen,
@@ -119,6 +120,10 @@ export function AppShell({
     };
   }, [refreshUnreadCount]);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [path]);
+
   const storedUser = getStoredUser();
   const rawRole =
     user?.role ||
@@ -143,6 +148,7 @@ export function AppShell({
     effectiveRole === 'student'
       ? [
           { icon: LayoutDashboard, label: 'Overview', path: '/student/dashboard', active: true },
+          { icon: Briefcase, label: 'Job Board', path: '/student/jobs' },
           { icon: Presentation, label: 'Practice', path: '/student/practice' },
           { icon: Video, label: 'Video history', path: '/student/videos' },
           { icon: FileText, label: 'CV studio', path: '/student/cv' },
@@ -250,6 +256,7 @@ export function AppShell({
                 path === itemPath ||
                 (active && path === itemPath) ||
                 (itemPath === '/student/cv' && path.startsWith('/student/cv')) ||
+                (itemPath === '/student/jobs' && (path === '/student/jobs' || path === '/jobs' || path.startsWith('/student/jobs'))) ||
                 (itemPath === '/student/applications' && (path === '/student/applications' || path.startsWith('/applications'))) ||
                 (itemPath === '/agency/pipeline' && (path === '/agency/applicants' || path === '/agency/pipeline')) ||
                 (itemPath === '/student/videos' && (path === '/presentation/history' || path.startsWith('/presentation/history'))) ||
@@ -374,7 +381,7 @@ export function AppShell({
 
       {/* Main Content Area */}
       <main className="min-w-0 flex-1 w-full max-w-full">
-        <header className="cf-appbar sticky top-0 z-10 flex h-[72px] items-center justify-between border-b border-[#dedfd6] bg-[#f5f1e6]/90 px-4 sm:px-6 lg:px-8 backdrop-blur-md">
+        <header className="cf-appbar sticky top-0 z-20 flex h-[72px] items-center justify-between border-b border-[#dedfd6] bg-[#f5f1e6] px-4 sm:px-6 lg:px-8">
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
