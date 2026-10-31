@@ -271,7 +271,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .cf-grid-bg { background-image: linear-gradient(hsl(var(--border) / .45) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--border) / .45) 1px, transparent 1px); background-size: 28px 28px; }
 .cf-noise { position: relative; isolation: isolate; }
 .cf-noise::after { content:""; position: fixed; inset:0; pointer-events:none; opacity:.028; z-index:30; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E"); }
-.cf-appbar { background: hsl(var(--background) / .86); backdrop-filter: blur(14px); }
+.cf-appbar { background: hsl(var(--background)); }
 .cf-progress { overflow:hidden; background:hsl(var(--secondary)); border-radius:999px; }
 .cf-progress > span { display:block; height:100%; border-radius:inherit; background:hsl(var(--accent)); transition: width .5s ease; }
 .cf-bar { height: 10px; border-radius: 3px 3px 0 0; background: hsl(var(--primary)); transform-origin: bottom; transition: height .6s ease; }

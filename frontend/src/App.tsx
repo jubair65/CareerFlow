@@ -30,6 +30,7 @@ import { AgencyApplicantsPipelinePage } from './pages/AgencyApplicantsPipelinePa
 import { NotificationsPage } from './pages/NotificationsPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ApplicantStatusPage } from './pages/ApplicantStatusPage';
+import { JobBoardPage } from './pages/JobBoardPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { HrApplicantsPage } from './pages/HrApplicantsPage';
@@ -775,6 +776,14 @@ function RoutedApp({ notify }: { notify: Notify }) {
     return (
       <ProtectedRoute allowedRoles={['student']} notify={notify}>
         <ApplicantStatusPage notify={notify} />
+      </ProtectedRoute>
+    );
+  }
+
+  if (path === '/student/jobs' || path === '/jobs') {
+    return (
+      <ProtectedRoute allowedRoles={['student']} notify={notify}>
+        <JobBoardPage notify={notify} />
       </ProtectedRoute>
     );
   }

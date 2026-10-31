@@ -1,4 +1,5 @@
-from django.db.models import Q
+from django.db.models import Q, Exists, OuterRef
+from django.utils import timezone
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, permissions, status
@@ -34,6 +35,7 @@ from .serializers import (
     CandidateForwardRecordSerializer,
     ApplicantApplicationStatusSerializer,
     StatusNotificationLogSerializer,
+    JobBoardRoomSerializer,
 )
 from .permissions import (
     IsHRManager,
@@ -1457,3 +1459,123 @@ class CandidateMyApplicationDetailView(APIView):
 
         serializer = ApplicantApplicationStatusSerializer(application, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# ============================================================================
+# US-43B: Applicant Job Room Discovery Dashboard (Job Board)
+# ============================================================================
+
+class PublicJobRoomsListView(APIView):
+    """
+    US-43B-T1 & US-43B-T2:
+    Public and Candidate Job Board endpoint to discover open recruitment rooms.
+    Filters:
+      - status='ACTIVE' (hides CLOSED and PAUSED rooms, AC #3)
+      - link_is_active=True
+      - link_expires_at is null or > now (hides expired rooms, AC #3)
+    Annotates:
+      - is_applied / has_applied flag per authenticated candidate (AC #5)
+    Parameters:
+      - search: filter by title, company_name, department, role_category, description (AC #6)
+      - experience_level / role_level: filter by ENTRY, MID, SENIOR, LEAD
+      - department: filter by department
+      - page, page_size: pagination support
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        now = timezone.now()
+        qs = (
+            RecruitmentRoom.objects
+            .filter(
+                status=RecruitmentRoom.Status.ACTIVE,
+                link_is_active=True
+            )
+            .filter(
+                Q(link_expires_at__isnull=True) | Q(link_expires_at__gt=now)
+            )
+            .select_related('client_company', 'created_by')
+            .order_by('-created_at')
+        )
+
+        # Keyword Search (AC #6)
+        search = request.query_params.get('search')
+        if search:
+            search_term = search.strip()
+            qs = qs.filter(
+                Q(title__icontains=search_term) |
+                Q(company_name__icontains=search_term) |
+                Q(department__icontains=search_term) |
+                Q(role_category__icontains=search_term) |
+                Q(description__icontains=search_term)
+            )
+
+        # Experience Level filter
+        exp_level = request.query_params.get('experience_level') or request.query_params.get('role_level')
+        if exp_level and exp_level.upper() != 'ALL':
+            qs = qs.filter(experience_level__iexact=exp_level.strip())
+
+        # Department filter
+        dept = request.query_params.get('department')
+        if dept and dept.upper() != 'ALL':
+            qs = qs.filter(department__icontains=dept.strip())
+
+        # Annotate user application subquery if authenticated (US-43B-T2)
+        if request.user and request.user.is_authenticated:
+            user_app_subquery = CandidateApplication.objects.filter(
+                room=OuterRef('pk')
+            ).filter(
+                Q(candidate=request.user) | Q(candidate__email__iexact=request.user.email)
+            )
+            qs = qs.annotate(user_has_applied=Exists(user_app_subquery))
+
+        # Pagination support if page parameter is passed
+        page_param = request.query_params.get('page')
+        if page_param:
+            try:
+                page_num = int(page_param)
+            except ValueError:
+                page_num = 1
+            try:
+                page_size = int(request.query_params.get('page_size', 10))
+            except ValueError:
+                page_size = 10
+
+            from django.core.paginator import Paginator
+            paginator = Paginator(qs, page_size)
+            page_obj = paginator.get_page(page_num)
+            serializer = JobBoardRoomSerializer(page_obj.object_list, many=True, context={'request': request})
+            return Response({
+                'count': paginator.count,
+                'total_pages': paginator.num_pages,
+                'current_page': page_obj.number,
+                'has_next': page_obj.has_next(),
+                'has_previous': page_obj.has_previous(),
+                'results': serializer.data,
+            }, status=status.HTTP_200_OK)
+
+        serializer = JobBoardRoomSerializer(qs, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PublicJobRoomDetailView(APIView):
+    """
+    US-43B-T1 & US-43B-T4:
+    Retrieve single open job room details for discovery and application.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, room_id):
+        now = timezone.now()
+        room = get_object_or_404(
+            RecruitmentRoom.objects.filter(
+                status=RecruitmentRoom.Status.ACTIVE,
+                link_is_active=True
+            ).filter(
+                Q(link_expires_at__isnull=True) | Q(link_expires_at__gt=now)
+            ),
+            id=room_id
+        )
+        serializer = JobBoardRoomSerializer(room, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+

@@ -1466,3 +1466,79 @@ export async function apiGetApplicationStatusDetail(
   const response = await apiClient.get<ApplicantApplicationStatus>(`/recruitment/applications/${applicationId}/status/`);
   return response.data;
 }
+
+
+// ============================================================================
+// US-43B: Applicant Job Room Discovery Dashboard (Job Board)
+// ============================================================================
+
+export interface JobBoardRoom {
+  id: number;
+  title: string;
+  company_name: string;
+  department: string;
+  role_category: string;
+  experience_level: 'ENTRY' | 'MID' | 'SENIOR' | 'LEAD';
+  experience_level_display: string;
+  role_level?: string;
+  description: string;
+  requirements_text: string;
+  skills_required: (string | SkillItem)[];
+  skill_names: string[];
+  cv_weight: number;
+  video_weight: number;
+  share_token: string;
+  share_url: string;
+  link_is_active: boolean;
+  link_expires_at: string | null;
+  deadline: string | null;
+  status: string;
+  created_at: string;
+  client_company?: number | null;
+  client_company_name?: string | null;
+  has_applied: boolean;
+  is_applied: boolean;
+  application_id?: number | null;
+  application_status?: string | null;
+  applied_at?: string | null;
+}
+
+export interface JobBoardQueryParams {
+  search?: string;
+  experience_level?: string;
+  role_level?: string;
+  department?: string;
+  role_category?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export interface JobBoardPaginatedResponse {
+  count: number;
+  total_pages: number;
+  current_page: number;
+  has_next: boolean;
+  has_previous: boolean;
+  results: JobBoardRoom[];
+}
+
+export async function apiGetPublicJobRooms(
+  params?: JobBoardQueryParams
+): Promise<JobBoardRoom[]> {
+  const response = await apiClient.get<JobBoardRoom[] | JobBoardPaginatedResponse>(
+    '/recruitment/rooms/public/',
+    { params }
+  );
+  if (Array.isArray(response.data)) {
+    return response.data;
+  }
+  return response.data.results || [];
+}
+
+export async function apiGetPublicJobRoomDetail(
+  roomId: number | string
+): Promise<JobBoardRoom> {
+  const response = await apiClient.get<JobBoardRoom>(`/recruitment/rooms/public/${roomId}/`);
+  return response.data;
+}
+

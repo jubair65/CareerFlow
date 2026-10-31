@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import serializers
 from apps.authentication.models import User
 from .models import RecruitmentRoom, ClientCompany, CandidateApplication, CandidateForwardRecord, StatusNotificationLog
@@ -1253,3 +1254,100 @@ class ApplicantApplicationStatusSerializer(serializers.ModelSerializer):
                 'score': obj.video_score,
             }
         return None
+
+
+class JobBoardRoomSerializer(serializers.ModelSerializer):
+    """
+    US-43B-T1 & US-43B-T2:
+    Public job board serializer for discovery of open recruitment rooms.
+    Annotates whether the authenticated candidate has already applied (has_applied / is_applied).
+    """
+    share_url = serializers.SerializerMethodField()
+    skill_names = serializers.SerializerMethodField()
+    experience_level_display = serializers.CharField(source='get_experience_level_display', read_only=True)
+    role_level = serializers.CharField(source='experience_level', read_only=True)
+    deadline = serializers.DateTimeField(source='link_expires_at', read_only=True)
+    has_applied = serializers.SerializerMethodField()
+    is_applied = serializers.SerializerMethodField()
+    application_id = serializers.SerializerMethodField()
+    application_status = serializers.SerializerMethodField()
+    applied_at = serializers.SerializerMethodField()
+    client_company_name = serializers.CharField(source='client_company.name', read_only=True, default=None)
+
+    class Meta:
+        model = RecruitmentRoom
+        fields = [
+            'id',
+            'title',
+            'company_name',
+            'department',
+            'role_category',
+            'experience_level',
+            'experience_level_display',
+            'role_level',
+            'description',
+            'requirements_text',
+            'skills_required',
+            'skill_names',
+            'cv_weight',
+            'video_weight',
+            'share_token',
+            'share_url',
+            'link_is_active',
+            'link_expires_at',
+            'deadline',
+            'status',
+            'created_at',
+            'client_company',
+            'client_company_name',
+            'has_applied',
+            'is_applied',
+            'application_id',
+            'application_status',
+            'applied_at',
+        ]
+        read_only_fields = fields
+
+    def get_share_url(self, obj):
+        request = self.context.get('request')
+        from .tokens import build_share_url
+        return build_share_url(obj.share_token, request=request)
+
+    def get_skill_names(self, obj):
+        return obj.get_skill_names()
+
+    def _get_user_application(self, obj):
+        if not hasattr(obj, '_cached_user_app'):
+            request = self.context.get('request')
+            if request and hasattr(request, 'user') and request.user.is_authenticated:
+                user_app = CandidateApplication.objects.filter(
+                    room=obj
+                ).filter(
+                    Q(candidate=request.user) | Q(candidate__email__iexact=request.user.email)
+                ).first()
+                obj._cached_user_app = user_app
+            else:
+                obj._cached_user_app = None
+        return obj._cached_user_app
+
+    def get_has_applied(self, obj):
+        if hasattr(obj, 'user_has_applied'):
+            return bool(obj.user_has_applied)
+        app = self._get_user_application(obj)
+        return app is not None
+
+    def get_is_applied(self, obj):
+        return self.get_has_applied(obj)
+
+    def get_application_id(self, obj):
+        app = self._get_user_application(obj)
+        return app.id if app else None
+
+    def get_application_status(self, obj):
+        app = self._get_user_application(obj)
+        return app.status if app else None
+
+    def get_applied_at(self, obj):
+        app = self._get_user_application(obj)
+        return app.applied_at if app else None
+
