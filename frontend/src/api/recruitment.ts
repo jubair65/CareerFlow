@@ -534,6 +534,7 @@ export interface RankedApplicantsQueryParams {
   status?: string;
   ordering?: string;
   include_unranked?: boolean;
+  shortlisted?: boolean;
 }
 
 /**
@@ -561,6 +562,9 @@ export async function apiGetRankedApplicants(
   }
   if (params?.include_unranked !== undefined) {
     queryParts.push(`include_unranked=${params.include_unranked}`);
+  }
+  if (params?.shortlisted !== undefined) {
+    queryParts.push(`shortlisted=${params.shortlisted}`);
   }
   const queryString = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
   const response = await apiClient.get<RankedApplicantsResponse>(
@@ -1369,6 +1373,70 @@ export async function apiDownloadRoomSummaryPdf(roomId: number | string): Promis
  * Trigger browser file download from Blob.
  */
 export function triggerPdfDownload(blob: Blob, defaultFilename: string) {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = defaultFilename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+}
+
+// ============================================================================
+// US-46: Bulk Applicant Data Export (CSV / Excel)
+// ============================================================================
+
+export interface ApplicantExportParams {
+  search?: string;
+  status?: string;
+  shortlisted?: boolean;
+  min_score?: number;
+  max_score?: number;
+  ordering?: string;
+  include_unranked?: boolean;
+}
+
+export function buildExportQueryString(params?: ApplicantExportParams): string {
+  if (!params) return '';
+  const searchParams = new URLSearchParams();
+  if (params.search?.trim()) searchParams.append('search', params.search.trim());
+  if (params.status) searchParams.append('status', params.status);
+  if (params.shortlisted !== undefined) searchParams.append('shortlisted', String(params.shortlisted));
+  if (params.min_score !== undefined && params.min_score > 0) searchParams.append('min_score', String(params.min_score));
+  if (params.max_score !== undefined) searchParams.append('max_score', String(params.max_score));
+  if (params.ordering) searchParams.append('ordering', params.ordering);
+  if (params.include_unranked !== undefined) searchParams.append('include_unranked', String(params.include_unranked));
+  const qs = searchParams.toString();
+  return qs ? `?${qs}` : '';
+}
+
+/**
+ * US-46-T2: Download streamed CSV export of room applicants with active filters.
+ */
+export async function apiDownloadApplicantsCsv(roomId: number | string, params?: ApplicantExportParams): Promise<Blob> {
+  const qs = buildExportQueryString(params);
+  const response = await apiClient.get(`/recruitment/rooms/${roomId}/export/csv/${qs}`, {
+    responseType: 'blob',
+  });
+  return response.data;
+}
+
+/**
+ * US-46-T3: Download styled Excel (.xlsx) export of room applicants with active filters.
+ */
+export async function apiDownloadApplicantsExcel(roomId: number | string, params?: ApplicantExportParams): Promise<Blob> {
+  const qs = buildExportQueryString(params);
+  const response = await apiClient.get(`/recruitment/rooms/${roomId}/export/excel/${qs}`, {
+    responseType: 'blob',
+  });
+  return response.data;
+}
+
+/**
+ * Trigger generic browser file download from Blob.
+ */
+export function triggerFileDownload(blob: Blob, defaultFilename: string) {
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
