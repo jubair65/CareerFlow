@@ -16,6 +16,8 @@ from .views import (
     RecruitmentRoomSummaryPdfView,
     ApplicantStatusListView,
     ApplicantStatusDetailView,
+    CandidateMyApplicationsListView,
+    CandidateMyApplicationDetailView,
 )
 
 app_name = 'recruitment'
@@ -27,6 +29,10 @@ router.register(r'agency/rooms', AgencyRoomViewSet, basename='agency-rooms')
 router.register(r'agency/applicants', AgencyCrossClientApplicantViewSet, basename='agency-applicants')
 
 urlpatterns = [
+    # US-43: Candidate "My Applications" Tracking Dashboard Endpoints
+    path('applications/my/', CandidateMyApplicationsListView.as_view(), name='candidate-my-applications-list'),
+    path('applications/my/<int:application_id>/', CandidateMyApplicationDetailView.as_view(), name='candidate-my-application-detail'),
+
     # US-35: Applicant Application Status & Stage Milestones Endpoints
     path('applications/my-status/', ApplicantStatusListView.as_view(), name='applicant-status-list'),
     path('applications/<int:application_id>/status/', ApplicantStatusDetailView.as_view(), name='applicant-status-detail'),

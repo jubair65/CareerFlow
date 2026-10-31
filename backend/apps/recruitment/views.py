@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, permissions, status
@@ -1372,4 +1373,87 @@ class ApplicantStatusDetailView(APIView):
             )
 
         serializer = ApplicantApplicationStatusSerializer(application)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# ============================================================================
+# US-43: Candidate "My Applications" Tracking Dashboard Endpoints
+# ============================================================================
+
+class CandidateMyApplicationsListView(APIView):
+    """
+    US-43-T2 & US-43-T5:
+    Retrieves all applications submitted by the logged-in candidate with filtering support.
+    Strict tenant & user isolation (AC #6):
+    Filters strictly by candidate=request.user | candidate__email__iexact=request.user.email.
+    GET /api/recruitment/applications/my/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        qs = (
+            CandidateApplication.objects
+            .filter(Q(candidate=request.user) | Q(candidate__email__iexact=request.user.email))
+            .select_related('room', 'room__client_company', 'cv', 'video')
+            .prefetch_related('status_notification_logs')
+            .order_by('-applied_at')
+        )
+
+        filter_status = request.query_params.get('status')
+        if filter_status == 'shortlisted':
+            qs = qs.filter(
+                Q(is_shortlisted=True) |
+                Q(hr_decision=CandidateApplication.HrDecision.CONFIRMED) |
+                Q(hr_decision=CandidateApplication.HrDecision.OVERRIDDEN, is_shortlisted=True)
+            )
+        elif filter_status == 'rejected':
+            qs = qs.filter(
+                Q(hr_decision=CandidateApplication.HrDecision.REJECTED) |
+                Q(hr_decision=CandidateApplication.HrDecision.OVERRIDDEN, is_shortlisted=False)
+            )
+        elif filter_status == 'review':
+            qs = qs.filter(
+                is_shortlisted=False
+            ).exclude(
+                hr_decision__in=[
+                    CandidateApplication.HrDecision.CONFIRMED,
+                    CandidateApplication.HrDecision.REJECTED,
+                ]
+            )
+
+        search = request.query_params.get('search')
+        if search:
+            qs = qs.filter(
+                Q(room__title__icontains=search) |
+                Q(room__company_name__icontains=search) |
+                Q(room__client_company__name__icontains=search)
+            )
+
+        serializer = ApplicantApplicationStatusSerializer(qs, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CandidateMyApplicationDetailView(APIView):
+    """
+    US-43-T4 & US-43-T5:
+    Retrieves full details of a specific candidate application including submitted CV,
+    video presentation metadata, real-time stage progression, and score breakdowns.
+    Enforces strict data isolation: returns 403 Forbidden if not application owner.
+    GET /api/recruitment/applications/my/<application_id>/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, application_id):
+        application = get_object_or_404(
+            CandidateApplication.objects.select_related('room', 'room__client_company', 'cv', 'video').prefetch_related('status_notification_logs'),
+            id=application_id
+        )
+        is_owner = (application.candidate == request.user) or (application.candidate.email.lower() == request.user.email.lower())
+        if not is_owner:
+            return Response(
+                {"detail": "Access forbidden: You may only view your own application details."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = ApplicantApplicationStatusSerializer(application, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
