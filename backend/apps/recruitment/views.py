@@ -1,6 +1,6 @@
 from django.db.models import Q, Exists, OuterRef
 from django.utils import timezone
-from django.http import HttpResponse
+from django.http import HttpResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
@@ -53,6 +53,11 @@ from .services.report_service import (
     generate_candidate_report_pdf,
     generate_room_summary_pdf,
 )
+from .services.export_service import (
+    stream_applicants_csv,
+    generate_applicants_excel,
+    get_export_filename,
+)
 from .services.review_service import (
     get_candidate_review_data,
     record_candidate_review_decision,
@@ -92,6 +97,37 @@ from apps.presentation.services.pipeline_manager import PipelineManager
 from .models import CandidateApplication
 
 User = get_user_model()
+
+
+def build_export_filters_from_request(request):
+    """
+    US-46: Extracts query parameters for applicant ranking export.
+    Preserves filtering: search, status, shortlisted, min_score, max_score, ordering.
+    """
+    min_score_param = request.query_params.get('min_score')
+    max_score_param = request.query_params.get('max_score')
+    search = request.query_params.get('search')
+    status_filter = request.query_params.get('status')
+    ordering = request.query_params.get('ordering', '-final_score')
+
+    include_unranked_param = request.query_params.get('include_unranked', 'true')
+    include_unranked = include_unranked_param.lower() not in ['false', '0', 'no']
+
+    shortlisted_param = request.query_params.get('shortlisted')
+    shortlisted_only = shortlisted_param.lower() in ['true', '1', 'yes'] if shortlisted_param else False
+
+    min_score = float(min_score_param) if min_score_param and min_score_param.replace('.', '', 1).isdigit() else None
+    max_score = float(max_score_param) if max_score_param and max_score_param.replace('.', '', 1).isdigit() else None
+
+    return {
+        'min_score': min_score,
+        'max_score': max_score,
+        'search': search,
+        'status': status_filter,
+        'ordering': ordering,
+        'include_unranked': include_unranked,
+        'shortlisted_only': shortlisted_only,
+    }
 
 
 class RecruitmentRoomViewSet(viewsets.ModelViewSet):
@@ -431,6 +467,45 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
         response['Content-Length'] = len(pdf_bytes)
         return response
 
+    @action(detail=True, methods=['get'], url_path='export/csv', permission_classes=[permissions.IsAuthenticated, IsRoomOwnerOrAdmin])
+    def export_csv(self, request, pk=None):
+        """
+        US-46-T2 & US-46-T5: Streaming CSV Export of Ranked Applicants.
+        GET /api/recruitment/rooms/{id}/export/csv/
+        Preserves query filters: min_score, max_score, search, status, ordering, shortlisted.
+        """
+        room = self.get_object()
+        filters = build_export_filters_from_request(request)
+        filename = get_export_filename(room, 'csv')
+        csv_stream = stream_applicants_csv(room, filters)
+
+        response = StreamingHttpResponse(csv_stream, content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Cache-Control'] = 'no-cache'
+        return response
+
+    @action(detail=True, methods=['get'], url_path='export/excel', permission_classes=[permissions.IsAuthenticated, IsRoomOwnerOrAdmin])
+    def export_excel(self, request, pk=None):
+        """
+        US-46-T3 & US-46-T5: Styled Excel (.xlsx) Export of Ranked Applicants.
+        GET /api/recruitment/rooms/{id}/export/excel/
+        Preserves query filters: min_score, max_score, search, status, ordering, shortlisted.
+        """
+        room = self.get_object()
+        filters = build_export_filters_from_request(request)
+        filename = get_export_filename(room, 'xlsx')
+        excel_buffer = generate_applicants_excel(room, filters)
+        excel_bytes = excel_buffer.getvalue()
+
+        response = HttpResponse(
+            excel_bytes,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Content-Length'] = len(excel_bytes)
+        response['Cache-Control'] = 'no-cache'
+        return response
+
     @action(detail=True, methods=['get'], url_path='cv-scores')
     def cv_scores(self, request, pk=None):
         """
@@ -518,6 +593,9 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
         min_score = float(min_score_param) if min_score_param and min_score_param.replace('.', '', 1).isdigit() else None
         max_score = float(max_score_param) if max_score_param and max_score_param.replace('.', '', 1).isdigit() else None
 
+        shortlisted_param = request.query_params.get('shortlisted')
+        shortlisted_only = shortlisted_param.lower() in ['true', '1', 'yes'] if shortlisted_param else False
+
         data = get_ranked_room_applicants(
             room_or_id=room,
             min_score=min_score,
@@ -526,6 +604,7 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
             status_filter=status_filter,
             ordering=ordering,
             include_unranked=include_unranked,
+            shortlisted_only=shortlisted_only,
         )
         serializer = RankedApplicantsResponseSerializer(data)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -1516,6 +1595,59 @@ class RecruitmentRoomSummaryPdfView(APIView):
         response = HttpResponse(pdf_bytes, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         response['Content-Length'] = len(pdf_bytes)
+        return response
+
+
+class RecruitmentRoomExportCsvView(APIView):
+    """
+    US-46-T2, US-46-T5: Streaming CSV export endpoint for a recruitment room's applicants.
+    GET /api/recruitment/rooms/{room_id}/export/csv/
+    """
+    permission_classes = [permissions.IsAuthenticated, IsRoomOwnerOrAdmin]
+
+    def get(self, request, room_id):
+        room = get_object_or_404(
+            RecruitmentRoom.objects.select_related('client_company'),
+            id=room_id
+        )
+        self.check_object_permissions(request, room)
+
+        filters = build_export_filters_from_request(request)
+        filename = get_export_filename(room, 'csv')
+        csv_stream = stream_applicants_csv(room, filters)
+
+        response = StreamingHttpResponse(csv_stream, content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Cache-Control'] = 'no-cache'
+        return response
+
+
+class RecruitmentRoomExportExcelView(APIView):
+    """
+    US-46-T3, US-46-T5: Styled Excel (.xlsx) export endpoint for a recruitment room's applicants.
+    GET /api/recruitment/rooms/{room_id}/export/excel/
+    """
+    permission_classes = [permissions.IsAuthenticated, IsRoomOwnerOrAdmin]
+
+    def get(self, request, room_id):
+        room = get_object_or_404(
+            RecruitmentRoom.objects.select_related('client_company'),
+            id=room_id
+        )
+        self.check_object_permissions(request, room)
+
+        filters = build_export_filters_from_request(request)
+        filename = get_export_filename(room, 'xlsx')
+        excel_buffer = generate_applicants_excel(room, filters)
+        excel_bytes = excel_buffer.getvalue()
+
+        response = HttpResponse(
+            excel_bytes,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Content-Length'] = len(excel_bytes)
+        response['Cache-Control'] = 'no-cache'
         return response
 
 

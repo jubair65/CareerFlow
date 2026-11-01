@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   X,
   Search,
@@ -16,6 +16,8 @@ import {
   Sparkles,
   SlidersHorizontal,
   FileText,
+  FileSpreadsheet,
+  ChevronDown,
   Video,
   Calculator,
   Scale,
@@ -27,12 +29,16 @@ import type {
   RankedApplicantItem,
   UnrankedApplicantItem,
   RankedApplicantsResponse,
+  ApplicantExportParams,
 } from '../../api/recruitment';
 import {
   apiGetRankedApplicants,
   apiCalculateRoomScores,
   apiDownloadRoomSummaryPdf,
   triggerPdfDownload,
+  apiDownloadApplicantsCsv,
+  apiDownloadApplicantsExcel,
+  triggerFileDownload,
 } from '../../api/recruitment';
 import { ScoreBreakdownModal } from './ScoreBreakdownModal';
 import { ApplicantComparisonModal } from './ApplicantComparisonModal';
@@ -63,9 +69,28 @@ export function RankedApplicantsModal({
   const [loading, setLoading] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [exportingFormat, setExportingFormat] = useState<'csv' | 'excel' | null>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Close export dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setExportMenuOpen(false);
+      }
+    };
+    if (exportMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [exportMenuOpen]);
+
   const handleDownloadRoomSummaryPdf = async () => {
+    if (!room) return;
     try {
       setDownloadingPdf(true);
       const blob = await apiDownloadRoomSummaryPdf(room.id);
@@ -79,11 +104,43 @@ export function RankedApplicantsModal({
     }
   };
 
+  const handleExport = async (format: 'csv' | 'excel') => {
+    if (!room) return;
+    try {
+      setExportingFormat(format);
+      setExportMenuOpen(false);
+      const exportParams: ApplicantExportParams = {
+        min_score: minScoreFilter > 0 ? minScoreFilter : undefined,
+        search: searchQuery.trim() || undefined,
+        ordering: sortBy,
+        shortlisted: shortlistedOnly ? true : undefined,
+        include_unranked: true,
+      };
+
+      if (format === 'csv') {
+        const blob = await apiDownloadApplicantsCsv(room.id, exportParams);
+        const titleClean = (room.title || 'Room').replace(/\s+/g, '_');
+        triggerFileDownload(blob, `CareerFlow_Room_${room.id}_${titleClean}_Applicants.csv`);
+        notify?.('Applicants CSV export downloaded successfully.', 'success');
+      } else {
+        const blob = await apiDownloadApplicantsExcel(room.id, exportParams);
+        const titleClean = (room.title || 'Room').replace(/\s+/g, '_');
+        triggerFileDownload(blob, `CareerFlow_Room_${room.id}_${titleClean}_Applicants.xlsx`);
+        notify?.('Applicants Excel export downloaded successfully.', 'success');
+      }
+    } catch {
+      notify?.(`Failed to export applicants as ${format.toUpperCase()}.`, 'error');
+    } finally {
+      setExportingFormat(null);
+    }
+  };
+
   // Filters & State
   const [activeTab, setActiveTab] = useState<TabMode>('RANKED');
   const [searchQuery, setSearchQuery] = useState('');
   const [minScoreFilter, setMinScoreFilter] = useState<number>(0);
   const [sortBy, setSortBy] = useState<SortOption>('-final_score');
+  const [shortlistedOnly, setShortlistedOnly] = useState(false);
   const [breakdownAppId, setBreakdownAppId] = useState<number | null>(null);
   const [breakdownCandidateName, setBreakdownCandidateName] = useState<string | undefined>(undefined);
 
@@ -118,6 +175,7 @@ export function RankedApplicantsModal({
         search: searchQuery.trim() || undefined,
         ordering: sortBy,
         include_unranked: true,
+        shortlisted: shortlistedOnly ? true : undefined,
       });
       setData(res);
     } catch (err: any) {
@@ -139,6 +197,9 @@ export function RankedApplicantsModal({
       setActiveTab('RANKED');
       setSelectedAppIds([]);
       setIsComparisonModalOpen(false);
+      setShortlistedOnly(false);
+      setExportMenuOpen(false);
+      setExportingFormat(null);
       return;
     }
 
@@ -147,12 +208,12 @@ export function RankedApplicantsModal({
     fetchRankings(true);
   }, [isOpen, room]);
 
-  // Re-fetch when sorting or min-score changes
+  // Re-fetch when sorting, min-score, or shortlisted filter changes
   useEffect(() => {
     if (isOpen && room) {
       fetchRankings(false);
     }
-  }, [sortBy, minScoreFilter]);
+  }, [sortBy, minScoreFilter, shortlistedOnly]);
 
   const handleRecalculateScores = async () => {
     if (!room) return;
@@ -258,6 +319,56 @@ export function RankedApplicantsModal({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* US-46: Bulk Applicant Export Dropdown */}
+            <div className="relative" ref={exportMenuRef}>
+              <button
+                type="button"
+                onClick={() => setExportMenuOpen((prev) => !prev)}
+                disabled={!!exportingFormat}
+                title="Export candidates as CSV or Excel"
+                data-testid="button-export-applicants"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white transition-colors disabled:opacity-50 shadow-sm"
+                aria-haspopup="true"
+                aria-expanded={exportMenuOpen}
+              >
+                {exportingFormat ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                )}
+                <span>{exportingFormat ? `Exporting ${exportingFormat.toUpperCase()}...` : 'Export Data'}</span>
+                <ChevronDown className={`w-3 h-3 transition-transform ${exportMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {exportMenuOpen && (
+                <div className="absolute right-0 mt-1.5 w-52 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <button
+                    type="button"
+                    onClick={() => handleExport('csv')}
+                    data-testid="button-export-csv"
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors"
+                  >
+                    <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                    <div>
+                      <div className="font-semibold">Export as CSV</div>
+                      <div className="text-[10px] text-gray-400">Streamed UTF-8 with BOM</div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExport('excel')}
+                    data-testid="button-export-excel"
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <div>
+                      <div className="font-semibold">Export as Excel (.xlsx)</div>
+                      <div className="text-[10px] text-gray-400">Styled workbook with metrics</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button
               onClick={handleDownloadRoomSummaryPdf}
               disabled={downloadingPdf}
@@ -405,6 +516,22 @@ export function RankedApplicantsModal({
                 </select>
               </div>
             )}
+
+            {/* US-46: Shortlisted Only Filter Toggle */}
+            <button
+              type="button"
+              data-testid="button-filter-shortlisted-only"
+              onClick={() => setShortlistedOnly((prev) => !prev)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                shortlistedOnly
+                  ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700 shadow-sm'
+                  : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+              title="Filter by shortlisted candidates only"
+            >
+              <CheckCircle2 className={`w-3.5 h-3.5 ${shortlistedOnly ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'}`} />
+              <span>Shortlisted Only</span>
+            </button>
           </div>
         </div>
 
@@ -480,6 +607,14 @@ export function RankedApplicantsModal({
                           >
                             {applicant.candidate_name || 'Anonymous Candidate'}
                           </h3>
+                          {applicant.is_shortlisted && (
+                            <span
+                              data-testid={`badge-shortlisted-${applicant.rank}`}
+                              className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700"
+                            >
+                              Shortlisted
+                            </span>
+                          )}
                           {applicant.is_partial_score && (
                             <span
                               data-testid={`badge-partial-score-${applicant.rank}`}

@@ -58,10 +58,12 @@ def get_ranked_room_applicants(
     status_filter: Optional[str] = None,
     ordering: str = "-final_score",
     include_unranked: bool = True,
+    shortlisted_only: Optional[bool] = None,
 ) -> Dict[str, Any]:
     """
     US-24-T2 & US-24-T5: Fetches, orders, and ranks candidates for a recruitment room.
     Applies multi-tier tie-breaking and segregates unranked applications.
+    US-46: Supports shortlisted_only filtering.
     """
     if isinstance(room_or_id, RecruitmentRoom):
         room = room_or_id
@@ -86,6 +88,10 @@ def get_ranked_room_applicants(
     # Optional status filtering
     if status_filter:
         base_qs = base_qs.filter(status=status_filter)
+
+    # Optional shortlisted only filtering (US-46 AC-3)
+    if shortlisted_only:
+        base_qs = base_qs.filter(is_shortlisted=True)
 
     total_count = base_qs.count()
 
@@ -140,6 +146,9 @@ def get_ranked_room_applicants(
             "video_score": app.video_score,
             "is_partial_score": app.is_partial_score,
             "score_calculated_at": app.score_calculated_at,
+            "is_shortlisted": app.is_shortlisted,
+            "shortlist_reason": app.shortlist_reason or '',
+            "shortlisted_at": app.shortlisted_at,
             "status": app.status,
             "applied_at": app.applied_at,
         })
@@ -159,6 +168,7 @@ def get_ranked_room_applicants(
                 "cv_score": app.cv_score,
                 "video_score": app.video_score,
                 "is_partial_score": False,
+                "is_shortlisted": app.is_shortlisted,
                 "status": app.status,
                 "applied_at": app.applied_at,
                 "pending_reason": determine_unranked_reason(app),
