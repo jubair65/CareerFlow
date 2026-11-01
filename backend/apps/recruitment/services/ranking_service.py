@@ -59,6 +59,7 @@ def get_ranked_room_applicants(
     ordering: str = "-final_score",
     include_unranked: bool = True,
     shortlisted_only: Optional[bool] = None,
+    stage_filter: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     US-24-T2 & US-24-T5: Fetches, orders, and ranks candidates for a recruitment room.
@@ -92,6 +93,10 @@ def get_ranked_room_applicants(
     # Optional shortlisted only filtering (US-46 AC-3)
     if shortlisted_only:
         base_qs = base_qs.filter(is_shortlisted=True)
+
+    # Optional candidate pipeline stage filtering (US-47 AC-6)
+    if stage_filter and stage_filter.strip().upper() != 'ALL':
+        base_qs = base_qs.filter(stage=stage_filter.strip())
 
     total_count = base_qs.count()
 
@@ -150,6 +155,9 @@ def get_ranked_room_applicants(
             "shortlist_reason": app.shortlist_reason or '',
             "shortlisted_at": app.shortlisted_at,
             "status": app.status,
+            "stage": getattr(app, 'stage', 'APPLIED'),
+            "stage_display": app.get_stage_display() if hasattr(app, 'get_stage_display') else 'Applied',
+            "notes_count": app.recruiter_notes.count() if hasattr(app, 'recruiter_notes') else 0,
             "applied_at": app.applied_at,
         })
 
@@ -170,6 +178,9 @@ def get_ranked_room_applicants(
                 "is_partial_score": False,
                 "is_shortlisted": app.is_shortlisted,
                 "status": app.status,
+                "stage": getattr(app, 'stage', 'APPLIED'),
+                "stage_display": app.get_stage_display() if hasattr(app, 'get_stage_display') else 'Applied',
+                "notes_count": app.recruiter_notes.count() if hasattr(app, 'recruiter_notes') else 0,
                 "applied_at": app.applied_at,
                 "pending_reason": determine_unranked_reason(app),
             })

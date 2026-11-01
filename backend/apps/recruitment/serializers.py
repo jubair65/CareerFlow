@@ -1,7 +1,7 @@
 from django.db.models import Q
 from rest_framework import serializers
 from apps.authentication.models import User
-from .models import RecruitmentRoom, ClientCompany, CandidateApplication, CandidateForwardRecord, StatusNotificationLog
+from .models import RecruitmentRoom, ClientCompany, CandidateApplication, CandidateForwardRecord, StatusNotificationLog, CandidateNote, CandidateStageHistory
 
 
 class RecruitmentRoomSerializer(serializers.ModelSerializer):
@@ -504,6 +504,9 @@ class RankedApplicantItemSerializer(serializers.Serializer):
     shortlist_reason = serializers.CharField(allow_blank=True, default='')
     shortlisted_at = serializers.DateTimeField(allow_null=True, required=False)
     status = serializers.CharField()
+    stage = serializers.CharField(required=False, default='APPLIED')
+    stage_display = serializers.CharField(required=False, default='Applied')
+    notes_count = serializers.IntegerField(required=False, default=0)
     applied_at = serializers.DateTimeField()
 
 
@@ -521,6 +524,9 @@ class UnrankedApplicantItemSerializer(serializers.Serializer):
     video_score = serializers.FloatField(allow_null=True)
     is_partial_score = serializers.BooleanField()
     status = serializers.CharField()
+    stage = serializers.CharField(required=False, default='APPLIED')
+    stage_display = serializers.CharField(required=False, default='Applied')
+    notes_count = serializers.IntegerField(required=False, default=0)
     applied_at = serializers.DateTimeField()
     pending_reason = serializers.CharField()
 
@@ -1394,3 +1400,80 @@ class JobBoardRoomSerializer(serializers.ModelSerializer):
         app = self._get_user_application(obj)
         return app.applied_at if app else None
 
+
+
+
+# ============================================================================
+# SPRINT 7: US-47 Recruiter Evaluation Notes & Multi-Stage Pipeline Progression
+# ============================================================================
+
+class CandidateNoteSerializer(serializers.ModelSerializer):
+    """
+    US-47-T2: Serializer for internal recruiter evaluation notes.
+    Strictly private to HR Managers and recruiters.
+    """
+    author_name = serializers.SerializerMethodField()
+    author_email = serializers.ReadOnlyField(source='author.email')
+
+    class Meta:
+        model = CandidateNote
+        fields = [
+            'id',
+            'application',
+            'author',
+            'author_name',
+            'author_email',
+            'content',
+            'is_edited',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'application', 'author', 'author_name', 'author_email', 'is_edited', 'created_at', 'updated_at']
+
+    def get_author_name(self, obj):
+        return getattr(obj.author, 'full_name', '') or obj.author.get_full_name() or getattr(obj.author, 'username', '') or obj.author.email
+
+    def validate_content(self, value):
+        stripped = value.strip()
+        if not stripped:
+            raise serializers.ValidationError("Note content cannot be empty or blank.")
+        return stripped
+
+
+class CandidateStageHistorySerializer(serializers.ModelSerializer):
+    """
+    US-47-T3: Serializer for candidate stage transition audit logs.
+    """
+    from_stage_display = serializers.CharField(source='get_from_stage_display', read_only=True)
+    to_stage_display = serializers.CharField(source='get_to_stage_display', read_only=True)
+    updated_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CandidateStageHistory
+        fields = [
+            'id',
+            'application',
+            'from_stage',
+            'from_stage_display',
+            'to_stage',
+            'to_stage_display',
+            'updated_by',
+            'updated_by_name',
+            'notes',
+            'created_at',
+        ]
+        read_only_fields = fields
+
+    def get_updated_by_name(self, obj):
+        if not obj.updated_by:
+            return "System / Automated"
+        return getattr(obj.updated_by, 'full_name', '') or obj.updated_by.get_full_name() or getattr(obj.updated_by, 'username', '') or obj.updated_by.email
+
+
+class CandidateStageUpdateSerializer(serializers.Serializer):
+    """
+    US-47-T3: Input payload validation for transitioning candidate pipeline stage.
+    """
+    stage = serializers.ChoiceField(choices=CandidateApplication.Stage.choices)
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
+    notify_candidate = serializers.BooleanField(required=False, default=True)

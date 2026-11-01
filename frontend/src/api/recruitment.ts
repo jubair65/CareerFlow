@@ -481,6 +481,16 @@ export async function apiCalculateRoomScores(
 // US-24: Applicant Ranking APIs
 // ==========================================
 
+export type PipelineStage =
+  | 'APPLIED'
+  | 'UNDER_REVIEW'
+  | 'SHORTLISTED'
+  | 'INTERVIEW_ROUND_1'
+  | 'INTERVIEW_ROUND_2'
+  | 'OFFERED'
+  | 'HIRED'
+  | 'REJECTED';
+
 export interface RankedApplicantItem {
   rank: number;
   badge: 'GOLD' | 'SILVER' | 'BRONZE' | 'STANDARD';
@@ -494,6 +504,12 @@ export interface RankedApplicantItem {
   video_score: number | null;
   is_partial_score: boolean;
   score_calculated_at: string | null;
+  is_shortlisted?: boolean;
+  shortlist_reason?: string;
+  shortlisted_at?: string | null;
+  stage?: PipelineStage;
+  stage_display?: string;
+  notes_count?: number;
   status: string;
   applied_at: string;
 }
@@ -508,6 +524,10 @@ export interface UnrankedApplicantItem {
   cv_score: number | null;
   video_score: number | null;
   is_partial_score: boolean;
+  is_shortlisted?: boolean;
+  stage?: PipelineStage;
+  stage_display?: string;
+  notes_count?: number;
   status: string;
   applied_at: string;
   pending_reason: string;
@@ -535,6 +555,7 @@ export interface RankedApplicantsQueryParams {
   ordering?: string;
   include_unranked?: boolean;
   shortlisted?: boolean;
+  stage?: string;
 }
 
 /**
@@ -565,6 +586,9 @@ export async function apiGetRankedApplicants(
   }
   if (params?.shortlisted !== undefined) {
     queryParts.push(`shortlisted=${params.shortlisted}`);
+  }
+  if (params?.stage) {
+    queryParts.push(`stage=${encodeURIComponent(params.stage)}`);
   }
   const queryString = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
   const response = await apiClient.get<RankedApplicantsResponse>(
@@ -1648,3 +1672,105 @@ export async function apiGetPublicJobRoomDetail(
   return response.data;
 }
 
+
+
+// ============================================================================
+// SPRINT 7: US-47 Recruiter Evaluation Notes & Multi-Stage Pipeline Progression
+// ============================================================================
+
+export interface CandidateNoteItem {
+  id: number;
+  application: number;
+  author: number;
+  author_name: string;
+  author_email: string;
+  content: string;
+  is_edited: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CandidateStageHistoryItem {
+  id: number;
+  application: number;
+  from_stage: PipelineStage | null;
+  from_stage_display: string | null;
+  to_stage: PipelineStage;
+  to_stage_display: string;
+  updated_by: number | null;
+  updated_by_name: string;
+  notes: string;
+  created_at: string;
+}
+
+export interface CandidateStageUpdateResponse {
+  message: string;
+  application_id: number;
+  stage: PipelineStage;
+  stage_display: string;
+  is_shortlisted: boolean;
+  history: CandidateStageHistoryItem;
+}
+
+export async function apiGetApplicationNotes(
+  applicationId: number
+): Promise<CandidateNoteItem[]> {
+  const response = await apiClient.get<CandidateNoteItem[]>(
+    `/recruitment/applications/${applicationId}/notes/`
+  );
+  return response.data;
+}
+
+export async function apiCreateApplicationNote(
+  applicationId: number,
+  content: string
+): Promise<CandidateNoteItem> {
+  const response = await apiClient.post<CandidateNoteItem>(
+    `/recruitment/applications/${applicationId}/notes/`,
+    { content }
+  );
+  return response.data;
+}
+
+export async function apiUpdateApplicationNote(
+  applicationId: number,
+  noteId: number,
+  content: string
+): Promise<CandidateNoteItem> {
+  const response = await apiClient.put<CandidateNoteItem>(
+    `/recruitment/applications/${applicationId}/notes/${noteId}/`,
+    { content }
+  );
+  return response.data;
+}
+
+export async function apiDeleteApplicationNote(
+  applicationId: number,
+  noteId: number
+): Promise<void> {
+  await apiClient.delete(
+    `/recruitment/applications/${applicationId}/notes/${noteId}/`
+  );
+}
+
+export async function apiUpdateApplicationStage(
+  applicationId: number,
+  stage: PipelineStage,
+  notes?: string,
+  notifyCandidate: boolean = true
+): Promise<CandidateStageUpdateResponse> {
+  const response = await apiClient.patch<CandidateStageUpdateResponse>(
+    `/recruitment/applications/${applicationId}/stage/`,
+    { stage, notes, notify_candidate: notifyCandidate }
+  );
+  return response.data;
+}
+
+export async function apiGetApplicationStageHistory(
+  applicationId: number
+): Promise<CandidateStageHistoryItem[]> {
+  const response = await apiClient.get<CandidateStageHistoryItem[]>(
+    `/recruitment/applications/${applicationId}/stage-history/`
+  );
+  return response.data;
+}

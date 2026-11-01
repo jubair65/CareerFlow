@@ -305,6 +305,25 @@ class CandidateApplication(models.Model):
         COMPLETED = 'COMPLETED', 'Completed'
         FAILED = 'FAILED', 'Failed'
 
+    # --- SPRINT 7 ENHANCEMENT: US-47 Candidate Evaluation Notes & Multi-Stage Pipeline Progression ---
+    class Stage(models.TextChoices):
+        APPLIED = 'APPLIED', 'Applied'
+        UNDER_REVIEW = 'UNDER_REVIEW', 'Under Review'
+        SHORTLISTED = 'SHORTLISTED', 'Shortlisted'
+        INTERVIEW_ROUND_1 = 'INTERVIEW_ROUND_1', 'Interview Round 1'
+        INTERVIEW_ROUND_2 = 'INTERVIEW_ROUND_2', 'Interview Round 2'
+        OFFERED = 'OFFERED', 'Offered'
+        HIRED = 'HIRED', 'Hired'
+        REJECTED = 'REJECTED', 'Rejected'
+
+    stage = models.CharField(
+        max_length=30,
+        choices=Stage.choices,
+        default=Stage.APPLIED,
+        db_index=True,
+        help_text="Current recruitment and interview pipeline progression stage (US-47)"
+    )
+
     room = models.ForeignKey(
         RecruitmentRoom,
         on_delete=models.CASCADE,
@@ -552,3 +571,84 @@ class StatusNotificationLog(models.Model):
     def __str__(self):
         sent_status = "Delivered" if self.email_sent else "Failed/Skipped"
         return f"[{self.status_type}] App #{self.application_id} -> {self.recipient_email} ({sent_status})"
+
+
+
+class CandidateNote(models.Model):
+    """
+    US-47-T1: Internal recruiter evaluation notes attached to a candidate application.
+    Strictly private to HR Managers and Recruiters (never exposed to applicants).
+    """
+    application = models.ForeignKey(
+        CandidateApplication,
+        on_delete=models.CASCADE,
+        related_name='recruiter_notes',
+        help_text="Application being evaluated"
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='authored_candidate_notes',
+        help_text="Recruiter or HR Manager who authored this note"
+    )
+    content = models.TextField(
+        help_text="Internal evaluation note text"
+    )
+    is_edited = models.BooleanField(
+        default=False,
+        help_text="True if note was edited after initial creation"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'careerflow_candidate_notes'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Note #{self.id} on App #{self.application_id} by {self.author.email}"
+
+
+class CandidateStageHistory(models.Model):
+    """
+    US-47-T1 & US-47-T3: Audit trail logging candidate pipeline stage transitions.
+    """
+    application = models.ForeignKey(
+        CandidateApplication,
+        on_delete=models.CASCADE,
+        related_name='stage_history',
+        help_text="Application whose stage transitioned"
+    )
+    from_stage = models.CharField(
+        max_length=30,
+        choices=CandidateApplication.Stage.choices,
+        null=True,
+        blank=True,
+        help_text="Previous stage"
+    )
+    to_stage = models.CharField(
+        max_length=30,
+        choices=CandidateApplication.Stage.choices,
+        help_text="New stage"
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='stage_updates_logged',
+        help_text="User who triggered this stage transition"
+    )
+    notes = models.TextField(
+        blank=True,
+        default="",
+        help_text="Optional reason or context for stage transition"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = 'careerflow_candidate_stage_history'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"App #{self.application_id}: {self.from_stage} -> {self.to_stage}"
