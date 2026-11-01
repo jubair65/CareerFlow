@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { apiGetPublicRoomByToken, apiSubmitApplication, type PublicRoomDetails } from '../api/recruitment';
 import { apiGetCandidateProfile, getStoredUser } from '../api/auth';
+import { getStoredAIConsentToken } from '../api/consent';
+import { AIConsentModal } from '../components/presentation/AIConsentModal';
 export function PublicApplicationPage({
   notify,
 }: {
@@ -705,6 +707,16 @@ export function PublicApplicationPage({
       <footer className="text-center text-xs text-[#7b8490] py-4">
         Powered by CareerFlow Recruitment Platform • Secure Candidate Application
       </footer>
+
+      <AIConsentModal
+        isOpen={isConsentModalOpen}
+        onAgree={handleConsentAgreed}
+        onDecline={handleConsentDeclined}
+        onClose={() => setIsConsentModalOpen(false)}
+        readOnlyNotice={isReadOnlyPolicy}
+        email={email}
+        notify={notify}
+      />
     </div>
   );
 }

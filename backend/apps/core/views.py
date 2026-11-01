@@ -233,20 +233,12 @@ def verify_ai_consent(request, user=None, email=None) -> bool:
     # 2. Authenticated User Check
     effective_user = user or (request.user if getattr(request, 'user', None) and request.user.is_authenticated else None)
     if effective_user:
-        if AIConsentLog.objects.filter(user=effective_user, agreed=True).exists():
-            return True
+        return AIConsentLog.objects.filter(user=effective_user, agreed=True).exists()
 
     # 3. Candidate Email Check
     effective_email = email or request.data.get('email')
     if effective_email:
-        if AIConsentLog.objects.filter(email=effective_email, agreed=True).exists():
-            return True
-
-    # 4. IP Fallback for recent public candidate session
-    client_ip = get_client_ip(request)
-    if client_ip:
-        if AIConsentLog.objects.filter(ip_address=client_ip, agreed=True).exists():
-            return True
+        return AIConsentLog.objects.filter(email=effective_email, agreed=True).exists()
 
     return False
 

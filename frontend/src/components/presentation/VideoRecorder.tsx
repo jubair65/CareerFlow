@@ -636,7 +636,7 @@ export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
                 <button
                   type="button"
                   onClick={startRecording}
-                  disabled={!isCameraActive || isProcessing}
+                  disabled={(hasConsented && !isCameraActive) || isProcessing}
                   data-testid="button-start-recording"
                   className="flex items-center gap-2 rounded-xl bg-[#253142] px-5 py-2.5 text-sm font-bold text-[#f5c84b] hover:bg-[#33435a] transition disabled:opacity-50"
                 >
