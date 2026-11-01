@@ -1,5 +1,10 @@
+import uuid
 from django.db import models
 from django.conf import settings
+
+
+def generate_consent_token():
+    return uuid.uuid4().hex
 
 
 class DataAccessLog(models.Model):
@@ -98,3 +103,82 @@ class Notification(models.Model):
     def __str__(self):
         read_flag = "Read" if self.is_read else "Unread"
         return f"[{self.notification_type}] {self.user.email} - {self.title} ({read_flag})"
+
+
+class AIConsentLog(models.Model):
+    """
+    US-48-T2: AI Biometric & Evaluation Consent Notice Gatekeeper.
+    Records explicit user agreements to AI biometric and telemetric analysis
+    (audio tone/speech metrics, facial telemetry, posture analysis) in compliance
+    with GDPR Article 9 & EU AI Act ethical disclosure requirements.
+    """
+    class ConsentType(models.TextChoices):
+        BIOMETRIC_EVALUATION = 'BIOMETRIC_EVALUATION', 'AI Presentation Biometric & Telemetry Evaluation'
+        GENERAL_AI_PROCESSING = 'GENERAL_AI_PROCESSING', 'General AI Processing'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ai_consent_logs',
+        help_text="User who granted consent (null if unauthenticated public candidate)"
+    )
+    email = models.EmailField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Candidate email recorded at time of consent"
+    )
+    consent_type = models.CharField(
+        max_length=50,
+        choices=ConsentType.choices,
+        default=ConsentType.BIOMETRIC_EVALUATION,
+        help_text="Type of AI analysis covered by consent"
+    )
+    policy_version = models.CharField(
+        max_length=20,
+        default='v1.0',
+        help_text="Version identifier of the ethical AI disclosure agreed to"
+    )
+    agreed = models.BooleanField(
+        default=True,
+        help_text="Whether explicit consent was granted (True) or refused (False)"
+    )
+    consent_token = models.CharField(
+        max_length=64,
+        unique=True,
+        db_index=True,
+        default=generate_consent_token,
+        help_text="Cryptographically secure verification token issued upon consent"
+    )
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        help_text="Client IP address recorded at time of consent submission"
+    )
+    user_agent = models.TextField(
+        blank=True,
+        default='',
+        help_text="Browser user agent string for audit logging"
+    )
+    timestamp = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,
+        help_text="UTC timestamp when consent action was recorded"
+    )
+
+    class Meta:
+        db_table = 'careerflow_ai_consent_logs'
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['user', 'agreed']),
+            models.Index(fields=['consent_token']),
+            models.Index(fields=['email', 'agreed']),
+            models.Index(fields=['timestamp']),
+        ]
+
+    def __str__(self):
+        user_repr = self.user.email if self.user else (self.email or "Anonymous")
+        status_repr = "Agreed" if self.agreed else "Refused"
+        return f"[{self.timestamp}] {user_repr} - {self.consent_type} {self.policy_version} ({status_repr})"

@@ -1,4 +1,5 @@
 import { apiClient } from './auth';
+import { getStoredAIConsentToken } from './consent';
 
 export interface PresentationVideo {
   id: number;
@@ -93,10 +94,16 @@ export async function apiUploadPresentationVideo(
     formData.append('file', file, fileName || 'webcam_recording.webm');
   }
 
+  const consentToken = getStoredAIConsentToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'multipart/form-data',
+  };
+  if (consentToken) {
+    headers['X-AI-Consent-Token'] = consentToken;
+  }
+
   const response = await apiClient.post<VideoUploadResponse>('/presentation/upload/', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
+    headers,
     onUploadProgress: (progressEvent) => {
       if (progressEvent.total && onProgress) {
         const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);

@@ -20,6 +20,8 @@ import {
 import fixWebmDuration from 'fix-webm-duration';
 import { WebcamPlaybackPlayer } from './WebcamPlaybackPlayer';
 import { apiUploadPresentationVideo, type PresentationVideo } from '../../api/presentation';
+import { AIConsentModal } from './AIConsentModal';
+import { getStoredAIConsentToken, apiGetAIConsentStatus } from '../../api/consent';
 
 interface VideoRecorderProps {
   onUploadSuccess: (video: PresentationVideo) => void;
@@ -31,6 +33,24 @@ const MAX_DURATION_SECONDS = 180; // 3 minutes
 
 export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
   const [activeTab, setActiveTab] = useState<'upload' | 'record'>('record');
+
+  // US-48: AI Biometric Consent Gatekeeper State
+  const [hasConsented, setHasConsented] = useState<boolean>(() => !!getStoredAIConsentToken());
+  const [isConsentModalOpen, setIsConsentModalOpen] = useState(false);
+  const [isReadOnlyPolicy, setIsReadOnlyPolicy] = useState(false);
+  const [refusedExplanation, setRefusedExplanation] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<'record' | 'upload' | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    apiGetAIConsentStatus()
+      .then((res) => {
+        if (res.has_consented) {
+          setHasConsented(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // File Upload State
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -175,12 +195,62 @@ export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      validateAndSetFile(e.target.files[0]);
+      const file = e.target.files[0];
+      if (!hasConsented) {
+        e.target.value = '';
+        setPendingFile(file);
+        setPendingAction('upload');
+        setIsReadOnlyPolicy(false);
+        setIsConsentModalOpen(true);
+        return;
+      }
+      validateAndSetFile(file);
     }
+  };
+
+  const handleConsentAgreed = (token: string) => {
+    setHasConsented(true);
+    setRefusedExplanation(null);
+    if (pendingAction === 'record') {
+      if (!mediaStreamRef.current) {
+        startCamera();
+      } else {
+        triggerStartRecording();
+      }
+    } else if (pendingAction === 'upload' && pendingFile) {
+      validateAndSetFile(pendingFile);
+      setPendingFile(null);
+    }
+    setPendingAction(null);
+  };
+
+  const handleConsentDeclined = () => {
+    setHasConsented(false);
+    setRefusedExplanation('AI Biometric and Evaluation Consent was declined. Video capture is paused. You can review and accept the consent notice at any time to proceed.');
+    setSelectedFile(null);
+    if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+    setFilePreviewUrl(null);
+    setPendingAction(null);
+    setPendingFile(null);
+  };
+
+  const handleOpenConsentNotice = (readOnly: boolean = true) => {
+    setIsReadOnlyPolicy(readOnly);
+    setIsConsentModalOpen(true);
   };
 
   // Start Webcam Recording
   const startRecording = () => {
+    if (!hasConsented) {
+      setPendingAction('record');
+      setIsReadOnlyPolicy(false);
+      setIsConsentModalOpen(true);
+      return;
+    }
+    triggerStartRecording();
+  };
+
+  const triggerStartRecording = () => {
     if (!mediaStreamRef.current) {
       startCamera();
       return;
@@ -308,6 +378,12 @@ export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
   // Upload Handlers
   const handleUploadFile = async () => {
     if (!selectedFile) return;
+    if (!hasConsented) {
+      setPendingAction('upload');
+      setIsReadOnlyPolicy(false);
+      setIsConsentModalOpen(true);
+      return;
+    }
     setIsProcessing(true);
     setUploadError(null);
     setUploadProgress(0);
@@ -406,6 +482,42 @@ export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
           </button>
         </div>
       </div>
+
+      {/* US-48: AI Biometric Consent Notice Link & Refusal Alert */}
+      <div className="flex items-center justify-between pt-1">
+        <button
+          type="button"
+          onClick={() => handleOpenConsentNotice(true)}
+          data-testid="link-ai-consent-policy"
+          className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline flex items-center gap-1.5 transition"
+        >
+          <ShieldCheck size={14} />
+          <span>AI Biometric & Evaluation Privacy Notice</span>
+        </button>
+      </div>
+
+      {refusedExplanation && (
+        <div
+          data-testid="alert-ai-consent-refused"
+          className="my-3 flex items-start justify-between gap-3 rounded-2xl bg-amber-50 border border-amber-200 p-3.5 text-xs text-amber-900 animate-in fade-in"
+        >
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold">AI Consent Required</p>
+              <p className="mt-0.5 text-amber-800 text-[11px] leading-relaxed">{refusedExplanation}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleOpenConsentNotice(false)}
+            data-testid="button-reopen-ai-consent"
+            className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs transition flex-shrink-0"
+          >
+            Review Terms
+          </button>
+        </div>
+      )}
 
       {/* Info Banner: 250MB Support + Auto Compression */}
       <div className="my-4 flex items-center justify-between rounded-xl bg-[#fbfaf5] border border-[#e8ebd9] px-4 py-2.5 text-xs text-[#526072]">
@@ -524,7 +636,7 @@ export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
                 <button
                   type="button"
                   onClick={startRecording}
-                  disabled={!isCameraActive || isProcessing}
+                  disabled={(hasConsented && !isCameraActive) || isProcessing}
                   data-testid="button-start-recording"
                   className="flex items-center gap-2 rounded-xl bg-[#253142] px-5 py-2.5 text-sm font-bold text-[#f5c84b] hover:bg-[#33435a] transition disabled:opacity-50"
                 >
@@ -734,6 +846,15 @@ export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
           </p>
         </div>
       )}
+      {/* US-48: AI Consent Modal Mount */}
+      <AIConsentModal
+        isOpen={isConsentModalOpen}
+        onAgree={handleConsentAgreed}
+        onDecline={handleConsentDeclined}
+        onClose={() => setIsConsentModalOpen(false)}
+        readOnlyNotice={isReadOnlyPolicy}
+        notify={notify}
+      />
     </div>
   );
 }
