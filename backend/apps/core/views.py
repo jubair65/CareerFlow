@@ -7,8 +7,13 @@ from rest_framework import status, permissions, serializers
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from .models import DataAccessLog, Notification
-from .serializers import NotificationSerializer
+from .models import DataAccessLog, Notification, AIConsentLog
+from .serializers import (
+    NotificationSerializer,
+    AIConsentLogSerializer,
+    AIConsentSubmitSerializer,
+    AI_BIOMETRIC_POLICY_V1,
+)
 from apps.authentication.models import User
 from apps.authentication.permissions import IsHRManager, IsAgencyAdmin
 
@@ -196,3 +201,146 @@ class NotificationDetailView(APIView):
 
         notification.delete()
         return Response({'message': 'Notification deleted successfully.'}, status=status.HTTP_200_OK)
+
+
+# ============================================================================
+# US-48: AI Biometric & Evaluation Consent Notice Gatekeeper
+# ============================================================================
+
+def get_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        return x_forwarded_for.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR')
+
+
+def verify_ai_consent(request, user=None, email=None) -> bool:
+    """
+    US-48-T5: Backend check verifying explicit AI consent before initiating
+    audio/video presentation telemetry or downstream AI scoring pipelines.
+    """
+    # 1. Token Check
+    token = (
+        request.headers.get('X-AI-Consent-Token')
+        or request.data.get('consent_token')
+        or getattr(request, 'query_params', {}).get('consent_token')
+        or request.GET.get('consent_token')
+    )
+    if token:
+        if AIConsentLog.objects.filter(consent_token=token, agreed=True).exists():
+            return True
+
+    # 2. Authenticated User Check
+    effective_user = user or (request.user if getattr(request, 'user', None) and request.user.is_authenticated else None)
+    if effective_user:
+        if AIConsentLog.objects.filter(user=effective_user, agreed=True).exists():
+            return True
+
+    # 3. Candidate Email Check
+    effective_email = email or request.data.get('email')
+    if effective_email:
+        if AIConsentLog.objects.filter(email=effective_email, agreed=True).exists():
+            return True
+
+    # 4. IP Fallback for recent public candidate session
+    client_ip = get_client_ip(request)
+    if client_ip:
+        if AIConsentLog.objects.filter(ip_address=client_ip, agreed=True).exists():
+            return True
+
+    return False
+
+
+class AIConsentRecordView(APIView):
+    """
+    US-48-T2: Record candidate consent decision (agreement or refusal)
+    with timestamp, policy version, IP address, and user agent.
+    POST /api/core/ai-consent/
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = AIConsentSubmitSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        agreed = serializer.validated_data['agreed']
+        policy_version = serializer.validated_data.get('policy_version', 'v1.0')
+        consent_type = serializer.validated_data.get('consent_type', AIConsentLog.ConsentType.BIOMETRIC_EVALUATION)
+        email = serializer.validated_data.get('email', '')
+
+        # Resolve user
+        user = request.user if request.user and request.user.is_authenticated else None
+        if not email and user:
+            email = user.email
+
+        client_ip = get_client_ip(request)
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+
+        consent_log = AIConsentLog.objects.create(
+            user=user,
+            email=email,
+            consent_type=consent_type,
+            policy_version=policy_version,
+            agreed=agreed,
+            ip_address=client_ip,
+            user_agent=user_agent,
+        )
+
+        if not agreed:
+            return Response({
+                'status': 'refused',
+                'agreed': False,
+                'message': 'AI Biometric and Evaluation Consent was declined. Video capture and evaluation remain locked.',
+                'policy_version': policy_version,
+                'consent_token': consent_log.consent_token,
+                'timestamp': consent_log.timestamp,
+            }, status=status.HTTP_200_OK)
+
+        return Response({
+            'status': 'recorded',
+            'agreed': True,
+            'message': 'AI Biometric Analysis and Evaluation consent successfully recorded.',
+            'policy_version': policy_version,
+            'consent_token': consent_log.consent_token,
+            'timestamp': consent_log.timestamp,
+        }, status=status.HTTP_201_CREATED)
+
+
+class AIConsentStatusView(APIView):
+    """
+    US-48-T2: Check whether current user/token/IP has valid active consent.
+    GET /api/core/ai-consent/status/
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        has_consented = verify_ai_consent(request)
+        token = (
+            request.headers.get('X-AI-Consent-Token')
+            or getattr(request, 'query_params', {}).get('consent_token')
+            or request.GET.get('consent_token')
+        )
+        active_log = None
+        if token:
+            active_log = AIConsentLog.objects.filter(consent_token=token, agreed=True).first()
+        elif request.user and request.user.is_authenticated:
+            active_log = AIConsentLog.objects.filter(user=request.user, agreed=True).first()
+
+        return Response({
+            'has_consented': has_consented,
+            'policy_version': active_log.policy_version if active_log else 'v1.0',
+            'consent_token': active_log.consent_token if active_log else None,
+            'consented_at': active_log.timestamp if active_log else None,
+        }, status=status.HTTP_200_OK)
+
+
+class AIConsentPolicyView(APIView):
+    """
+    US-48-T1: Retrieve the structured AI Biometric and Evaluation Privacy Notice.
+    GET /api/core/ai-consent/policy/
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        return Response(AI_BIOMETRIC_POLICY_V1, status=status.HTTP_200_OK)

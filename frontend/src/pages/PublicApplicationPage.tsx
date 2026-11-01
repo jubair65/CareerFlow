@@ -47,6 +47,14 @@ export function PublicApplicationPage({
   // US-45: Live Countdown Timer & State Management
   const [now, setNow] = useState<Date>(new Date());
 
+  // US-48: AI Biometric Consent Gatekeeper State
+  const [hasConsented, setHasConsented] = useState<boolean>(() => !!getStoredAIConsentToken());
+  const [consentToken, setConsentToken] = useState<string | null>(() => getStoredAIConsentToken());
+  const [isConsentModalOpen, setIsConsentModalOpen] = useState(false);
+  const [isReadOnlyPolicy, setIsReadOnlyPolicy] = useState(false);
+  const [refusedExplanation, setRefusedExplanation] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+
   useEffect(() => {
     const timer = setInterval(() => {
       setNow(new Date());
@@ -137,6 +145,29 @@ export function PublicApplicationPage({
     };
     loadProfileAutofill();
   }, []);
+
+  const handleConsentAgreed = (token: string) => {
+    setHasConsented(true);
+    setConsentToken(token);
+    setRefusedExplanation(null);
+    if (pendingFile) {
+      setVideoFile(pendingFile);
+      setPendingFile(null);
+    }
+  };
+
+  const handleConsentDeclined = () => {
+    setHasConsented(false);
+    setConsentToken(null);
+    setRefusedExplanation('AI Biometric and Evaluation Consent was declined. Video submission is paused. You can review and agree to the consent notice at any time to proceed.');
+    setVideoFile(null);
+    setPendingFile(null);
+  };
+
+  const handleOpenConsentNotice = (readOnly: boolean = true) => {
+    setIsReadOnlyPolicy(readOnly);
+    setIsConsentModalOpen(true);
+  };
 
   if (loading) {
     return (
@@ -457,6 +488,7 @@ export function PublicApplicationPage({
               </div>
             )}
 
+
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
@@ -468,6 +500,11 @@ export function PublicApplicationPage({
                   notify?.('Please upload both a CV and a Video Presentation.', 'error');
                   return;
                 }
+                if (!hasConsented) {
+                  setIsReadOnlyPolicy(false);
+                  setIsConsentModalOpen(true);
+                  return;
+                }
                 try {
                   setSubmitting(true);
                   const formData = new FormData();
@@ -475,6 +512,9 @@ export function PublicApplicationPage({
                   formData.append('email', email);
                   formData.append('cv_file', cvFile);
                   formData.append('video_file', videoFile);
+                  if (consentToken) {
+                    formData.append('consent_token', consentToken);
+                  }
                   
                   await apiSubmitApplication(token, formData);
                   setSubmitted(true);
@@ -562,7 +602,18 @@ export function PublicApplicationPage({
                       <input 
                         type="file" 
                         accept=".mp4,.webm,.mov" 
-                        onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+                        data-testid="input-video-file"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          if (!hasConsented) {
+                            e.target.value = '';
+                            setPendingFile(file);
+                            setIsReadOnlyPolicy(false);
+                            setIsConsentModalOpen(true);
+                            return;
+                          }
+                          setVideoFile(file);
+                        }}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         required
                       />
@@ -581,6 +632,42 @@ export function PublicApplicationPage({
                       )}
                     </div>
                   </div>
+
+                  {/* US-48: AI Biometric Consent Notice Link & Refusal Alert */}
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenConsentNotice(true)}
+                      data-testid="link-ai-consent-policy"
+                      className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline flex items-center gap-1.5 transition"
+                    >
+                      <Shield size={13} />
+                      <span>AI Biometric & Evaluation Privacy Notice</span>
+                    </button>
+                  </div>
+
+                  {refusedExplanation && (
+                    <div
+                      data-testid="alert-ai-consent-refused"
+                      className="rounded-2xl bg-amber-50 border border-amber-200 p-3.5 text-xs text-amber-900 flex items-start justify-between gap-3 animate-in fade-in"
+                    >
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-bold">AI Consent Required</p>
+                          <p className="text-amber-800 text-[11px] mt-0.5 leading-relaxed">{refusedExplanation}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenConsentNotice(false)}
+                        data-testid="button-reopen-ai-consent"
+                        className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] transition flex-shrink-0"
+                      >
+                        Review Notice
+                      </button>
+                    </div>
+                  )}
 
                   <button
                     type="submit"

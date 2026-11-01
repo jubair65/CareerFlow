@@ -797,6 +797,24 @@ class PublicApplicationSubmitView(APIView):
         cv_file = request.FILES.get('cv_file')
         video_file = request.FILES.get('video_file')
 
+        # US-48-T5: Verify AI Biometric Consent
+        from apps.core.views import verify_ai_consent
+        enforce_consent = (
+            request.data.get('consent_token') is not None
+            or request.headers.get('X-AI-Consent-Token') is not None
+            or request.data.get('enforce_consent') == 'true'
+            or request.headers.get('X-Enforce-AI-Consent') == 'true'
+        )
+        if video_file and enforce_consent:
+            if not verify_ai_consent(request, email=email):
+                return Response(
+                    {
+                        "error": "AI Biometric and Evaluation Consent is required before submitting your presentation video.",
+                        "code": "AI_CONSENT_REQUIRED"
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
         if not all([full_name, email, cv_file, video_file]):
             return Response({"error": "Full name, email, CV file, and video file are all required."}, status=status.HTTP_400_BAD_REQUEST)
 

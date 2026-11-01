@@ -68,6 +68,18 @@ class VideoUploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # US-48-T5: Enforce AI Biometric & Evaluation Consent Gatekeeper
+        from apps.core.views import verify_ai_consent
+        if not verify_ai_consent(request, user=request.user):
+            return Response(
+                {
+                    'error': 'AI Biometric and Evaluation Consent is required before recording or uploading presentation videos.',
+                    'code': 'AI_CONSENT_REQUIRED',
+                    'policy_url': '/api/core/ai-consent/policy/'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         uploaded_file = request.FILES['file']
 
         # 1. Validation (File size <= 250MB, allowed extensions)
