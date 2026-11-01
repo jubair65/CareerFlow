@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   X,
+  MessageSquare,
+  GitCommit,
   Search,
   Trophy,
   Medal,
@@ -24,7 +26,9 @@ import {
   Download,
   Loader2,
 } from 'lucide-react';
+import { RecruiterNotesModal } from './RecruiterNotesModal';
 import type {
+  PipelineStage,
   RecruitmentRoom,
   RankedApplicantItem,
   UnrankedApplicantItem,
@@ -148,6 +152,14 @@ export function RankedApplicantsModal({
   const [selectedAppIds, setSelectedAppIds] = useState<number[]>([]);
   const [isComparisonModalOpen, setIsComparisonModalOpen] = useState(false);
 
+  // US-47: Recruiter Notes & Pipeline Stage Filter / Modal State
+  const [selectedStageFilter, setSelectedStageFilter] = useState<string>('ALL');
+  const [notesModalOpen, setNotesModalOpen] = useState(false);
+  const [notesAppId, setNotesAppId] = useState<number | null>(null);
+  const [notesCandidateName, setNotesCandidateName] = useState('');
+  const [notesCandidateEmail, setNotesCandidateEmail] = useState('');
+  const [notesCurrentStage, setNotesCurrentStage] = useState<PipelineStage>('APPLIED');
+
   const toggleApplicantSelection = (appId: number) => {
     setSelectedAppIds((prev) => {
       if (prev.includes(appId)) {
@@ -176,6 +188,7 @@ export function RankedApplicantsModal({
         ordering: sortBy,
         include_unranked: true,
         shortlisted: shortlistedOnly ? true : undefined,
+        stage: selectedStageFilter !== 'ALL' ? selectedStageFilter : undefined,
       });
       setData(res);
     } catch (err: any) {
@@ -213,7 +226,7 @@ export function RankedApplicantsModal({
     if (isOpen && room) {
       fetchRankings(false);
     }
-  }, [sortBy, minScoreFilter, shortlistedOnly]);
+  }, [sortBy, minScoreFilter, shortlistedOnly, selectedStageFilter]);
 
   const handleRecalculateScores = async () => {
     if (!room) return;
@@ -533,6 +546,39 @@ export function RankedApplicantsModal({
               <span>Shortlisted Only</span>
             </button>
           </div>
+
+          {/* US-47: Candidate Interview Stage Filter Pills (AC-6) */}
+          <div className="flex items-center gap-1.5 flex-wrap pt-2.5 mt-2.5 border-t border-gray-200/70 dark:border-gray-800">
+            <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mr-1 flex items-center gap-1">
+              <GitCommit className="w-3.5 h-3.5 text-indigo-500" />
+              Stage:
+            </span>
+            {[
+              { key: 'ALL', label: 'All Stages', testId: 'filter-stage-all' },
+              { key: 'APPLIED', label: 'Applied', testId: 'filter-stage-applied' },
+              { key: 'UNDER_REVIEW', label: 'Under Review', testId: 'filter-stage-under-review' },
+              { key: 'SHORTLISTED', label: 'Shortlisted', testId: 'filter-stage-shortlisted' },
+              { key: 'INTERVIEW_ROUND_1', label: 'Round 1', testId: 'filter-stage-round1' },
+              { key: 'INTERVIEW_ROUND_2', label: 'Round 2', testId: 'filter-stage-round2' },
+              { key: 'OFFERED', label: 'Offered', testId: 'filter-stage-offered' },
+              { key: 'HIRED', label: 'Hired', testId: 'filter-stage-hired' },
+              { key: 'REJECTED', label: 'Rejected', testId: 'filter-stage-rejected' },
+            ].map((pill) => (
+              <button
+                key={pill.key}
+                type="button"
+                data-testid={pill.testId}
+                onClick={() => setSelectedStageFilter(pill.key)}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition ${
+                  selectedStageFilter === pill.key
+                    ? 'bg-indigo-600 text-white shadow-xs font-semibold'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+              >
+                {pill.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Content Body */}
@@ -633,6 +679,16 @@ export function RankedApplicantsModal({
                         <p className="text-[11px] text-gray-400 mt-0.5">
                           Applied: {new Date(applicant.applied_at).toLocaleDateString()}
                         </p>
+                        {/* US-47: Stage Badge */}
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <span
+                            data-testid={`badge-candidate-stage-${applicant.rank}`}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
+                          >
+                            <GitCommit className="w-3 h-3 text-indigo-500" />
+                            {applicant.stage_display || applicant.stage || 'Applied'}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -682,6 +738,32 @@ export function RankedApplicantsModal({
                           />
                         </div>
                       </div>
+
+                      {/* US-47: Recruiter Notes & Pipeline Stage Button */}
+                      <button
+                        type="button"
+                        data-testid={`button-open-notes-${applicant.application_id}`}
+                        onClick={() => {
+                          setNotesAppId(applicant.application_id);
+                          setNotesCandidateName(applicant.candidate_name);
+                          setNotesCandidateEmail(applicant.candidate_email);
+                          setNotesCurrentStage(applicant.stage || 'APPLIED');
+                          setNotesModalOpen(true);
+                        }}
+                        className="px-2.5 py-1.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-950/40 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 text-blue-700 dark:text-blue-300 font-semibold text-xs transition flex items-center gap-1.5 shadow-xs"
+                        title="Internal Recruiter Notes & Stage"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Notes</span>
+                        {(applicant.notes_count ?? 0) > 0 && (
+                          <span
+                            data-testid={`badge-notes-count-${applicant.application_id}`}
+                            className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-blue-600 text-white"
+                          >
+                            {applicant.notes_count}
+                          </span>
+                        )}
+                      </button>
 
                       <button
                         type="button"
@@ -832,6 +914,22 @@ export function RankedApplicantsModal({
           onClose={() => setBreakdownAppId(null)}
           applicationId={breakdownAppId}
           candidateName={breakdownCandidateName}
+          notify={notify}
+        />
+      )}
+
+      {/* US-47: Recruiter Notes & Pipeline Stage Management Modal */}
+      {notesModalOpen && notesAppId && room && (
+        <RecruiterNotesModal
+          isOpen={notesModalOpen}
+          onClose={() => setNotesModalOpen(false)}
+          applicationId={notesAppId}
+          candidateName={notesCandidateName}
+          candidateEmail={notesCandidateEmail}
+          roomTitle={room.title}
+          currentStage={notesCurrentStage}
+          onStageUpdated={() => fetchRankings(false)}
+          onNoteCountChanged={() => fetchRankings(false)}
           notify={notify}
         />
       )}

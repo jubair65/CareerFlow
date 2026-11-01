@@ -6,8 +6,12 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import RecruitmentRoom, ClientCompany, CandidateApplication, CandidateForwardRecord
+from .models import RecruitmentRoom, ClientCompany, CandidateApplication, CandidateForwardRecord, CandidateNote, CandidateStageHistory
+from rest_framework.exceptions import PermissionDenied
 from .serializers import (
+    CandidateNoteSerializer,
+    CandidateStageHistorySerializer,
+    CandidateStageUpdateSerializer,
     RecruitmentRoomSerializer,
     RoomRequirementsSerializer,
     RoomWeightingSerializer,
@@ -596,6 +600,9 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
         shortlisted_param = request.query_params.get('shortlisted')
         shortlisted_only = shortlisted_param.lower() in ['true', '1', 'yes'] if shortlisted_param else False
 
+        stage_param = request.query_params.get('stage')
+        stage_filter = stage_param.strip() if stage_param and stage_param.strip().upper() != 'ALL' else None
+
         data = get_ranked_room_applicants(
             room_or_id=room,
             min_score=min_score,
@@ -605,6 +612,7 @@ class RecruitmentRoomViewSet(viewsets.ModelViewSet):
             ordering=ordering,
             include_unranked=include_unranked,
             shortlisted_only=shortlisted_only,
+            stage_filter=stage_filter,
         )
         serializer = RankedApplicantsResponseSerializer(data)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -1914,3 +1922,169 @@ class PublicJobRoomDetailView(APIView):
         serializer = JobBoardRoomSerializer(room, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+
+
+# ============================================================================
+# SPRINT 7: US-47 Recruiter Evaluation Notes & Multi-Stage Pipeline Progression
+# ============================================================================
+
+class CandidateNoteListCreateView(APIView):
+    """
+    US-47-T2: List and create internal recruiter evaluation notes for an application.
+    Strictly restricted to authorized HR Managers and Agency Admins (Room Owner).
+    Candidate/student users are strictly forbidden (403 Forbidden).
+    """
+    permission_classes = [permissions.IsAuthenticated, IsRoomOwnerOrAdmin]
+
+    def get_application(self, application_id, user):
+        application = get_object_or_404(
+            CandidateApplication.objects.select_related('room', 'room__client_company', 'candidate'),
+            id=application_id
+        )
+        self.check_object_permissions(self.request, application)
+        return application
+
+    def get(self, request, application_id):
+        application = self.get_application(application_id, request.user)
+        notes = application.recruiter_notes.select_related('author').order_by('-created_at')
+        serializer = CandidateNoteSerializer(notes, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, application_id):
+        application = self.get_application(application_id, request.user)
+        serializer = CandidateNoteSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        note = serializer.save(application=application, author=request.user)
+        return Response(CandidateNoteSerializer(note).data, status=status.HTTP_201_CREATED)
+
+
+class CandidateNoteDetailView(APIView):
+    """
+    US-47-T2: Update (edit) or delete an existing internal recruiter evaluation note.
+    Only the author of the note or the room owner/admin may edit or delete.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsRoomOwnerOrAdmin]
+
+    def get_note_and_app(self, application_id, note_id, user):
+        application = get_object_or_404(
+            CandidateApplication.objects.select_related('room', 'room__client_company', 'candidate'),
+            id=application_id
+        )
+        self.check_object_permissions(self.request, application)
+        note = get_object_or_404(CandidateNote, id=note_id, application=application)
+        
+        # Note-level authorization: author or room owner
+        is_author = note.author == user
+        is_owner = application.room.created_by == user or getattr(user, 'is_staff', False)
+        if not (is_author or is_owner):
+            raise PermissionDenied("You do not have permission to modify this recruiter note.")
+        return application, note
+
+    def put(self, request, application_id, note_id):
+        application, note = self.get_note_and_app(application_id, note_id, request.user)
+        content = request.data.get('content', '').strip()
+        if not content:
+            return Response({"content": ["Note content cannot be empty or blank."]}, status=status.HTTP_400_BAD_REQUEST)
+        note.content = content
+        note.is_edited = True
+        note.save(update_fields=['content', 'is_edited', 'updated_at'])
+        return Response(CandidateNoteSerializer(note).data, status=status.HTTP_200_OK)
+
+    def patch(self, request, application_id, note_id):
+        return self.put(request, application_id, note_id)
+
+    def delete(self, request, application_id, note_id):
+        application, note = self.get_note_and_app(application_id, note_id, request.user)
+        note.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CandidateStageUpdateView(APIView):
+    """
+    US-47-T3: Transition candidate recruitment pipeline stage and log audit history.
+    AC-2: Pipeline stages: Applied, Under Review, Shortlisted, Interview Round 1,
+          Interview Round 2, Offered, Hired, Rejected.
+    AC-5: Dispatches candidate notification if notify_candidate=True.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsRoomOwnerOrAdmin]
+
+    def patch(self, request, application_id):
+        application = get_object_or_404(
+            CandidateApplication.objects.select_related('room', 'room__client_company', 'candidate'),
+            id=application_id
+        )
+        self.check_object_permissions(request, application)
+
+        serializer = CandidateStageUpdateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        to_stage = serializer.validated_data['stage']
+        notes = serializer.validated_data.get('notes', '')
+        notify_candidate = serializer.validated_data.get('notify_candidate', True)
+        from_stage = application.stage
+
+        if to_stage not in CandidateApplication.Stage.values:
+            return Response({"stage": [f"Invalid stage choice '{to_stage}'."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        application.stage = to_stage
+
+        # If transitioning to SHORTLISTED, sync is_shortlisted
+        if to_stage == CandidateApplication.Stage.SHORTLISTED and not application.is_shortlisted:
+            application.is_shortlisted = True
+            application.shortlisted_at = timezone.now()
+            if not application.shortlist_reason:
+                application.shortlist_reason = notes or "Shortlisted by HR Recruiter"
+        elif to_stage == CandidateApplication.Stage.REJECTED:
+            application.hr_decision = CandidateApplication.HrDecision.REJECTED
+
+        application.save()
+
+        # Create stage history log
+        history = CandidateStageHistory.objects.create(
+            application=application,
+            from_stage=from_stage,
+            to_stage=to_stage,
+            updated_by=request.user,
+            notes=notes,
+        )
+
+        # AC-5: In-app candidate notification
+        if notify_candidate and application.candidate:
+            from apps.core.models import Notification
+            stage_display = dict(CandidateApplication.Stage.choices).get(to_stage, to_stage)
+            Notification.objects.create(
+                user=application.candidate,
+                title=f"Application Update: {application.room.title}",
+                message=f"Your application for '{application.room.title}' at {application.room.company_name} has progressed to stage: {stage_display}.",
+                link_url="/candidate/applications",
+                notification_type=Notification.NotificationType.APPLICATION_STATUS,
+            )
+
+        return Response({
+            "message": "Candidate stage updated successfully.",
+            "application_id": application.id,
+            "stage": application.stage,
+            "stage_display": application.get_stage_display(),
+            "is_shortlisted": application.is_shortlisted,
+            "history": CandidateStageHistorySerializer(history).data,
+        }, status=status.HTTP_200_OK)
+
+
+class CandidateStageHistoryListView(APIView):
+    """
+    US-47-T3: Retrieve full chronological stage transition history for an application.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsRoomOwnerOrAdmin]
+
+    def get(self, request, application_id):
+        application = get_object_or_404(
+            CandidateApplication.objects.select_related('room', 'room__client_company'),
+            id=application_id
+        )
+        self.check_object_permissions(request, application)
+        history = application.stage_history.select_related('updated_by').order_by('-created_at')
+        serializer = CandidateStageHistorySerializer(history, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

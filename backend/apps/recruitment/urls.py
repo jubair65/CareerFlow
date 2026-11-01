@@ -23,6 +23,10 @@ from .views import (
     PublicJobRoomsListView,
     PublicJobRoomDetailView,
     ApplicationSubmissionGatekeeperView,
+    CandidateNoteListCreateView,
+    CandidateNoteDetailView,
+    CandidateStageUpdateView,
+    CandidateStageHistoryListView,
 )
 
 app_name = 'recruitment'
@@ -34,6 +38,12 @@ router.register(r'agency/rooms', AgencyRoomViewSet, basename='agency-rooms')
 router.register(r'agency/applicants', AgencyCrossClientApplicantViewSet, basename='agency-applicants')
 
 urlpatterns = [
+    # US-47: Recruiter Evaluation Notes & Multi-Stage Pipeline Progression Endpoints
+    path('applications/<int:application_id>/notes/', CandidateNoteListCreateView.as_view(), name='application-notes-list-create'),
+    path('applications/<int:application_id>/notes/<int:note_id>/', CandidateNoteDetailView.as_view(), name='application-note-detail'),
+    path('applications/<int:application_id>/stage/', CandidateStageUpdateView.as_view(), name='application-stage-update'),
+    path('applications/<int:application_id>/stage-history/', CandidateStageHistoryListView.as_view(), name='application-stage-history'),
+
     # US-46: Bulk Applicant Data Export (CSV / Excel) Endpoints
     path('rooms/<int:room_id>/export/csv/', RecruitmentRoomExportCsvView.as_view(), name='room-export-csv'),
     path('rooms/<int:room_id>/export/excel/', RecruitmentRoomExportExcelView.as_view(), name='room-export-excel'),
