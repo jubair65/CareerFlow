@@ -209,8 +209,7 @@ export function AgencyRoomsPage({ notify }: { notify: Notify }) {
       <div data-testid="page-agency-rooms" className="space-y-6">
         {/* Page Heading */}
         <PageHeading
-          eyebrow="Recruitment Agency • US-30 Client Room Management"
-          title="Client Recruitment Rooms"
+title="Client Recruitment Rooms"
           description="Create, configure, and manage job openings and candidate application links on behalf of your client companies."
           action={
             <button

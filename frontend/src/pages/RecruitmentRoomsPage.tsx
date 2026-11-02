@@ -44,8 +44,7 @@ export function RecruitmentRoomsPage({ notify }: { notify: Notify }) {
   return (
     <AppShell role="hr" notify={notify}>
       <PageHeading
-        eyebrow="HR Hiring Portal • US-18 Room Management"
-        title="Recruitment Rooms"
+title="Recruitment Rooms"
         description="Create and manage job-specific hiring rooms, evaluation criteria, and candidate application links."
         action={
           <button

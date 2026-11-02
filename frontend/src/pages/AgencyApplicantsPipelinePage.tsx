@@ -216,8 +216,7 @@ export function AgencyApplicantsPipelinePage({ notify }: { notify: Notify }) {
       <div data-testid="page-agency-applicants" className="space-y-6">
         {/* Page Heading */}
         <PageHeading
-          eyebrow="Recruitment Agency • US-31 Cross-Client Pipeline"
-          title="Cross-Client Applicant Pipeline"
+title="Cross-Client Applicant Pipeline"
           description="View, filter, and evaluate candidates across your entire client company portfolio with transparent scores."
           action={
             <button

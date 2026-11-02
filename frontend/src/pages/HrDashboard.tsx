@@ -102,8 +102,7 @@ export function HrDashboard({ notify }: { notify: Notify }) {
   return (
     <AppShell role="hr" notify={notify}>
       <PageHeading
-        eyebrow="HR Hiring Portal • US-18 Recruitment Rooms"
-        title={`Good morning, ${userName}.`}
+title={`Good morning, ${userName}.`}
         description="Your hiring workspace is ready for candidate evaluation, room creation, and CV match scoring."
         action={
           <button
@@ -145,7 +144,7 @@ export function HrDashboard({ notify }: { notify: Notify }) {
         <StatCard
           label="Average CV Match"
           value={`${avgCvMatch}`}
-          detail="US-09 Semantic score"
+          detail="Semantic match score"
           icon={Gauge}
           accent="coral"
         />
@@ -183,7 +182,7 @@ export function HrDashboard({ notify }: { notify: Notify }) {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-xs font-bold uppercase tracking-[.14em] text-[#f5c84b]">
-                  US-09 Semantic Signal
+                  Semantic Signal
                 </div>
                 <div className="cf-display mt-2 text-4xl font-bold">
                   {hrMatches.filter((m) => m.match_score >= 75).length} ready

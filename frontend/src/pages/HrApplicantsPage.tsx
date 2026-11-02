@@ -152,8 +152,7 @@ export function HrApplicantsPage({ notify }: { notify: Notify }) {
   return (
     <AppShell role="hr" activeTab="Applicants" notify={notify}>
       <PageHeading
-        eyebrow="HR Hiring Portal • US-24 & US-28 Candidate Ranking"
-        title="Candidate Applicants"
+title="Candidate Applicants"
         description="Review multi-modal AI evaluation dossiers, rank applicants, and compare candidates side-by-side."
         action={
           <div className="flex items-center gap-2">
@@ -347,7 +346,7 @@ export function HrApplicantsPage({ notify }: { notify: Notify }) {
                             type="button"
                             onClick={() => handleDownloadPdf(app.application_id, app.candidate_name)}
                             disabled={isDownloading}
-                            title="Download PDF Scorecard (US-33)"
+                            title="Download PDF Scorecard"
                             data-testid={`button-download-pdf-${app.application_id}`}
                             className="inline-flex items-center gap-1 rounded-lg border border-[#d9dbd1] bg-white px-2.5 py-1 text-xs font-bold text-[#253142] hover:bg-[#f8f7f2] transition cursor-pointer disabled:opacity-50"
                           >

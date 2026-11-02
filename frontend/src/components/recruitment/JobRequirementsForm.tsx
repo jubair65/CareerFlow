@@ -226,9 +226,7 @@ export function JobRequirementsForm({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-[#253142]">Configure Job Role & Skills</h2>
-                <span className="rounded-md bg-[#e2f0e9] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[#277254]">
-                  US-19
-                </span>
+                
               </div>
               <p className="text-xs text-[#7b8490]">
                 {room.title} • <span className="font-semibold text-[#526072]">{room.company_name}</span>

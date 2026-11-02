@@ -40,8 +40,7 @@ export function AgencyDashboard({ notify }: { notify: Notify }) {
   return (
     <AppShell role="agency" notify={notify}>
       <PageHeading
-        eyebrow="Recruitment Agency Portal"
-        title={`Good morning, ${userName}.`}
+title={`Good morning, ${userName}.`}
         description="A clear view across every client company and candidate pipeline."
         action={
           <button

@@ -294,8 +294,7 @@ export function AgencyClientManagementPage({ notify }: { notify: Notify }) {
   return (
     <AppShell role="agency" notify={notify}>
       <PageHeading
-        eyebrow="Recruitment Agency Portfolio"
-        title="Client Companies"
+title="Client Companies"
         description="Manage multi-tenant client organizations, contact representatives, and active recruitment openings."
         action={
           <div className="flex items-center gap-2.5">

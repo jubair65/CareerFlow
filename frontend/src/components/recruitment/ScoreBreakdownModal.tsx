@@ -107,9 +107,7 @@ export function ScoreBreakdownModal({
                     ? 'Loading score explanation...'
                     : `${data?.candidate_name || candidateName || 'Candidate'} — Score Breakdown`}
                 </h2>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-[#e2f0e9] text-[#1f5b43] border border-[#a7d7c1]">
-                  US-27
-                </span>
+                
               </div>
               <p className="text-xs text-[#7b8490] mt-0.5">
                 Recruitment Room:{' '}
@@ -484,7 +482,7 @@ export function ScoreBreakdownModal({
         <div className="flex items-center justify-between p-4 border-t border-[#eef0e7] bg-[#fbfaf5]">
           <div className="text-[11px] text-[#7b8490] flex items-center gap-1.5">
             <Info className="w-3.5 h-3.5 text-[#277254]" />
-            Scores calculated using Room weights configured under US-20.
+            Scores calculated using Room weights configured under room evaluation settings.
           </div>
           <button
             type="button"

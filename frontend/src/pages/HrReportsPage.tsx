@@ -115,8 +115,7 @@ export function HrReportsPage({ notify }: { notify: Notify }) {
   return (
     <AppShell role="hr" activeTab="Reports" notify={notify}>
       <PageHeading
-        eyebrow="HR Hiring Portal • US-33 Downloadable Reports"
-        title="Hiring Reports & Scorecards"
+title="Hiring Reports & Scorecards"
         description="Generate, preview, and download boardroom-ready candidate scorecard dossiers and comprehensive room summary PDF reports."
         action={
           <button

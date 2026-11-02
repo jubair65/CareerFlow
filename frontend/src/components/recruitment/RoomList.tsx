@@ -788,7 +788,7 @@ export function RoomList({
                 <button
                   type="button"
                   onClick={() => setShortlistRoom(room)}
-                  title="Configure & View Candidate Shortlist (US-25)"
+                  title="Configure & View Candidate Shortlist"
                   data-testid={`button-action-shortlist-${room.id}`}
                   className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#a7d7c1] bg-[#e2f0e9] px-2 py-2 text-xs font-bold text-[#1f5b43] hover:bg-[#d0e8dc] transition shadow-2xs min-w-0 w-full min-h-[36px]"
                 >

@@ -121,8 +121,7 @@ export function AgencyReportsPage({ notify }: { notify: Notify }) {
   return (
     <AppShell role="agency" activeTab="Reports" notify={notify}>
       <PageHeading
-        eyebrow="Agency Hiring Portal • US-33 Cross-Client Reports"
-        title="Client Reports & Dossier Exports"
+title="Client Reports & Dossier Exports"
         description="Comprehensive hiring throughput reports, candidate dossiers, and room summary exports across all client companies."
         action={
           <button

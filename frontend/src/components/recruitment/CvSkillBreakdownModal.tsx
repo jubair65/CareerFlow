@@ -111,9 +111,6 @@ export function CvSkillBreakdownModal({
               <Sparkles size={20} />
             </div>
             <div>
-              <div className="text-[11px] font-bold uppercase tracking-wider text-[#7b8490]">
-                US-10 • CV Match Breakdown
-              </div>
               <h2 className="text-base font-bold text-[#253142]" data-testid="text-breakdown-candidate-name">
                 {applicant.candidate_name || applicant.candidate_email}
               </h2>

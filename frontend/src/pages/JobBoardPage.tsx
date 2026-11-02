@@ -177,8 +177,7 @@ export function JobBoardPage({ notify }: { notify: Notify }) {
   return (
     <AppShell role="student" notify={notify}>
       <PageHeading
-        eyebrow="Candidate Portal • US-43B Job Discovery"
-        title="Recruitment Job Board"
+title="Recruitment Job Board"
         description="Discover active recruitment rooms, inspect skill requirements, and submit your multi-modal application directly."
         action={
           <div className="flex items-center gap-2">

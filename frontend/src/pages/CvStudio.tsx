@@ -252,8 +252,7 @@ export function CvStudio({ notify }: { notify: Notify }) {
   return (
     <AppShell role="student" notify={notify}>
       <PageHeading
-        eyebrow="Candidate Studio"
-        title="CV Studio & Document Vault"
+title="CV Studio & Document Vault"
         description="Upload and manage your CV in PDF or DOCX format. Keep your profile up to date for instant role matching and analysis."
       />
 

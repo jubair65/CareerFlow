@@ -407,7 +407,7 @@ function Register({ notify }: { notify: Notify }) {
 
           <div className="rounded-xl border border-[#d9dbd1] bg-[#fbfaf5] p-4 text-xs leading-6 text-[#687382]">
             <span className="font-semibold text-[#253142]">Note for Sprint 1 Development:</span><br />
-            Login authentication & Session management (`US-02`) and Role dashboards (`US-03`) are in progress by <strong>Member 2</strong>.
+            Login authentication & Session management and Role dashboards are in progress by <strong>Member 2</strong>.
           </div>
 
           <div className="flex gap-3">

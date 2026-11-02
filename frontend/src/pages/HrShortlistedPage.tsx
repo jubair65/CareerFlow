@@ -149,8 +149,7 @@ export function HrShortlistedPage({ notify }: { notify: Notify }) {
   return (
     <AppShell role="hr" activeTab="Shortlisted" notify={notify}>
       <PageHeading
-        eyebrow="HR Hiring Portal • US-25 & US-26 Shortlist Management"
-        title="Shortlisted Candidates"
+title="Shortlisted Candidates"
         description="Verify candidates qualifying for final round interviews, confirm hiring committee decisions, and export dossiers."
         action={
           <div className="flex items-center gap-2">

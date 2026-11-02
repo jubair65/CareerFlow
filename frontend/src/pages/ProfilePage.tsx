@@ -235,8 +235,7 @@ export function ProfilePage({ notify }: { notify: Notify }) {
   return (
     <AppShell role={effectiveRole} notify={notify}>
       <PageHeading
-        eyebrow="Candidate Self-Service • US-42"
-        title="Candidate Profile & Career Objectives"
+title="Candidate Profile & Career Objectives"
         description="Maintain your professional contact information, target job specialization, and social links to automatically streamline all hiring room applications."
         action={
           <button

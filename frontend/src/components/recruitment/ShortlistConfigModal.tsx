@@ -224,9 +224,7 @@ export function ShortlistConfigModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-bold text-[#253142]">{room.title}</h3>
-                <span className="rounded-md bg-[#e2f0e9] border border-[#a7d7c1] px-2 py-0.5 text-[10px] font-bold text-[#1f5b43]">
-                  US-25 Shortlisting
-                </span>
+                
               </div>
               <p className="text-xs text-[#7b8490]">
                 {room.company_name} {room.department ? `• ${room.department}` : ''} • Configurable screening rules & automatic shortlist

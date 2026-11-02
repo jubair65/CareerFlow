@@ -148,8 +148,7 @@ export function AgencyShortlistedPage({ notify }: { notify: Notify }) {
   return (
     <AppShell role="agency" activeTab="Shortlisted" notify={notify}>
       <PageHeading
-        eyebrow="Agency Hiring Portal • US-32 Forward Shortlist"
-        title="Shortlisted Candidate Dossiers"
+title="Shortlisted Candidate Dossiers"
         description="Review top candidates qualifying across client hiring rooms and dispatch dossiers directly to client representatives."
         action={
           <div className="flex items-center gap-2">

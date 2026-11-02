@@ -247,8 +247,7 @@ export function ApplicantStatusPage({ notify }: { notify: Notify }) {
   return (
     <AppShell role="student" notify={notify}>
       <PageHeading
-        eyebrow="Candidate Portal • US-43 My Applications Dashboard"
-        title="My Applications & Hiring Pipeline"
+title="My Applications & Hiring Pipeline"
         description="Track all your submitted recruitment room applications, live evaluation milestones, and hiring committee decisions."
         action={
           <div className="flex items-center gap-2">

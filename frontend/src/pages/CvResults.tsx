@@ -205,7 +205,7 @@ export function CvResults({ notify }: { notify: Notify }) {
     });
 
     const reportContent = `===============================================================
-CAREERFLOW CV FEEDBACK & EVALUATION REPORT (US-08)
+CAREERFLOW CV FEEDBACK & EVALUATION REPORT
 Generated on: ${dateStr}
 Document: ${feedback.original_filename}
 Candidate: ${feedback.candidate_email}
@@ -295,8 +295,7 @@ Produced by CareerFlow Talent Intelligence Platform
       </div>
 
       <PageHeading
-        eyebrow="Candidate Studio • US-08 Evaluation & US-09 Match"
-        title="CV Feedback & Job Match"
+title="CV Feedback & Job Match"
         description="Comprehensive analysis of your CV document against professional recruiter rubrics, ATS readability standards, and role semantic matching."
       />
 
@@ -316,7 +315,7 @@ Produced by CareerFlow Talent Intelligence Platform
           data-testid="tab-job-match"
           className="border-b-2 border-transparent px-4 py-2.5 text-xs font-semibold text-[#687382] hover:text-[#253142] hover:border-[#ccd0c6]"
         >
-          Job match (US-09)
+          Job match
         </button>
       </div>
 

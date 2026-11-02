@@ -58,8 +58,7 @@ export function StudentDashboard({ notify }: { notify: Notify }) {
   return (
     <AppShell role="student" notify={notify}>
       <PageHeading
-        eyebrow="Student & Candidate Portal"
-        title={`Good morning, ${userName}.`}
+title={`Good morning, ${userName}.`}
         description="You are building a stronger case for yourself, one small action at a time."
         action={
           <button

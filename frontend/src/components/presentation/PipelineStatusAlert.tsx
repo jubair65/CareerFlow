@@ -114,7 +114,7 @@ export function PipelineStatusAlert({
                     data-testid="badge-pipeline-failed"
                     className="rounded-full bg-[#fca5a5]/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#991b1b]"
                   >
-                    Fault Caught (US-40)
+                    Fault Caught
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-[#7f1d1d] leading-relaxed max-w-2xl">
@@ -249,7 +249,7 @@ export function PipelineStatusAlert({
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-[#92400e]">
-                  Graceful Degradation Active (US-40)
+                  Graceful Degradation Active
                 </span>
                 <span className="rounded-full bg-[#fde68a] px-2 py-0.5 text-[10px] font-black uppercase text-[#854d0e]">
                   100% Speech Mode

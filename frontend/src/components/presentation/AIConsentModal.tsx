@@ -210,7 +210,7 @@ export const AIConsentModal: React.FC<AIConsentModalProps> = ({
                 <span>4. Data Retention & Automated Purge Policy</span>
               </div>
               <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-                Uploaded and recorded videos are encrypted at rest. Practice sessions can be deleted on-demand with physical media unlinking (US-44). In accordance with automated retention rules (US-49), temporary staging artifacts and expired takes are systematically purged.
+                Uploaded and recorded videos are encrypted at rest. Practice sessions can be deleted on-demand with physical media unlinking. In accordance with automated retention rules, temporary staging artifacts and expired takes are systematically purged.
               </p>
             </div>
           </div>

@@ -86,8 +86,7 @@ export function PresentationStudio({ notify }: { notify: Notify }) {
   return (
     <AppShell role="student" notify={notify}>
       <PageHeading
-        eyebrow="AI Presentation Lab"
-        title="Video Presentation Studio"
+title="Video Presentation Studio"
         description="Record or upload your 1-3 minute introduction. Our pipeline analyzes speaking pace, filler words, eye contact, and posture."
         action={
           activeVideo && !showRecorder ? (
@@ -253,7 +252,7 @@ export function PresentationStudio({ notify }: { notify: Notify }) {
                 </div>
                 <h4 className="mt-1 text-sm font-bold text-[#253142]">Ready for Speech & Vision Analysis</h4>
                 <p className="mt-1.5 text-xs text-[#687382] leading-relaxed">
-                  Your video is encoded and queued for US-12 (Whisper transcription & WPM) and US-13 (MediaPipe eye contact & posture).
+                  Your video is encoded and queued for speech analysis (Whisper transcription & WPM) and visual metrics (MediaPipe eye contact & posture).
                 </p>
               </div>
             </div>

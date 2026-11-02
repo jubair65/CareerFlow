@@ -159,8 +159,7 @@ export function JobMatch({ notify }: { notify: Notify }) {
       </div>
 
       <PageHeading
-        eyebrow="US-09 Semantic Intelligence"
-        title="CV-Job Semantic Matching"
+title="CV-Job Semantic Matching"
         description="Evaluate your CV experience against specific target roles. Understand keyword coverage, sub-signals, and missing skill requirements."
       />
 
@@ -201,7 +200,7 @@ export function JobMatch({ notify }: { notify: Notify }) {
               <div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-bold uppercase tracking-[.14em] text-[#aab5c0]">
-                    Role Match • US-09 Signal
+                    Role Match • Skill Signal
                   </span>
                   <span className="rounded-full bg-[#f5c84b]/20 px-3 py-1 font-mono text-xs font-bold text-[#f5c84b]">
                     {matchResult ? `${matchResult.keyword_coverage}% Keyword Coverage` : 'NLP Engine Ready'}

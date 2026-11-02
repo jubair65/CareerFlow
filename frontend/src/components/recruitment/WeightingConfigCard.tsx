@@ -175,10 +175,6 @@ export function WeightingConfigCard({
         {/* Header */}
         <div className="flex items-start justify-between border-b border-[#eef0e7] pb-4">
           <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#e2f0e9] px-3 py-1 text-xs font-bold text-[#277254]">
-              <Sliders size={13} />
-              <span>US-20 • Evaluation Formula Configuration</span>
-            </div>
             <h2 className="text-xl font-black text-[#253142] tracking-tight">
               CV vs. Video Evaluation Weighting
             </h2>

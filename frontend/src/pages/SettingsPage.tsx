@@ -34,8 +34,7 @@ export function SettingsPage({ notify }: { notify: Notify }) {
   return (
     <AppShell role={effectiveRole} notify={notify}>
       <PageHeading
-        eyebrow="Configuration • System Preferences"
-        title="Settings & Preferences"
+title="Settings & Preferences"
         description="Configure your notifications, privacy controls, and workspace preferences."
         action={
           <button
@@ -62,7 +61,7 @@ export function SettingsPage({ notify }: { notify: Notify }) {
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-[#f0f1ec] pb-3">
               <div>
-                <div className="text-xs font-bold text-[#253142]">Email Status Notifications (US-35)</div>
+                <div className="text-xs font-bold text-[#253142]">Email Status Notifications</div>
                 <div className="text-[11px] text-[#7b8490]">
                   Receive transactional emails when your application is shortlisted or rejected.
                 </div>
@@ -77,7 +76,7 @@ export function SettingsPage({ notify }: { notify: Notify }) {
 
             <div className="flex items-center justify-between border-b border-[#f0f1ec] pb-3">
               <div>
-                <div className="text-xs font-bold text-[#253142]">In-App Bell Alerts (US-34)</div>
+                <div className="text-xs font-bold text-[#253142]">In-App Bell Alerts</div>
                 <div className="text-[11px] text-[#7b8490]">
                   Show real-time badge counts and drop-down alerts in the top navigation bar.
                 </div>
