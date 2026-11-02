@@ -522,13 +522,28 @@ class HRApplicantMatchesView(APIView):
     """
     GET /api/cv/hr/matches/
     Retrieve candidate CV match scores across applicants for HR manager view (US-09-T6).
+    Filters matches for rooms and jobs associated with the authenticated HR manager.
     """
     permission_classes = [permissions.IsAuthenticated, IsHRManager]
 
     def get(self, request):
-        # Fetch active CV matches
-        matches = CVJobMatch.objects.select_related('cv', 'cv__user').order_by('-match_score')
-        serializer = CVJobMatchSerializer(matches, many=True)
+        from django.db.models import Q
+        from apps.recruitment.models import RecruitmentRoom
+        user_rooms = RecruitmentRoom.objects.filter(created_by=request.user)
+        room_titles = list(user_rooms.values_list('title', flat=True))
+
+        qs = CVJobMatch.objects.select_related('cv', 'cv__user')
+        if room_titles:
+            room_matches = qs.filter(
+                Q(job__created_by=request.user) |
+                Q(job_title__in=room_titles)
+            ).distinct().order_by('-match_score')
+            if room_matches.exists():
+                serializer = CVJobMatchSerializer(room_matches, many=True, context={'request': request})
+                return Response(serializer.data, status=status.HTTP_200_OK)
+
+        matches = qs.filter(job__created_by=request.user).order_by('-match_score')
+        serializer = CVJobMatchSerializer(matches, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 

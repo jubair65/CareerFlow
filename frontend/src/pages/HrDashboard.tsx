@@ -7,39 +7,25 @@ import {
   Gauge,
   Plus,
   ArrowRight,
-  ChevronRight,
-  Eye,
-  CheckCircle2,
-  XCircle,
-  FileText,
-  X,
-  Award,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import {
   PageHeading,
   StatCard,
   Chart,
-  Badge,
-  candidatesSeed,
   type Notify,
 } from '../components/dashboard/DashboardShared';
 import { getStoredUser } from '../api/auth';
 import { apiGetHRMatches, type CVJobMatch } from '../api/cv';
 import { apiGetRooms, type RecruitmentRoom } from '../api/recruitment';
 import { RoomCreateModal } from '../components/recruitment/RoomCreateModal';
-import { RoomCvScoresModal } from '../components/recruitment/RoomCvScoresModal';
-import { RankedApplicantsModal } from '../components/recruitment/RankedApplicantsModal';
 import { ShortlistConfigModal } from '../components/recruitment/ShortlistConfigModal';
 
 export function HrDashboard({ notify }: { notify: Notify }) {
   const [, setLocation] = useLocation();
   const [hrMatches, setHrMatches] = useState<CVJobMatch[]>([]);
-  const [selectedMatch, setSelectedMatch] = useState<CVJobMatch | null>(null);
   const [rooms, setRooms] = useState<RecruitmentRoom[]>([]);
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [selectedRoomForCvScores, setSelectedRoomForCvScores] = useState<RecruitmentRoom | null>(null);
-  const [selectedRoomForRanking, setSelectedRoomForRanking] = useState<RecruitmentRoom | null>(null);
   const [selectedRoomForShortlist, setSelectedRoomForShortlist] = useState<RecruitmentRoom | null>(null);
 
   const user = useMemo(() => {
@@ -68,17 +54,50 @@ export function HrDashboard({ notify }: { notify: Notify }) {
 
   const activeRoomsCount = rooms.filter((r) => r.status === 'ACTIVE').length;
 
-  // Derive live stats from real API data; fall back to seed values only when data hasn't loaded
-  const applicantsCount = hrMatches.length > 0 ? hrMatches.length : 48;
-  const shortlistedCount = hrMatches.length > 0
-    ? hrMatches.filter((m) => m.match_score >= 80).length
-    : 11;
+  // Derive live stats strictly from real API data; 0 when no data exists
+  const applicantsCount = hrMatches.length;
+  const shortlistedCount = hrMatches.filter((m) => m.match_score >= 80).length;
   const shortlistedPct = applicantsCount > 0
     ? Math.round((shortlistedCount / applicantsCount) * 100)
-    : 23;
+    : 0;
   const avgCvMatch = hrMatches.length > 0
     ? Math.round(hrMatches.reduce((acc, m) => acc + m.match_score, 0) / hrMatches.length)
-    : 82;
+    : 0;
+
+  // Compute live 7-day flow chart values from real match creation dates
+  const flowChartData = useMemo(() => {
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const now = new Date();
+    const days: { label: string; dateStr: string; count: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i);
+      days.push({
+        label: dayNames[d.getDay()],
+        dateStr: d.toISOString().split('T')[0],
+        count: 0,
+      });
+    }
+
+    hrMatches.forEach((m) => {
+      if (m.created_at) {
+        const dStr = m.created_at.split('T')[0];
+        const target = days.find((item) => item.dateStr === dStr);
+        if (target) {
+          target.count += 1;
+        } else {
+          days[0].count += 1;
+        }
+      } else {
+        days[days.length - 1].count += 1;
+      }
+    });
+
+    return {
+      values: days.map((d) => d.count),
+      labels: days.map((d) => d.label),
+    };
+  }, [hrMatches]);
 
   return (
     <AppShell role="hr" notify={notify}>
@@ -112,7 +131,7 @@ export function HrDashboard({ notify }: { notify: Notify }) {
         <StatCard
           label="Applicants"
           value={`${applicantsCount}`}
-          detail="+12 this week"
+          detail={applicantsCount > 0 ? `${applicantsCount} candidates evaluated` : 'No candidates yet'}
           icon={Users}
           accent="blue"
         />
@@ -144,16 +163,15 @@ export function HrDashboard({ notify }: { notify: Notify }) {
               type="button"
               onClick={() => handleAction('View HR Reports')}
               data-testid="link-hr-reports"
-              className="text-xs font-bold text-[#277254] hover:underline"
+              className="text-xs font-bold text-[#277254] hover:underline cursor-pointer"
             >
               View report
             </button>
           </div>
           <div className="mt-6">
-            {/* FIX #6: values are daily applicant counts; Chart bars already carry title tooltips */}
             <Chart
-              values={[32, 47, 41, 66, 57, 78, 92]}
-              labels={['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']}
+              values={flowChartData.values}
+              labels={flowChartData.labels}
               color="#277254"
               unit=" applicants"
             />
@@ -168,7 +186,7 @@ export function HrDashboard({ notify }: { notify: Notify }) {
                   US-09 Semantic Signal
                 </div>
                 <div className="cf-display mt-2 text-4xl font-bold">
-                  {hrMatches.filter((m) => m.match_score >= 75).length || 11} ready
+                  {hrMatches.filter((m) => m.match_score >= 75).length} ready
                 </div>
               </div>
               <Users size={28} className="text-[#f5c84b]" />
@@ -187,280 +205,12 @@ export function HrDashboard({ notify }: { notify: Notify }) {
               }
             }}
             data-testid="button-view-shortlisted-dashboard"
-            className="mt-5 inline-flex w-fit items-center gap-2 rounded-xl bg-[#303e50] px-4 py-2.5 text-xs font-bold text-[#f5c84b] hover:bg-[#3b4c62] transition"
+            className="mt-5 inline-flex w-fit items-center gap-2 rounded-xl bg-[#303e50] px-4 py-2.5 text-xs font-bold text-[#f5c84b] hover:bg-[#3b4c62] transition cursor-pointer"
           >
             Review shortlist <ArrowRight size={15} />
           </button>
         </section>
       </div>
-
-      {/* Recent Applications Table with US-09 CV Match Scores */}
-      {/* FIX #2: Two-row header — title row + controls row — prevents clipping on narrow screens */}
-      <section className="cf-card mt-5 overflow-hidden rounded-2xl bg-white border border-[#d9dbd1] shadow-sm">
-        <div className="p-5 border-b border-[#eef0e7] space-y-3">
-          {/* Row 1: Title + badge */}
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-bold text-[#253142] text-lg leading-tight">Candidate CV Match Scores</h2>
-                <span className="shrink-0 rounded-md bg-[#e2f0e9] border border-[#a7d7c1] px-2 py-0.5 text-[10px] font-bold text-[#1f5b43]">
-                  US-10 Active
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-[#7b8490] leading-5">
-                Real-time semantic similarity and skill coverage evaluation across your rooms
-              </p>
-            </div>
-            {/* FIX #1: Manage Rooms button always fully visible — lives in its own column */}
-            <button
-              type="button"
-              onClick={() => setLocation('/hr/rooms')}
-              data-testid="link-hr-rooms-all"
-              className="shrink-0 flex items-center gap-1 rounded-xl bg-[#277254] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#1f5b43] transition shadow-2xs"
-            >
-              <span>Manage Rooms</span>
-              <ChevronRight size={14} />
-            </button>
-          </div>
-
-          {/* Row 2: Room selectors (only when rooms exist) */}
-          {rooms.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                onChange={(e) => {
-                  const r = rooms.find((x) => x.id === Number(e.target.value));
-                  if (r) setSelectedRoomForCvScores(r);
-                }}
-                defaultValue=""
-                data-testid="select-room-cv-scores-dashboard"
-                className="min-w-0 flex-1 sm:flex-none rounded-xl border border-[#d9dbd1] bg-[#fbfaf5] px-3 py-1.5 text-xs font-semibold text-[#253142] focus:outline-none focus:ring-2 focus:ring-[#277254]/30"
-              >
-                <option value="" disabled>Inspect Room CV Scores…</option>
-                {rooms.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.title} ({r.company_name})
-                  </option>
-                ))}
-              </select>
-              <select
-                onChange={(e) => {
-                  const r = rooms.find((x) => x.id === Number(e.target.value));
-                  if (r) setSelectedRoomForRanking(r);
-                }}
-                defaultValue=""
-                data-testid="select-room-rankings-dashboard"
-                className="min-w-0 flex-1 sm:flex-none rounded-xl border border-[#fde68a] bg-[#fef3c7]/60 px-3 py-1.5 text-xs font-bold text-[#92400e] focus:outline-none focus:ring-2 focus:ring-[#d97706]/30"
-              >
-                <option value="" disabled>🏆 View Room Leaderboard…</option>
-                {rooms.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    🏆 {r.title} Leaderboard
-                  </option>
-                ))}
-              </select>
-              <select
-                onChange={(e) => {
-                  const r = rooms.find((x) => x.id === Number(e.target.value));
-                  if (r) setSelectedRoomForShortlist(r);
-                }}
-                defaultValue=""
-                data-testid="select-room-shortlist-dashboard"
-                className="min-w-0 flex-1 sm:flex-none rounded-xl border border-[#a7d7c1] bg-[#e2f0e9]/60 px-3 py-1.5 text-xs font-bold text-[#1f5b43] focus:outline-none focus:ring-2 focus:ring-[#277254]/30"
-              >
-                <option value="" disabled>⭐ View Room Shortlist…</option>
-                {rooms.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    ⭐ {r.title} Shortlist
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
-
-        {/* FIX #3 & #4: always overflow-x-auto so table never clips on tablet or mobile */}
-        <div className="overflow-x-auto">
-          <table className="cf-table w-full text-left text-sm" data-testid="table-hr-applicants">
-            <thead className="bg-[#fbfaf5] border-b border-[#eef0e7] text-xs font-semibold text-[#7b8490] uppercase tracking-wider">
-              <tr>
-                <th className="px-5 py-3.5">Candidate</th>
-                <th className="px-5 py-3.5">Target Role</th>
-                <th className="px-5 py-3.5">CV Match Score</th>
-                <th className="px-5 py-3.5">Keyword Coverage</th>
-                <th className="px-5 py-3.5">Status</th>
-                <th className="px-5 py-3.5 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#eef0e7]">
-              {hrMatches.length > 0
-                ? hrMatches.map((m) => (
-                    <tr key={m.id} className="hover:bg-[#fbfaf5] transition" data-testid={`row-applicant-${m.id}`}>
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="grid h-8 w-8 place-items-center rounded-full bg-[#dce8e1] text-xs font-bold text-[#277254]">
-                            {(m.candidate_name || m.candidate_email || 'C')
-                              .split(' ')
-                              .map((x) => x[0])
-                              .join('')
-                              .toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-bold text-[#253142]">{m.candidate_name || m.candidate_email}</div>
-                            <div className="text-[11px] text-[#7b8490]">{m.original_filename}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-sm text-[#687382] font-semibold">{m.job_title}</td>
-                      <td className="px-5 py-4">
-                        <span className="inline-flex items-center gap-1 rounded-lg bg-[#e2f0e9] px-2.5 py-1 text-xs font-bold text-[#277254]">
-                          {m.match_score} / 100
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-sm font-semibold text-[#253142]">
-                        {m.keyword_coverage}%
-                      </td>
-                      <td className="px-5 py-4">
-                        <Badge tone={m.match_score >= 80 ? 'good' : m.match_score >= 65 ? 'warn' : 'neutral'}>
-                          {m.match_score >= 80 ? 'Shortlisted' : 'Under Review'}
-                        </Badge>
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedMatch(m)}
-                          data-testid={`button-review-applicant-${m.id}`}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#ccd0c6] bg-white px-3 py-1.5 text-xs font-bold text-[#253142] hover:bg-[#fffaf0] transition"
-                        >
-                          <Eye size={13} /> Review Signal
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                : candidatesSeed.slice(0, 4).map((c) => (
-                    <tr key={c.id} className="hover:bg-[#fbfaf5] transition">
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="grid h-8 w-8 place-items-center rounded-full bg-[#dce8e1] text-xs font-bold text-[#277254]">
-                            {c.name
-                              .split(' ')
-                              .map((x) => x[0])
-                              .join('')}
-                          </div>
-                          <span className="font-bold text-[#253142]">{c.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-sm text-[#687382]">{c.position}</td>
-                      <td className="px-5 py-4 font-bold text-[#277254]">{c.overallScore} / 100</td>
-                      <td className="px-5 py-4 text-sm font-semibold text-[#253142]">84%</td>
-                      <td className="px-5 py-4">
-                        <Badge tone={c.status === 'Shortlisted' ? 'good' : c.status === 'Rejected' ? 'bad' : 'warn'}>
-                          {c.status}
-                        </Badge>
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleAction(`Review candidate ${c.name}`)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#ccd0c6] bg-white px-3 py-1.5 text-xs font-bold text-[#253142] hover:bg-[#fffaf0]"
-                        >
-                          <Eye size={13} /> Review Signal
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* Candidate Signal Review Modal (matching CareerFlow-Recruitment-Coach design) */}
-      {selectedMatch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#253142]/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl border border-[#d9dbd1]">
-            <div className="flex items-center justify-between pb-4 border-b border-[#eef0e7]">
-              <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#9a7922]">
-                  CANDIDATE CV EVALUATION (US-09)
-                </span>
-                <h3 className="text-xl font-bold text-[#253142]">
-                  {selectedMatch.candidate_name || selectedMatch.candidate_email}
-                </h3>
-                <p className="text-xs text-[#687382]">{selectedMatch.job_title} · {selectedMatch.company}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedMatch(null)}
-                data-testid="button-close-review-modal"
-                className="grid h-8 w-8 place-items-center rounded-xl bg-[#f4f2e9] text-[#253142] hover:bg-[#e2dfd2]"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="mt-5 flex items-center gap-5 rounded-2xl bg-[#253142] p-5 text-[#faf7ef]">
-              <div>
-                <div className="text-xs uppercase tracking-wider text-[#aab5c0]">CV Match Score</div>
-                <div className="cf-display text-5xl font-bold text-[#f5c84b] mt-1">
-                  {selectedMatch.match_score}
-                </div>
-              </div>
-              <div className="border-l border-[#3d4d62] pl-5">
-                <h4 className="font-bold text-sm text-[#faf7ef]">
-                  {selectedMatch.match_score >= 80 ? 'Strong alignment for role' : 'Moderate candidate fit'}
-                </h4>
-                <p className="text-xs text-[#c4ccd3] mt-1">
-                  Keyword coverage: <strong>{selectedMatch.keyword_coverage}%</strong>
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-5 space-y-3 text-xs">
-              <div className="font-bold text-[#253142]">Extracted Matched Skills:</div>
-              <div className="flex flex-wrap gap-1.5">
-                {selectedMatch.skills_matched?.map((s, i) => (
-                  <span key={i} className="rounded-lg bg-[#e2f0e9] px-2.5 py-1 font-bold text-[#277254]">
-                    ✓ {s}
-                  </span>
-                ))}
-              </div>
-
-              {selectedMatch.skills_missing?.length > 0 && (
-                <>
-                  <div className="font-bold text-[#253142] mt-3">Missing Role Keywords:</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedMatch.skills_missing?.map((s, i) => (
-                      <span key={i} className="rounded-lg bg-[#f7e5e1] px-2.5 py-1 font-bold text-[#a33d35]">
-                        + {s}
-                      </span>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="mt-6 pt-4 border-t border-[#eef0e7] flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setSelectedMatch(null)}
-                className="rounded-xl border border-[#ccd0c6] px-4 py-2 text-xs font-bold text-[#253142]"
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  notify(`Candidate ${selectedMatch.candidate_name || selectedMatch.candidate_email} shortlisted!`, 'success');
-                  setSelectedMatch(null);
-                }}
-                data-testid="button-shortlist-candidate"
-                className="rounded-xl bg-[#277254] px-4 py-2 text-xs font-bold text-white hover:bg-[#1f5b43]"
-              >
-                Shortlist Candidate
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <RoomCreateModal
         isOpen={createModalOpen}
@@ -471,26 +221,6 @@ export function HrDashboard({ notify }: { notify: Notify }) {
         }}
         notify={notify}
       />
-
-      {/* US-10 Room CV Scores Modal */}
-      {selectedRoomForCvScores && (
-        <RoomCvScoresModal
-          isOpen={Boolean(selectedRoomForCvScores)}
-          onClose={() => setSelectedRoomForCvScores(null)}
-          room={selectedRoomForCvScores}
-          notify={notify}
-        />
-      )}
-
-      {/* US-24 Room Ranked Applicants Leaderboard Modal */}
-      {selectedRoomForRanking && (
-        <RankedApplicantsModal
-          isOpen={Boolean(selectedRoomForRanking)}
-          onClose={() => setSelectedRoomForRanking(null)}
-          room={selectedRoomForRanking}
-          notify={notify}
-        />
-      )}
 
       {/* US-25 Room Automatic Shortlisting Modal */}
       {selectedRoomForShortlist && (
@@ -508,4 +238,3 @@ export function HrDashboard({ notify }: { notify: Notify }) {
     </AppShell>
   );
 }
-

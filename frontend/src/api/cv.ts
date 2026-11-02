@@ -190,6 +190,7 @@ export interface CVJobMatch {
   candidate_name?: string;
   candidate_email?: string;
   original_filename?: string;
+  cv_file_url?: string;
   job_title: string;
   company: string;
   job_description: string;

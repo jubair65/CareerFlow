@@ -3,21 +3,13 @@ import { useLocation } from 'wouter';
 import {
   Users,
   Search,
-  Filter,
   ArrowUpDown,
   Download,
-  Eye,
-  SlidersHorizontal,
   CheckCircle2,
   Clock,
-  Sparkles,
-  Award,
-  Video,
-  FileText,
   Building2,
   Layers,
   Loader2,
-  ExternalLink,
   RefreshCw,
   Plus,
 } from 'lucide-react';
@@ -31,7 +23,6 @@ import {
   apiDownloadCandidateReportPdf,
   triggerPdfDownload,
 } from '../api/recruitment';
-import { apiGetHRMatches, type CVJobMatch } from '../api/cv';
 import { RankedApplicantsModal } from '../components/recruitment/RankedApplicantsModal';
 import { ApplicantComparisonModal } from '../components/recruitment/ApplicantComparisonModal';
 
@@ -58,46 +49,35 @@ export function HrApplicantsPage({ notify }: { notify: Notify }) {
       const roomList = await apiGetRooms();
       setRooms(roomList);
 
-      // Collect applicants across rooms
+      // Collect real applicants across rooms
       const allApps: RankedApplicantItem[] = [];
+      const seenAppIds = new Set<number>();
+
       for (const room of roomList) {
         try {
           const rankedData = await apiGetRankedApplicants(room.id);
-          for (const item of rankedData.ranked_applicants || []) {
-            allApps.push({
-              ...item,
-              room_id: room.id,
-              room_title: room.title,
-            } as any);
+          for (const item of rankedData.results || []) {
+            if (!seenAppIds.has(item.application_id)) {
+              seenAppIds.add(item.application_id);
+              allApps.push({
+                ...item,
+                room_id: room.id,
+                room_title: room.title,
+              } as any);
+            }
+          }
+          for (const item of rankedData.unranked || []) {
+            if (!seenAppIds.has(item.application_id)) {
+              seenAppIds.add(item.application_id);
+              allApps.push({
+                ...item,
+                room_id: room.id,
+                room_title: room.title,
+              } as any);
+            }
           }
         } catch {
           // Room might have no applicants yet
-        }
-      }
-
-      // If no room-based applications yet, fallback to HR matches
-      if (allApps.length === 0) {
-        try {
-          const matches = await apiGetHRMatches();
-          matches.forEach((m, idx) => {
-            allApps.push({
-              application_id: m.id || idx + 100,
-              candidate_id: idx + 10,
-              candidate_name: m.candidate_name || m.candidate_email.split('@')[0],
-              candidate_email: m.candidate_email,
-              rank: idx + 1,
-              final_score: m.match_score,
-              cv_score: m.match_score,
-              video_score: Math.min(100, Math.round(m.match_score * 0.95 + 4)),
-              is_partial: false,
-              is_shortlisted: m.is_shortlisted || m.match_score >= 80,
-              hr_decision: (m.is_shortlisted ? 'CONFIRMED' : 'UNDECIDED') as any,
-              room_id: m.room_id || 1,
-              room_title: m.room_title || 'General Recruitment',
-            } as any);
-          });
-        } catch {
-          // Fallback ignored
         }
       }
 
@@ -408,7 +388,7 @@ export function HrApplicantsPage({ notify }: { notify: Notify }) {
                   type="button"
                   disabled={selectedAppIds.length < 2}
                   onClick={() => setComparisonModalOpen(true)}
-                  className="rounded-xl bg-[#253142] px-3.5 py-1.5 font-bold text-white hover:bg-[#33435a] transition disabled:opacity-40 cursor-pointer"
+                  className="rounded-xl bg-[#253142] px-3.5 py-1.5 font-bold text-white hover:bg-[#33435a] transition disabled:opacity-40 cursor-pointer shadow-xs"
                 >
                   Compare Side-by-Side &rarr;
                 </button>
@@ -428,7 +408,7 @@ export function HrApplicantsPage({ notify }: { notify: Notify }) {
               ? parseInt(selectedRoomId, 10)
               : rooms[0]?.id || 1
           }
-          selectedAppIds={selectedAppIds}
+          applicationIds={selectedAppIds}
           notify={notify}
         />
       )}
