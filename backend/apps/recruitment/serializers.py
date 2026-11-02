@@ -606,6 +606,10 @@ class ShortlistedApplicantItemSerializer(serializers.Serializer):
     is_shortlisted = serializers.BooleanField()
     shortlist_reason = serializers.CharField(allow_blank=True)
     shortlisted_at = serializers.DateTimeField(allow_null=True)
+    hr_decision = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    hr_decision_display = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    hr_decision_notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    hr_decided_at = serializers.DateTimeField(required=False, allow_null=True)
 
 
 class RoomShortlistResponseSerializer(serializers.Serializer):

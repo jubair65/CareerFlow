@@ -639,6 +639,10 @@ export interface ShortlistedApplicantItem {
   is_shortlisted: boolean;
   shortlist_reason: string;
   shortlisted_at: string | null;
+  hr_decision?: string;
+  hr_decision_display?: string;
+  hr_decision_notes?: string;
+  hr_decided_at?: string | null;
 }
 
 export interface RoomShortlistResponse {
