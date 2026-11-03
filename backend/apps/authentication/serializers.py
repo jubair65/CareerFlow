@@ -6,11 +6,24 @@ from .models import User
 
 class UserSerializer(serializers.ModelSerializer):
     role_display = serializers.CharField(source='get_role_display', read_only=True)
+    avatar_url = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'full_name', 'role', 'role_display', 'created_at']
-        read_only_fields = ['id', 'created_at', 'role_display']
+        fields = ['id', 'username', 'email', 'full_name', 'role', 'role_display', 'avatar_url', 'created_at']
+        read_only_fields = ['id', 'created_at', 'role_display', 'avatar_url']
+
+    def get_avatar_url(self, obj):
+        try:
+            profile = getattr(obj, 'candidate_profile', None)
+        except Exception:
+            profile = None
+        if profile and profile.avatar and hasattr(profile.avatar, 'url'):
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(profile.avatar.url)
+            return profile.avatar.url
+        return None
 
 
 class RegisterSerializer(serializers.ModelSerializer):

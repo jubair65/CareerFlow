@@ -21,7 +21,7 @@ import {
   Menu,
 } from 'lucide-react';
 import type { Role, Notify } from '../dashboard/DashboardShared';
-import { apiLogout, getStoredUser, apiGetCurrentUser } from '../../api/auth';
+import { apiLogout, getStoredUser, apiGetCurrentUser, apiGetCandidateProfile, storeUser } from '../../api/auth';
 import { NotificationCenter } from './NotificationCenter';
 import {
   apiGetNotifications,
@@ -87,12 +87,50 @@ export function AppShell({
   });
   const [unreadCount, setUnreadCount] = useState<number>(0);
 
+  const [avatarError, setAvatarError] = useState(false);
+  const avatarUrl = user?.avatar_url || getStoredUser()?.avatar_url;
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [avatarUrl]);
+
   useEffect(() => {
     apiGetCurrentUser()
-      .then((data) => setUser(data))
+      .then((data) => {
+        setUser((prev: any) => ({ ...prev, ...data }));
+        const curr = getStoredUser() || {};
+        storeUser({ ...curr, ...data });
+
+        if (!data?.avatar_url) {
+          apiGetCandidateProfile()
+            .then((prof) => {
+              if (prof?.avatar_url) {
+                setUser((prev: any) => ({ ...prev, avatar_url: prof.avatar_url }));
+                storeUser({ ...curr, ...data, avatar_url: prof.avatar_url });
+              }
+            })
+            .catch(() => {});
+        }
+      })
       .catch(() => {
-        // Keep stored user fallback
+        apiGetCandidateProfile()
+          .then((prof) => {
+            if (prof?.avatar_url) {
+              setUser((prev: any) => ({ ...prev, avatar_url: prof.avatar_url }));
+              const curr = getStoredUser() || {};
+              storeUser({ ...curr, avatar_url: prof.avatar_url });
+            }
+          })
+          .catch(() => {});
       });
+
+    const handleUserUpdate = (e: any) => {
+      if (e?.detail) {
+        setUser((prev: any) => ({ ...prev, ...e.detail }));
+      }
+    };
+    window.addEventListener('careerflow_user_updated', handleUserUpdate);
+    return () => window.removeEventListener('careerflow_user_updated', handleUserUpdate);
   }, []);
 
   const refreshUnreadCount = useCallback(async () => {
@@ -341,8 +379,17 @@ export function AppShell({
         {/* User Card & Logout in Sidebar */}
         <div className="rounded-2xl bg-[#303e50] p-3">
           <div className="mb-2 flex items-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-[#f5c84b] text-xs font-bold text-[#253142]">
-              {initials || 'U'}
+            <div className="grid h-8 w-8 place-items-center rounded-full bg-[#f5c84b] text-xs font-bold text-[#253142] overflow-hidden shrink-0">
+              {avatarUrl && !avatarError ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="h-full w-full object-cover"
+                  onError={() => setAvatarError(true)}
+                />
+              ) : (
+                initials || 'U'
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <div className="truncate text-xs font-bold text-[#faf7ef]">{displayName}</div>
@@ -409,9 +456,18 @@ export function AppShell({
               onClick={() => handleNavClick('/profile')}
               data-testid="button-header-profile"
               title="View Profile"
-              className="grid h-9 w-9 place-items-center rounded-full bg-[#dce8e1] text-xs font-bold text-[#277254] hover:ring-2 hover:ring-[#277254]/30 transition cursor-pointer"
+              className="grid h-9 w-9 place-items-center rounded-full bg-[#dce8e1] text-xs font-bold text-[#277254] hover:ring-2 hover:ring-[#277254]/30 transition cursor-pointer overflow-hidden shrink-0"
             >
-              {initials || 'U'}
+              {avatarUrl && !avatarError ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="h-full w-full object-cover"
+                  onError={() => setAvatarError(true)}
+                />
+              ) : (
+                initials || 'U'
+              )}
             </button>
           </div>
         </header>

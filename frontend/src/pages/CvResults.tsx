@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import {
   FileText,
   Sparkles,
-  ArrowLeft,
+  ChevronRight,
   Download,
   RotateCw,
   CheckCircle2,
@@ -11,10 +11,7 @@ import {
   Lightbulb,
   TrendingUp,
   Award,
-  Layers,
   Search,
-  BookOpen,
-  Briefcase,
   Sliders,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
@@ -57,9 +54,9 @@ function getScoreTier(score: number): {
     return {
       label: 'Strong alignment',
       tone: 'good',
-      textColor: 'text-[#277254]',
+      textColor: 'text-[#166534]',
       bgColor: 'bg-[#e2f0e9]',
-      borderColor: 'border-[#277254]/30',
+      borderColor: 'border-[#166534]/30',
       description: 'Your CV demonstrates high keyword density, measurable achievements, and clean ATS structure.',
     };
   }
@@ -67,20 +64,32 @@ function getScoreTier(score: number): {
     return {
       label: 'Good potential',
       tone: 'warn',
-      textColor: 'text-[#9a7922]',
-      bgColor: 'bg-[#fff4ca]',
-      borderColor: 'border-[#d8c98e]',
+      textColor: 'text-[#78350f]',
+      bgColor: 'bg-[#fef3c7]',
+      borderColor: 'border-[#fde68a]',
       description: 'Solid foundation with clear technical skills, but could benefit from more quantifiable impact metrics.',
     };
   }
   return {
     label: 'Needs revision',
     tone: 'bad',
-    textColor: 'text-[#a33d35]',
-    bgColor: 'bg-[#f7e5e1]',
-    borderColor: 'border-[#b34a40]/30',
+    textColor: 'text-[#991b1b]',
+    bgColor: 'bg-[#fee2e2]',
+    borderColor: 'border-[#fca5a5]',
     description: 'Add essential sections, include specific action verbs, and quantify your achievements to pass ATS screening.',
   };
+}
+
+function getTileStatus(score: number): { label: string; color: string; dotBg: string } {
+  if (score >= 80) return { label: 'Strong', color: 'text-[#166534]', dotBg: 'bg-[#16a34a]' };
+  if (score >= 60) return { label: 'Fair', color: 'text-[#78350f]', dotBg: 'bg-[#d97706]' };
+  return { label: 'Needs work', color: 'text-[#991b1b]', dotBg: 'bg-[#dc2626]' };
+}
+
+function getSignalBarColor(score: number): string {
+  if (score >= 70) return 'bg-[#16a34a]';
+  if (score >= 50) return 'bg-[#f59e0b]';
+  return 'bg-[#dc2626]';
 }
 
 export function CvResults({ notify }: { notify: Notify }) {
@@ -261,70 +270,80 @@ Produced by CareerFlow Talent Intelligence Platform
 
   return (
     <AppShell role="student" notify={notify}>
-      {/* Back button and breadcrumb */}
-      <div className="mb-4 flex items-center justify-between">
-        <button
-          onClick={() => setLocation('/student/cv')}
-          data-testid="button-back-to-cv"
-          className="inline-flex items-center gap-2 text-xs font-bold text-[#526072] hover:text-[#253142] transition"
-        >
-          <ArrowLeft size={15} /> Back to CV Studio
-        </button>
+      {/* Top Header: Breadcrumbs & Actions */}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <nav className="flex items-center gap-1.5 text-xs font-semibold text-[#4B5563]" aria-label="Breadcrumb">
+          <button
+            onClick={() => setLocation('/student/cv')}
+            className="hover:text-[#1F2937] transition whitespace-nowrap"
+          >
+            CV Studio
+          </button>
+          <ChevronRight size={13} className="shrink-0 text-[#9ca3af]" />
+          <span className="text-[#1F2937] font-bold whitespace-nowrap">Feedback</span>
+          <ChevronRight size={13} className="shrink-0 text-[#9ca3af]" />
+          <button
+            onClick={() => setLocation('/student/cv/match')}
+            className="hover:text-[#1F2937] transition whitespace-nowrap"
+          >
+            Job Match
+          </button>
+        </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleReanalyze}
             disabled={reanalyzing || !currentCv}
             data-testid="button-reanalyze-cv"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-[#ccd0c6] bg-white px-3.5 py-2 text-xs font-bold text-[#253142] hover:bg-[#fffaf0] transition disabled:opacity-50"
+            className="inline-flex h-[44px] items-center gap-2 rounded-xl border border-[#ccd0c6] bg-white px-4 text-xs font-bold text-[#1F2937] hover:bg-[#fffaf0] transition disabled:opacity-50 whitespace-nowrap shadow-xs cursor-pointer"
           >
-            <RotateCw size={13} className={reanalyzing ? 'animate-spin' : ''} />
-            {reanalyzing ? 'Recalculating...' : 'Recalculate Score'}
+            <RotateCw size={18} className={reanalyzing ? 'animate-spin' : ''} />
+            <span>{reanalyzing ? 'Recalculating...' : 'Recalculate Score'}</span>
           </button>
 
           {feedback && (
             <button
               onClick={handleDownloadReport}
               data-testid="button-download-cv-report"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#253142] px-3.5 py-2 text-xs font-bold text-[#faf7ef] hover:bg-[#33435a] transition"
+              className="inline-flex h-[44px] items-center gap-2 rounded-xl bg-[#253142] px-4 text-xs font-bold text-[#faf7ef] hover:bg-[#33435a] transition whitespace-nowrap shadow-xs cursor-pointer"
             >
-              <Download size={13} /> Download Report
+              <Download size={18} />
+              <span>Download Report</span>
             </button>
           )}
         </div>
       </div>
 
       <PageHeading
-title="CV Feedback & Job Match"
+        title="CV Feedback & Job Match"
         description="Comprehensive analysis of your CV document against professional recruiter rubrics, ATS readability standards, and role semantic matching."
       />
 
-      {/* Tab Navigation matching CareerFlow-Recruitment-Coach design */}
+      {/* Tab Navigation */}
       <div className="mb-6 flex items-center border-b border-[#d9dbd1]">
         <button
           type="button"
           onClick={() => setLocation('/student/cv/results')}
           data-testid="tab-cv-review"
-          className="border-b-2 border-[#253142] px-4 py-2.5 text-xs font-bold text-[#253142]"
+          className="border-b-2 border-[#253142] px-4 py-2.5 text-xs font-bold text-[#253142] cursor-pointer"
         >
-          Review & suggestions
+          Review &amp; suggestions
         </button>
         <button
           type="button"
           onClick={() => setLocation('/student/cv/match')}
           data-testid="tab-job-match"
-          className="border-b-2 border-transparent px-4 py-2.5 text-xs font-semibold text-[#687382] hover:text-[#253142] hover:border-[#ccd0c6]"
+          className="border-b-2 border-transparent px-4 py-2.5 text-xs font-semibold text-[#687382] hover:text-[#253142] hover:border-[#ccd0c6] cursor-pointer"
         >
           Job match
         </button>
       </div>
 
-
       {loading ? (
         <div className="py-20 text-center">
           <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-[#277254] border-t-transparent" />
           <p className="mt-4 text-sm font-semibold text-[#526072]">
-            Analyzing CV document & calculating feedback signals...
+            Analyzing CV document &amp; calculating feedback signals...
           </p>
         </div>
       ) : extractionError ? (
@@ -354,7 +373,7 @@ title="CV Feedback & Job Match"
               data-testid="button-retry-extraction"
               className="inline-flex items-center gap-1.5 rounded-xl bg-[#253142] px-4 py-2.5 text-xs font-bold text-[#faf7ef] hover:bg-[#33435a] transition"
             >
-              <RotateCw size={13} className={reanalyzing ? 'animate-spin' : ''} />
+              <RotateCw size={14} className={reanalyzing ? 'animate-spin' : ''} />
               Retry extraction
             </button>
             <button
@@ -396,148 +415,208 @@ title="CV Feedback & Job Match"
             disabled={reanalyzing}
             className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#f5c84b] px-4 py-2.5 text-xs font-bold text-[#253142] hover:bg-[#e8b93c]"
           >
-            <Sparkles size={15} /> Generate Score & Feedback
+            <Sparkles size={15} /> Generate Score &amp; Feedback
           </button>
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Top Row: Score Hero Banner + CV Meta */}
-          <div className="grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
+          {/* Top Row: Score Hero Banner + CV Meta (shares 1.6fr 1fr grid) */}
+          <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
             {/* Score Hero Banner */}
             <section
               data-testid="card-overall-score"
-              className="cf-card rounded-2xl bg-[#253142] p-6 text-[#faf7ef] shadow-sm flex flex-col justify-between relative overflow-hidden"
+              className="cf-card rounded-2xl bg-white p-6 border border-[#d9dbd1] shadow-sm flex flex-col justify-between"
             >
-              <div className="absolute -right-8 -top-8 h-36 w-36 rounded-full bg-[#f5c84b]/15 blur-2xl" />
-
               <div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold uppercase tracking-[.14em] text-[#aab5c0]">
+                  <span className="font-bold uppercase tracking-[.14em] text-[#4B5563]">
                     Composite CV Score
                   </span>
                   <div
-                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${tier?.bgColor} ${tier?.textColor}`}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${tier?.bgColor} ${tier?.textColor} border ${tier?.borderColor}`}
                     data-testid="score-tier-badge"
                   >
                     <CheckCircle2 size={13} /> {tier?.label}
                   </div>
                 </div>
 
-                <div className="mt-6 flex items-end gap-6">
-                  <div>
-                    <div className="flex items-baseline gap-2">
-                      <span
-                        className="cf-display text-7xl font-bold leading-none text-[#f5c84b]"
-                        data-testid="cv-overall-score"
-                      >
-                        {feedback.overall_score}
-                      </span>
-                      <span className="text-xl font-semibold text-[#8fa0b5]">/ 100</span>
-                    </div>
-                    <p className="mt-3 text-xs leading-5 text-[#c4ccd3] max-w-md">
-                      {tier?.description}
-                    </p>
-                  </div>
+                <div className="mt-5 flex items-baseline gap-3">
+                  <span
+                    className="cf-display text-7xl font-bold leading-none text-[#1F2937]"
+                    data-testid="cv-overall-score"
+                  >
+                    {feedback.overall_score}
+                  </span>
+                  <span className="text-xl font-semibold text-[#687382]">/ 100</span>
+                </div>
+
+                <p className="mt-3 text-xs leading-5 text-[#4B5563] max-w-md font-medium">
+                  {tier?.description}
+                </p>
+
+                {/* Score context tag eliminating dead space */}
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-[#e2f0e9] border border-[#bce2d1] px-2.5 py-1 text-[11px] font-bold text-[#166534]">
+                    <TrendingUp size={12} /> ATS Rubric Verified
+                  </span>
+                  <span className="text-[11px] font-medium text-[#4B5563]">
+                    Evaluation across 5 weighted dimensions
+                  </span>
                 </div>
               </div>
 
-              <div className="mt-6 pt-4 border-t border-[#3d4d62] flex flex-wrap items-center justify-between gap-3 text-xs text-[#aab5c0]">
+              {/* Pinned footer */}
+              <div className="mt-6 pt-4 border-t border-[#d9dbd1] flex flex-wrap items-center justify-between gap-3 text-xs text-[#4B5563]">
                 <div className="flex items-center gap-2">
-                  <FileText size={15} className="text-[#f5c84b]" />
-                  <span className="font-semibold text-[#faf7ef] truncate max-w-[220px]">
+                  <FileText size={15} className="text-[#1F2937]" />
+                  <span className="font-bold text-[#1F2937] truncate max-w-[220px]">
                     {feedback.original_filename}
                   </span>
                 </div>
-                <span>Updated: {formatDate(feedback.updated_at)}</span>
+                <span className="font-medium text-[#4B5563]">Updated: {formatDate(feedback.updated_at)}</span>
               </div>
             </section>
 
             {/* Quick Summary / Status Card */}
             <section className="cf-card rounded-2xl bg-white p-6 border border-[#d9dbd1] shadow-sm flex flex-col justify-between">
               <div>
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#526072] pb-3 border-b border-[#eef0e7]">
-                  <Award size={16} className="text-[#277254]" />
-                  <span>Evaluation Summary & Key Signals</span>
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#4B5563] pb-3 border-b border-[#d9dbd1]">
+                  <Award size={16} className="text-[#166534]" />
+                  <span>Evaluation Summary &amp; Key Signals</span>
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 gap-4">
-                  <div className="rounded-xl border border-[#eef0e7] bg-[#fbfaf5] p-3.5">
-                    <span className="text-[11px] font-semibold text-[#7b8490]">Keywords & Verbs</span>
-                    <div className="mt-1 text-xl font-bold text-[#253142]">
-                      {feedback.keyword_strength_score}%
-                    </div>
-                    <span className="text-[11px] text-[#277254] font-medium">
-                      {feedback.extracted_skills?.length || 0} skills detected
-                    </span>
-                  </div>
+                  {/* Tile 1: Keywords */}
+                  {(() => {
+                    const status = getTileStatus(feedback.keyword_strength_score);
+                    return (
+                      <div
+                        className="rounded-xl border border-[#eef0e7] bg-[#fbfaf5] p-3.5 flex flex-col justify-between"
+                        title="Keywords (Weight: 30%)"
+                      >
+                        <span className="text-[11px] font-bold text-[#4B5563]">Keywords</span>
+                        <div className="mt-1 text-2xl font-bold text-[#1F2937]">
+                          {feedback.keyword_strength_score}%
+                        </div>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <span className={`h-2 w-2 rounded-full shrink-0 ${status.dotBg}`} />
+                          <span className={`text-[11px] font-bold ${status.color}`}>{status.label}</span>
+                        </div>
+                        <span className="mt-1 text-[11px] text-[#166534] font-medium">
+                          {feedback.extracted_skills?.length || 0} skills detected
+                        </span>
+                      </div>
+                    );
+                  })()}
 
-                  <div className="rounded-xl border border-[#eef0e7] bg-[#fbfaf5] p-3.5">
-                    <span className="text-[11px] font-semibold text-[#7b8490]">Clarity & Metrics</span>
-                    <div className="mt-1 text-xl font-bold text-[#253142]">
-                      {feedback.clarity_score}%
-                    </div>
-                    <span className="text-[11px] text-[#277254] font-medium">
-                      {feedback.signal_breakdown?.clarity_impact?.metrics_count || 0} metrics found
-                    </span>
-                  </div>
+                  {/* Tile 2: Impact */}
+                  {(() => {
+                    const status = getTileStatus(feedback.clarity_score);
+                    return (
+                      <div
+                        className="rounded-xl border border-[#eef0e7] bg-[#fbfaf5] p-3.5 flex flex-col justify-between"
+                        title="Impact (Weight: 30%)"
+                      >
+                        <span className="text-[11px] font-bold text-[#4B5563]">Impact</span>
+                        <div className="mt-1 text-2xl font-bold text-[#1F2937]">
+                          {feedback.clarity_score}%
+                        </div>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <span className={`h-2 w-2 rounded-full shrink-0 ${status.dotBg}`} />
+                          <span className={`text-[11px] font-bold ${status.color}`}>{status.label}</span>
+                        </div>
+                        <span className="mt-1 text-[11px] text-[#166534] font-medium">
+                          {feedback.signal_breakdown?.clarity_impact?.metrics_count || 0} metrics found
+                        </span>
+                      </div>
+                    );
+                  })()}
 
-                  <div className="rounded-xl border border-[#eef0e7] bg-[#fbfaf5] p-3.5">
-                    <span className="text-[11px] font-semibold text-[#7b8490]">Structure & Layout</span>
-                    <div className="mt-1 text-xl font-bold text-[#253142]">
-                      {feedback.formatting_score}%
-                    </div>
-                    <span className="text-[11px] text-[#526072] font-medium">
-                      {feedback.signal_breakdown?.formatting?.detected_sections?.length || 5}/5 sections
-                    </span>
-                  </div>
+                  {/* Tile 3: Format */}
+                  {(() => {
+                    const status = getTileStatus(feedback.formatting_score);
+                    return (
+                      <div
+                        className="rounded-xl border border-[#eef0e7] bg-[#fbfaf5] p-3.5 flex flex-col justify-between"
+                        title="Format (Weight: 20%)"
+                      >
+                        <span className="text-[11px] font-bold text-[#4B5563]">Format</span>
+                        <div className="mt-1 text-2xl font-bold text-[#1F2937]">
+                          {feedback.formatting_score}%
+                        </div>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <span className={`h-2 w-2 rounded-full shrink-0 ${status.dotBg}`} />
+                          <span className={`text-[11px] font-bold ${status.color}`}>{status.label}</span>
+                        </div>
+                        <span className="mt-1 text-[11px] text-[#4B5563] font-medium">
+                          {feedback.signal_breakdown?.formatting?.detected_sections?.length || 5}/5 sections
+                        </span>
+                      </div>
+                    );
+                  })()}
 
-                  <div className="rounded-xl border border-[#eef0e7] bg-[#fbfaf5] p-3.5">
-                    <span className="text-[11px] font-semibold text-[#7b8490]">Work & Education</span>
-                    <div className="mt-1 text-xl font-bold text-[#253142]">
-                      {Math.round((feedback.experience_score + feedback.education_score) / 2)}%
-                    </div>
-                    <span className="text-[11px] text-[#526072] font-medium">
-                      Complete profiles
-                    </span>
-                  </div>
+                  {/* Tile 4: Fit */}
+                  {(() => {
+                    const fitScore = Math.round((feedback.experience_score + feedback.education_score) / 2);
+                    const status = getTileStatus(fitScore);
+                    return (
+                      <div
+                        className="rounded-xl border border-[#eef0e7] bg-[#fbfaf5] p-3.5 flex flex-col justify-between"
+                        title="Fit (Weight: 20%)"
+                      >
+                        <span className="text-[11px] font-bold text-[#4B5563]">Fit</span>
+                        <div className="mt-1 text-2xl font-bold text-[#1F2937]">
+                          {fitScore}%
+                        </div>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <span className={`h-2 w-2 rounded-full shrink-0 ${status.dotBg}`} />
+                          <span className={`text-[11px] font-bold ${status.color}`}>{status.label}</span>
+                        </div>
+                        <span className="mt-1 text-[11px] text-[#4B5563] font-medium">
+                          Complete profiles
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-[#eef0e7] flex items-center justify-between text-xs text-[#7b8490]">
-                <span>Rubric weight: 20% Format • 30% Keywords • 30% Impact • 20% Fit</span>
+              {/* Rubric footer with identical naming */}
+              <div className="mt-4 pt-3 border-t border-[#d9dbd1] flex items-center justify-between text-xs text-[#4B5563] font-medium">
+                <span>Rubric weights: 30% Keywords • 30% Impact • 20% Format • 20% Fit</span>
               </div>
             </section>
           </div>
 
-          {/* Three Useful Edits Callout Card */}
+          {/* Actionable Suggestions Callout Card */}
           <section
             data-testid="card-actionable-suggestions"
             className="cf-card rounded-2xl bg-white p-6 border border-[#d9dbd1] shadow-sm"
           >
-            <div className="flex items-center justify-between pb-4 border-b border-[#eef0e7]">
+            <div className="flex flex-col gap-3 pb-4 border-b border-[#d9dbd1] sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="grid h-8 w-8 place-items-center rounded-xl bg-[#fff4ca] text-[#9a7922]">
+                <div className="grid h-8 w-8 place-items-center rounded-xl bg-[#fff4ca] text-[#78350f]">
                   <Lightbulb size={18} />
                 </div>
                 <div>
-                  <h2 className="font-bold text-[#253142] text-base">Smart Suggestions</h2>
-                  <p className="text-xs text-[#7b8490]">
+                  <h2 className="font-bold text-[#1F2937] text-base">Smart Suggestions</h2>
+                  <p className="text-xs text-[#4B5563]">
                     {feedback.suggestions?.length || 0} prioritised, CV-specific recommendations to boost your ATS score
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {feedback.signal_breakdown?.ai_suggestions_source === 'gemini' ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e8eeff] border border-[#b8c8ff] px-2.5 py-1 text-[11px] font-bold text-[#3b52c4]">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e8eeff] border border-[#b8c8ff] px-2.5 py-1 text-[11px] font-bold text-[#1e3a8a]">
                     ✨ Powered by Gemini AI
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#f4f2e9] border border-[#d9dbd1] px-2.5 py-1 text-[11px] font-semibold text-[#687382]">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#f4f2e9] border border-[#d9dbd1] px-2.5 py-1 text-[11px] font-bold text-[#374151]">
                     Rule-based
                   </span>
                 )}
                 {feedback.signal_breakdown?.keyword_strength?.role_profile && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#e8f4ef] px-2.5 py-1 text-[11px] font-bold text-[#277254] border border-[#c3ddd0]">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#e8f4ef] px-2.5 py-1 text-[11px] font-bold text-[#166534] border border-[#c3ddd0]">
                     🎯 {feedback.signal_breakdown.keyword_strength.role_profile.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} role detected
                   </span>
                 )}
@@ -550,22 +629,22 @@ title="CV Feedback & Job Match"
                 <div
                   key={idx}
                   data-testid={`suggestion-item-${idx + 1}`}
-                  className="relative rounded-2xl border border-[#e5e7dc] bg-[#fbfaf5] p-5 flex flex-col justify-between transition hover:border-[#253142] hover:shadow-sm"
+                  className="relative rounded-2xl border border-[#d9dbd1] bg-[#fbfaf5] p-5 flex flex-col justify-between transition hover:border-[#253142] hover:shadow-xs"
                 >
                   <div>
                     <div className="flex items-center justify-between">
                       <span className="grid h-7 w-7 place-items-center rounded-full bg-[#253142] text-xs font-bold text-[#faf7ef]">
                         {idx + 1}
                       </span>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-[#9a7922]">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-[#78350f]">
                         Recommendation
                       </span>
                     </div>
-                    <p className="mt-3.5 text-xs font-semibold leading-relaxed text-[#253142]">
+                    <p className="mt-3.5 text-xs font-semibold leading-relaxed text-[#1F2937]">
                       {suggestion}
                     </p>
                   </div>
-                  <div className="mt-4 pt-3 border-t border-[#eef0e7] flex items-center gap-1.5 text-[11px] font-medium text-[#277254]">
+                  <div className="mt-4 pt-3 border-t border-[#eef0e7] flex items-center gap-1.5 text-[11px] font-bold text-[#166534]">
                     <TrendingUp size={13} />
                     <span>Improves ATS match</span>
                   </div>
@@ -579,41 +658,41 @@ title="CV Feedback & Job Match"
             data-testid="signal-breakdown"
             className="cf-card rounded-2xl bg-white p-6 border border-[#d9dbd1] shadow-sm"
           >
-            <div className="flex items-center gap-2 pb-4 border-b border-[#eef0e7]">
-              <Sliders size={18} className="text-[#526072]" />
-              <h2 className="font-bold text-[#253142] text-base">Signal Breakdown</h2>
-              <span className="ml-auto text-xs text-[#7b8490]">Weighted Rubric Analysis</span>
+            <div className="flex items-center gap-2 pb-4 border-b border-[#d9dbd1]">
+              <Sliders size={18} className="text-[#4B5563]" />
+              <h2 className="font-bold text-[#1F2937] text-base">Signal Breakdown</h2>
+              <span className="ml-auto text-xs font-medium text-[#4B5563]">Weighted Rubric Analysis</span>
             </div>
 
             <div className="mt-5 space-y-5">
               {/* 1. Keyword Strength */}
               <div className="space-y-1.5" data-testid="signal-keyword-strength">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-[#253142]">
-                    Keyword Strength & Action Verbs{' '}
-                    <span className="font-normal text-[#7b8490]">(Weight: 30%)</span>
+                  <span className="font-bold text-[#1F2937]">
+                    Keyword Strength &amp; Action Verbs{' '}
+                    <span className="font-medium text-[#4B5563]">(Weight: 30%)</span>
                   </span>
-                  <span className="font-bold text-[#253142]">{feedback.keyword_strength_score}%</span>
+                  <span className="font-bold text-[#1F2937]">{feedback.keyword_strength_score}%</span>
                 </div>
                 <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#eef0e7]">
                   <div
-                    className="h-full bg-[#277254] transition-all duration-300"
+                    className={`h-full transition-all duration-300 ${getSignalBarColor(feedback.keyword_strength_score)}`}
                     style={{ width: `${feedback.keyword_strength_score}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-[#7b8490]">
+                <div className="flex justify-between text-[11px] text-[#4B5563]">
                   <span>
                     Action verbs found:{' '}
                     {feedback.signal_breakdown?.keyword_strength?.action_verbs_found?.slice(0, 5).join(', ') ||
                       'Standard'}
                   </span>
-                  <span>{feedback.extracted_skills?.length || 0} skills</span>
+                  <span className="font-medium text-[#166534]">{feedback.extracted_skills?.length || 0} skills</span>
                 </div>
                 {/* Weak passive phrases warning */}
                 {(feedback.signal_breakdown?.keyword_strength?.weak_phrases_found?.length ?? 0) > 0 && (
-                  <div className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-[#fff4ca] border border-[#e8d98a] px-2.5 py-1.5">
-                    <AlertTriangle size={12} className="mt-0.5 shrink-0 text-[#9a7922]" />
-                    <span className="text-[11px] text-[#7a6318] leading-relaxed">
+                  <div className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-[#fef3c7] border border-[#fde68a] px-2.5 py-1.5">
+                    <AlertTriangle size={12} className="mt-0.5 shrink-0 text-[#78350f]" />
+                    <span className="text-[11px] text-[#78350f] leading-relaxed">
                       Weak phrases found:{' '}
                       <strong>{feedback.signal_breakdown.keyword_strength.weak_phrases_found!.map(p => `"${p}"`).join(', ')}</strong>
                       {' '}— replace with strong action verbs.
@@ -625,19 +704,19 @@ title="CV Feedback & Job Match"
               {/* 2. Clarity & Impact */}
               <div className="space-y-1.5" data-testid="signal-clarity-impact">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-[#253142]">
-                    Clarity & Measurable Impact{' '}
-                    <span className="font-normal text-[#7b8490]">(Weight: 30%)</span>
+                  <span className="font-bold text-[#1F2937]">
+                    Clarity &amp; Measurable Impact{' '}
+                    <span className="font-medium text-[#4B5563]">(Weight: 30%)</span>
                   </span>
-                  <span className="font-bold text-[#253142]">{feedback.clarity_score}%</span>
+                  <span className="font-bold text-[#1F2937]">{feedback.clarity_score}%</span>
                 </div>
                 <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#eef0e7]">
                   <div
-                    className="h-full bg-[#f5c84b] transition-all duration-300"
+                    className={`h-full transition-all duration-300 ${getSignalBarColor(feedback.clarity_score)}`}
                     style={{ width: `${feedback.clarity_score}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-[#7b8490]">
+                <div className="flex justify-between text-[11px] text-[#4B5563]">
                   <span>
                     Quantifiable metrics detected:{' '}
                     {feedback.signal_breakdown?.clarity_impact?.metric_samples?.slice(0, 3).join(', ') || 'None'}
@@ -646,9 +725,9 @@ title="CV Feedback & Job Match"
                 </div>
                 {/* Weak bullet examples hint */}
                 {(feedback.signal_breakdown?.clarity_impact?.weak_bullet_examples?.length ?? 0) > 0 && (
-                  <div className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-[#fdf2f0] border border-[#e8b8b3] px-2.5 py-1.5">
-                    <AlertTriangle size={12} className="mt-0.5 shrink-0 text-[#a33d35]" />
-                    <span className="text-[11px] text-[#7a2a24] leading-relaxed">
+                  <div className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-[#fee2e2] border border-[#fca5a5] px-2.5 py-1.5">
+                    <AlertTriangle size={12} className="mt-0.5 shrink-0 text-[#991b1b]" />
+                    <span className="text-[11px] text-[#991b1b] leading-relaxed">
                       Bullet needing a metric: <em>"{feedback.signal_breakdown.clarity_impact.weak_bullet_examples![0]}"</em>
                     </span>
                   </div>
@@ -658,19 +737,19 @@ title="CV Feedback & Job Match"
               {/* 3. Formatting & Section Completeness */}
               <div className="space-y-1.5" data-testid="signal-formatting">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-[#253142]">
-                    Formatting & Section Completeness{' '}
-                    <span className="font-normal text-[#7b8490]">(Weight: 20%)</span>
+                  <span className="font-bold text-[#1F2937]">
+                    Formatting &amp; Section Completeness{' '}
+                    <span className="font-medium text-[#4B5563]">(Weight: 20%)</span>
                   </span>
-                  <span className="font-bold text-[#253142]">{feedback.formatting_score}%</span>
+                  <span className="font-bold text-[#1F2937]">{feedback.formatting_score}%</span>
                 </div>
                 <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#eef0e7]">
                   <div
-                    className="h-full bg-[#394b5e] transition-all duration-300"
+                    className={`h-full transition-all duration-300 ${getSignalBarColor(feedback.formatting_score)}`}
                     style={{ width: `${feedback.formatting_score}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-[#7b8490]">
+                <div className="flex justify-between text-[11px] text-[#4B5563]">
                   <span>
                     Word count: {feedback.signal_breakdown?.formatting?.word_count || 0} words
                   </span>
@@ -685,42 +764,42 @@ title="CV Feedback & Job Match"
               {/* 4. Experience Depth */}
               <div className="space-y-1.5" data-testid="signal-experience">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-[#253142]">
-                    Experience Depth & Roles{' '}
-                    <span className="font-normal text-[#7b8490]">(Weight: 10%)</span>
+                  <span className="font-bold text-[#1F2937]">
+                    Experience Depth &amp; Roles{' '}
+                    <span className="font-medium text-[#4B5563]">(Weight: 10%)</span>
                   </span>
-                  <span className="font-bold text-[#253142]">{feedback.experience_score}%</span>
+                  <span className="font-bold text-[#1F2937]">{feedback.experience_score}%</span>
                 </div>
                 <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#eef0e7]">
                   <div
-                    className="h-full bg-[#277254] transition-all duration-300"
+                    className={`h-full transition-all duration-300 ${getSignalBarColor(feedback.experience_score)}`}
                     style={{ width: `${feedback.experience_score}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-[#7b8490]">
+                <div className="flex justify-between text-[11px] text-[#4B5563]">
                   <span>
                     Roles parsed: {feedback.signal_breakdown?.experience?.records_count || 0} records
                   </span>
-                  <span>Work & Capstone history</span>
+                  <span>Work &amp; Capstone history</span>
                 </div>
               </div>
 
               {/* 5. Education Fit */}
               <div className="space-y-1.5" data-testid="signal-education">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-[#253142]">
-                    Education Fit & Qualifications{' '}
-                    <span className="font-normal text-[#7b8490]">(Weight: 10%)</span>
+                  <span className="font-bold text-[#1F2937]">
+                    Education Fit &amp; Qualifications{' '}
+                    <span className="font-medium text-[#4B5563]">(Weight: 10%)</span>
                   </span>
-                  <span className="font-bold text-[#253142]">{feedback.education_score}%</span>
+                  <span className="font-bold text-[#1F2937]">{feedback.education_score}%</span>
                 </div>
                 <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#eef0e7]">
                   <div
-                    className="h-full bg-[#277254] transition-all duration-300"
+                    className={`h-full transition-all duration-300 ${getSignalBarColor(feedback.education_score)}`}
                     style={{ width: `${feedback.education_score}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-[#7b8490]">
+                <div className="flex justify-between text-[11px] text-[#4B5563]">
                   <span>
                     Degrees parsed: {feedback.signal_breakdown?.education?.records_count || 0} records
                   </span>
@@ -735,29 +814,29 @@ title="CV Feedback & Job Match"
             data-testid="card-extracted-skills"
             className="cf-card rounded-2xl bg-white p-6 border border-[#d9dbd1] shadow-sm"
           >
-            <div className="flex items-center justify-between pb-4 border-b border-[#eef0e7]">
+            <div className="flex items-center justify-between pb-4 border-b border-[#d9dbd1]">
               <div className="flex items-center gap-2">
-                <Search size={18} className="text-[#526072]" />
-                <h2 className="font-bold text-[#253142] text-base">Extracted Skills Taxonomy</h2>
+                <Search size={18} className="text-[#4B5563]" />
+                <h2 className="font-bold text-[#1F2937] text-base">Extracted Skills Taxonomy</h2>
               </div>
-              <span className="text-xs font-semibold text-[#7b8490]">
+              <span className="text-xs font-semibold text-[#4B5563]">
                 {feedback.extracted_skills?.length || 0} recognized skills
               </span>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2" data-testid="extracted-skills-list">
+            <div className="mt-4 flex flex-wrap gap-2 pb-2" data-testid="extracted-skills-list">
               {feedback.extracted_skills && feedback.extracted_skills.length > 0 ? (
                 feedback.extracted_skills.map((skill, index) => (
                   <span
                     key={index}
                     data-testid="skill-badge"
-                    className="inline-flex items-center rounded-xl border border-[#d8d7cc] bg-[#fbfaf5] px-3 py-1.5 text-xs font-bold text-[#253142] shadow-2xs hover:border-[#253142] transition"
+                    className="inline-flex items-center rounded-xl border border-[#d9dbd1] bg-[#fbfaf5] px-3 py-1.5 text-xs font-bold text-[#1F2937] shadow-2xs hover:border-[#253142] transition"
                   >
                     {skill}
                   </span>
                 ))
               ) : (
-                <p className="text-xs text-[#7b8490]">
+                <p className="text-xs text-[#4B5563]">
                   No skills recognized from the current skills taxonomy. Try adding explicit keywords in your Skills section.
                 </p>
               )}

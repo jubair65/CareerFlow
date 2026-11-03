@@ -14,7 +14,6 @@ import {
   StatCard,
   Chart,
   Badge,
-  DataAccessCard,
   clientsSeed,
   type Notify,
 } from '../components/dashboard/DashboardShared';
@@ -197,7 +196,6 @@ title={`Good morning, ${userName}.`}
         </section>
       </div>
 
-      <DataAccessCard />
     </AppShell>
   );
 }

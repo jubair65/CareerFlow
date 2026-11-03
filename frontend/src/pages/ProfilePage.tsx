@@ -180,13 +180,24 @@ export function ProfilePage({ notify }: { notify: Notify }) {
       setProfile(updated);
       setErrors({});
 
-      // Sync local storage user full_name so navbar / header update
+      // Sync local storage user full_name and avatar_url so navbar / header update
       const curr = getStoredUser() || {};
-      storeUser({
+      const updatedUser = {
         ...curr,
         full_name: updated.full_name,
         target_role: updated.target_role,
-      });
+        avatar_url: updated.avatar_url,
+      };
+      storeUser(updatedUser);
+
+      try {
+        const sess = JSON.parse(localStorage.getItem('careerflow-session') || '{}');
+        sess.avatar_url = updated.avatar_url;
+        sess.user = updated.full_name;
+        localStorage.setItem('careerflow-session', JSON.stringify(sess));
+      } catch {}
+
+      window.dispatchEvent(new CustomEvent('careerflow_user_updated', { detail: updatedUser }));
 
       notify?.('Profile updated successfully!', 'success');
     } catch (err: any) {

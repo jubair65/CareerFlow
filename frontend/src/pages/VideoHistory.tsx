@@ -20,8 +20,6 @@ import {
   Search,
   Filter,
   ArrowUpDown,
-  Award,
-  TrendingUp,
   BarChart2,
   Copy,
   Check,
@@ -46,15 +44,12 @@ import { WebcamPlaybackPlayer } from '../components/presentation/WebcamPlaybackP
 import { PresentationScoreCard } from '../components/presentation/PresentationScoreCard';
 import { SuggestionsList } from '../components/presentation/SuggestionsList';
 import { PipelineStatusAlert } from '../components/presentation/PipelineStatusAlert';
-import { ScoreTrendsDashboard } from '../components/presentation/ScoreTrendsDashboard';
 
 export function VideoHistory({ notify }: { notify: Notify }) {
   const [, setLocation] = useLocation();
   const [videoHistory, setVideoHistory] = useState<PresentationVideo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // US-17 Tab: 'takes' (History list) vs 'trends' (Analytics & Progress curves)
-  const [activeMainTab, setActiveMainTab] = useState<'takes' | 'trends'>('takes');
 
   // Filter & Search Controls (US-16-T3)
   const [searchTerm, setSearchTerm] = useState('');
@@ -103,7 +98,8 @@ export function VideoHistory({ notify }: { notify: Notify }) {
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get('tab');
     if (tabParam === 'trends') {
-      setActiveMainTab('trends');
+      setLocation('/student/progress');
+      return;
     }
 
     const videoIdStr = params.get('video') || params.get('id');
@@ -348,23 +344,6 @@ export function VideoHistory({ notify }: { notify: Notify }) {
     return null;
   };
 
-  // Trajectory Summary Stats (US-16-T1)
-  const stats = useMemo(() => {
-    const total = videoHistory.length;
-    const scores = videoHistory
-      .map(getVideoScore)
-      .filter((s): s is number => s !== null);
-    const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
-    const bestScore = scores.length > 0 ? Math.max(...scores) : null;
-
-    const wpms = videoHistory
-      .map((v) => v.speech_analysis?.words_per_minute)
-      .filter((w): w is number => typeof w === 'number' && w > 0);
-    const avgWpm = wpms.length > 0 ? Math.round(wpms.reduce((a, b) => a + b, 0) / wpms.length) : null;
-
-    return { total, avgScore, bestScore, avgWpm };
-  }, [videoHistory]);
-
   // Filtered and Sorted Video List (US-16-T3 & AC 3)
   const filteredVideos = useMemo(() => {
     return videoHistory
@@ -447,108 +426,7 @@ export function VideoHistory({ notify }: { notify: Notify }) {
           </div>
         </div>
 
-        {/* US-17 Tab Navigation: Video Takes vs Score Trends */}
-        <div className="flex items-center justify-between border-b border-[#ecefe7] pb-3">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveMainTab('takes')}
-              data-testid="tab-takes-history"
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
-                activeMainTab === 'takes'
-                  ? 'bg-[#253142] text-white shadow-xs'
-                  : 'bg-[#f4f6ef] text-[#687382] hover:text-[#253142]'
-              }`}
-            >
-              <VideoIcon size={16} />
-              <span>Video Takes ({videoHistory.length})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveMainTab('trends')}
-              data-testid="tab-score-trends"
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
-                activeMainTab === 'trends'
-                  ? 'bg-[#253142] text-white shadow-xs'
-                  : 'bg-[#f4f6ef] text-[#687382] hover:text-[#253142]'
-              }`}
-            >
-              <TrendingUp size={16} />
-              <span>Score Trends & Progress</span>
-              <span className="hidden sm:inline-block rounded-full bg-[#e2f0e9] px-2 py-0.5 text-[10px] font-bold text-[#277254]">
-                Analytics
-              </span>
-            </button>
-          </div>
-        </div>
 
-        {/* Tab 2: Score Trends Dashboard (US-17, US-44-T5) */}
-        {activeMainTab === 'trends' && (
-          <ScoreTrendsDashboard
-            key={`trends-${videoHistory.length}-${videoHistory.map((v) => v.id).join('-')}`}
-            notify={notify}
-            onSelectAttempt={(vidId) => {
-              const vid = videoHistory.find((v) => v.id === vidId);
-              if (vid) handleOpenAnalysis(vid);
-            }}
-          />
-        )}
-
-        {/* Tab 1: Video Takes List & Overview (US-16) */}
-        {activeMainTab === 'takes' && (
-          <div className="space-y-6">
-            {/* Overview Trajectory Summary Cards (US-16-T1) */}
-            {videoHistory.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {/* Total Takes */}
-            <div className="rounded-2xl border border-[#d9dbd1] bg-white p-4 shadow-xs">
-              <div className="flex items-center justify-between text-xs font-semibold text-[#687382]">
-                <span>Total Reps</span>
-                <VideoIcon size={16} className="text-[#253142]" />
-              </div>
-              <p className="mt-2 text-2xl font-bold text-[#253142]" data-testid="stat-total-takes">
-                {stats.total}
-              </p>
-              <span className="text-[11px] text-[#687382]">Recorded takes</span>
-            </div>
-
-            {/* Average Composite Score */}
-            <div className="rounded-2xl border border-[#d9dbd1] bg-white p-4 shadow-xs">
-              <div className="flex items-center justify-between text-xs font-semibold text-[#687382]">
-                <span>Average Score</span>
-                <TrendingUp size={16} className="text-[#277254]" />
-              </div>
-              <p className="mt-2 text-2xl font-bold text-[#277254]" data-testid="stat-avg-score">
-                {stats.avgScore !== null ? `${stats.avgScore}/100` : '—'}
-              </p>
-              <span className="text-[11px] text-[#687382]">Across all takes</span>
-            </div>
-
-            {/* Highest Score */}
-            <div className="rounded-2xl border border-[#d9dbd1] bg-white p-4 shadow-xs">
-              <div className="flex items-center justify-between text-xs font-semibold text-[#687382]">
-                <span>Top Score</span>
-                <Award size={16} className="text-[#b89c3b]" />
-              </div>
-              <p className="mt-2 text-2xl font-bold text-[#b89c3b]" data-testid="stat-best-score">
-                {stats.bestScore !== null ? `${stats.bestScore}/100` : '—'}
-              </p>
-              <span className="text-[11px] text-[#687382]">Personal best</span>
-            </div>
-
-            {/* Average Speaking Pace */}
-            <div className="rounded-2xl border border-[#d9dbd1] bg-white p-4 shadow-xs">
-              <div className="flex items-center justify-between text-xs font-semibold text-[#687382]">
-                <span>Average Pace</span>
-                <Mic size={16} className="text-[#3a6384]" />
-              </div>
-              <p className="mt-2 text-2xl font-bold text-[#3a6384]" data-testid="stat-avg-pace">
-                {stats.avgWpm !== null ? `${stats.avgWpm} WPM` : '—'}
-              </p>
-              <span className="text-[11px] text-[#687382]">Ideal: 130–160 WPM</span>
-            </div>
-          </div>
-        )}
 
         {/* Filter and Search Bar (US-16-T3) */}
         {videoHistory.length > 0 && (
@@ -904,8 +782,6 @@ export function VideoHistory({ notify }: { notify: Notify }) {
             </div>
           )}
         </div>
-      </div>
-    )}
   </div>
 
       {/* US-44-T4: Delete Confirmation Modal Dialog (AC-3) */}

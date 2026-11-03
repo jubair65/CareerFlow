@@ -351,7 +351,7 @@ function Register({ notify }: { notify: Notify }) {
   const [role, setRole] = useState<Role>('student');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [registeredUser, setRegisteredUser] = useState<any>(null);
+  const [redirecting, setRedirecting] = useState(false);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -380,8 +380,37 @@ function Register({ notify }: { notify: Notify }) {
         role: backendRole,
       });
 
-      setRegisteredUser(res.user || { full_name: name, email, role });
-      notify('Your account has been registered successfully in MySQL.', 'success');
+      // Auto-login fallback if tokens were not stored directly
+      if (!res?.tokens) {
+        try {
+          await apiLogin(email, password);
+        } catch {
+          // demo fallback handles localStorage
+        }
+      }
+
+      // Establish session
+      const targetRole: Role = role;
+      localStorage.setItem(
+        'careerflow-session',
+        JSON.stringify({
+          email,
+          role: targetRole,
+          user: res?.user?.full_name || name || email.split('@')[0],
+        })
+      );
+      if (res?.user) {
+        localStorage.setItem('careerflow_user', JSON.stringify(res.user));
+      } else {
+        localStorage.setItem('careerflow_user', JSON.stringify({ email, role: backendRole, full_name: name }));
+      }
+
+      setRedirecting(true);
+      notify('Registration is complete! Moving to dashboard...', 'success');
+
+      setTimeout(() => {
+        setLocation(`/${targetRole}/dashboard`);
+      }, 1200);
     } catch (err: any) {
       const errDetail =
         err?.response?.data?.message ||
@@ -393,111 +422,105 @@ function Register({ notify }: { notify: Notify }) {
     }
   };
 
-  if (registeredUser) {
-    return (
-      <AuthLayout title="Account Created" eyebrow="Registration complete" aside="Your profile has been saved.">
-        <div className="space-y-5">
-          <div className="rounded-2xl border border-[#277254]/30 bg-[#e2f0e9] p-5 text-[#277254]">
-            <CheckCircle2 size={24} className="mb-2" />
-            <h3 className="font-bold text-base">Registration Confirmed in Database</h3>
-            <p className="mt-1 text-xs opacity-90">
-              User <strong>{registeredUser.full_name}</strong> ({registeredUser.email}) registered as <strong className="capitalize">{role}</strong>.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-[#d9dbd1] bg-[#fbfaf5] p-4 text-xs leading-6 text-[#687382]">
-            <span className="font-semibold text-[#253142]">Note for Sprint 1 Development:</span><br />
-            Login authentication & Session management and Role dashboards are in progress by <strong>Member 2</strong>.
-          </div>
-
-          <div className="flex gap-3">
-            <Button variant="primary" onClick={() => setLocation('/login')} testId="button-registered-login">
-              Proceed to Log in <ArrowRight size={16} />
-            </Button>
-            <Button variant="outline" onClick={() => setLocation('/')} testId="button-registered-home">
-              Back to Home
-            </Button>
-            <Button variant="soft" onClick={() => { setRegisteredUser(null); setName(''); setEmail(''); setPassword(''); setConfirmPassword(''); }} testId="button-register-another">
-              Register another
-            </Button>
-          </div>
-        </div>
-      </AuthLayout>
-    );
-  }
-
   const strength = getPasswordStrength(password);
 
   return (
-    <AuthLayout title="Make the next move" eyebrow="Create account" aside="Your best work deserves a clearer runway.">
-      <form onSubmit={submit} className="space-y-5">
-        <Field label="Full name" value={name} onChange={setName} placeholder="Alex Rahman" testId="input-register-name" />
-        <Field label="Email address" value={email} onChange={setEmail} placeholder="you@example.com" type="email" testId="input-register-email" />
-        <div>
-          <Field
-            label="Password"
-            value={password}
-            onChange={setPassword}
-            placeholder="At least 8 characters"
-            type="password"
-            testId="input-register-password"
-          />
-          {password && (
-            <div className="mt-2 space-y-1.5" data-testid="password-strength-meter">
-              <div className="flex items-center justify-between text-xs font-semibold">
-                <span className="text-[#657081]">Password strength:</span>
-                <span className={`font-bold ${strength.score >= 3 ? 'text-[#277254]' : strength.score === 2 ? 'text-[#9a7922]' : 'text-[#b34a40]'}`}>
-                  {strength.label}
-                </span>
-              </div>
-              <div className="grid grid-cols-4 gap-1.5 h-1.5">
-                {[1, 2, 3, 4].map((step) => (
-                  <div
-                    key={step}
-                    className={`rounded-full transition duration-300 ${
-                      strength.score >= step ? strength.color : 'bg-[#e2e3db]'
-                    }`}
-                  />
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-[11px] text-[#7b8490]">
-                <span className={password.length >= 8 ? 'text-[#277254] font-semibold' : ''}>✓ 8+ chars</span>
-                <span className={/[A-Z]/.test(password) ? 'text-[#277254] font-semibold' : ''}>✓ Uppercase</span>
-                <span className={/[0-9]/.test(password) ? 'text-[#277254] font-semibold' : ''}>✓ Number</span>
-                <span className={/[^A-Za-z0-9]/.test(password) ? 'text-[#277254] font-semibold' : ''}>✓ Symbol</span>
-              </div>
+    <>
+      {redirecting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-2xl bg-[#faf7ef] p-6 shadow-2xl border border-[#d9dbd1] text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#e2f0e9] text-[#277254] mb-3">
+              <CheckCircle2 size={32} />
             </div>
-          )}
-        </div>
-        <Field label="Confirm password" value={confirmPassword} onChange={setConfirmPassword} placeholder="Re-enter your password" type="password" testId="input-register-confirm-password" />
-        <div>
-          <div className="mb-2 text-sm font-semibold text-[#253142]">I am joining as</div>
-          <div className="grid grid-cols-3 gap-2">
-            {(['student', 'hr', 'agency'] as Role[]).map((item) => (
-              <button
-                type="button"
-                key={item}
-                onClick={() => setRole(item)}
-                data-testid={`button-role-${item}`}
-                className={`rounded-xl border px-2 py-3 text-xs font-bold capitalize transition ${role === item ? 'border-[#253142] bg-[#253142] text-[#faf7ef]' : 'border-[#d9dbd1] bg-[#fbfaf5] text-[#687382] hover:border-[#9aabb5]'}`}
-              >
-                {item === 'hr' ? 'Hiring team' : item === 'agency' ? 'Agency' : 'Candidate'}
-              </button>
-            ))}
+            <h3 className="text-lg font-bold text-[#253142]">Registration Complete!</h3>
+            <p className="mt-1 text-xs text-[#526072]">
+              Registration is complete, moving to dashboard...
+            </p>
+            <div className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-[#eef0e7] px-3 py-2 text-xs font-semibold text-[#277254]">
+              <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#277254] border-t-transparent" />
+              <span>Moving to dashboard...</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLocation(`/${role}/dashboard`)}
+              className="mt-3 text-xs font-semibold text-[#277254] hover:underline"
+            >
+              Go to dashboard now →
+            </button>
           </div>
         </div>
-        {error && <div data-testid="register-error" className="rounded-xl bg-[#f7e5e1] p-3 text-xs font-semibold text-[#a33d35]">{error}</div>}
-        <Button type="submit" disabled={loading} className="w-full" testId="button-register">
-          {loading ? 'Creating account…' : 'Create workspace'} {!loading && <ArrowRight size={16} />}
-        </Button>
-        <p className="text-center text-sm text-[#687382]">
-          Already have an account?{' '}
-          <button type="button" onClick={() => setLocation('/login')} data-testid="link-register-login" className="font-bold text-[#277254]">
-            Log in
-          </button>
-        </p>
-      </form>
-    </AuthLayout>
+      )}
+
+      <AuthLayout title="Make the next move" eyebrow="Create account" aside="Your best work deserves a clearer runway.">
+        <form onSubmit={submit} className="space-y-5">
+          <Field label="Full name" value={name} onChange={setName} placeholder="Alex Rahman" testId="input-register-name" />
+          <Field label="Email address" value={email} onChange={setEmail} placeholder="you@example.com" type="email" testId="input-register-email" />
+          <div>
+            <Field
+              label="Password"
+              value={password}
+              onChange={setPassword}
+              placeholder="At least 8 characters"
+              type="password"
+              testId="input-register-password"
+            />
+            {password && (
+              <div className="mt-2 space-y-1.5" data-testid="password-strength-meter">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className="text-[#657081]">Password strength:</span>
+                  <span className={`font-bold ${strength.score >= 3 ? 'text-[#277254]' : strength.score === 2 ? 'text-[#9a7922]' : 'text-[#b34a40]'}`}>
+                    {strength.label}
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-1.5 h-1.5">
+                  {[1, 2, 3, 4].map((step) => (
+                    <div
+                      key={step}
+                      className={`rounded-full transition duration-300 ${
+                        strength.score >= step ? strength.color : 'bg-[#e2e3db]'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-[11px] text-[#7b8490]">
+                  <span className={password.length >= 8 ? 'text-[#277254] font-semibold' : ''}>✓ 8+ chars</span>
+                  <span className={/[A-Z]/.test(password) ? 'text-[#277254] font-semibold' : ''}>✓ Uppercase</span>
+                  <span className={/[0-9]/.test(password) ? 'text-[#277254] font-semibold' : ''}>✓ Number</span>
+                  <span className={/[^A-Za-z0-9]/.test(password) ? 'text-[#277254] font-semibold' : ''}>✓ Symbol</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <Field label="Confirm password" value={confirmPassword} onChange={setConfirmPassword} placeholder="Re-enter your password" type="password" testId="input-register-confirm-password" />
+          <div>
+            <div className="mb-2 text-sm font-semibold text-[#253142]">I am joining as</div>
+            <div className="grid grid-cols-3 gap-2">
+              {(['student', 'hr', 'agency'] as Role[]).map((item) => (
+                <button
+                  type="button"
+                  key={item}
+                  onClick={() => setRole(item)}
+                  data-testid={`button-role-${item}`}
+                  className={`rounded-xl border px-2 py-3 text-xs font-bold capitalize transition ${role === item ? 'border-[#253142] bg-[#253142] text-[#faf7ef]' : 'border-[#d9dbd1] bg-[#fbfaf5] text-[#687382] hover:border-[#9aabb5]'}`}
+                >
+                  {item === 'hr' ? 'Hiring team' : item === 'agency' ? 'Agency' : 'Candidate'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {error && <div data-testid="register-error" className="rounded-xl bg-[#f7e5e1] p-3 text-xs font-semibold text-[#a33d35]">{error}</div>}
+          <Button type="submit" disabled={loading} className="w-full" testId="button-register">
+            {loading ? 'Creating account…' : 'Create workspace'} {!loading && <ArrowRight size={16} />}
+          </Button>
+          <p className="text-center text-sm text-[#687382]">
+            Already have an account?{' '}
+            <button type="button" onClick={() => setLocation('/login')} data-testid="link-register-login" className="font-bold text-[#277254]">
+              Log in
+            </button>
+          </p>
+        </form>
+      </AuthLayout>
+    </>
   );
 }
 

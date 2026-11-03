@@ -16,15 +16,27 @@ import {
   PageHeading,
   StatCard,
   Chart,
-  DataAccessCard,
   type Notify,
 } from '../components/dashboard/DashboardShared';
 import { getStoredUser } from '../api/auth';
 import { apiGetCurrentCVFeedback, type CVFeedback } from '../api/cv';
+import { apiGetPresentationScoreTrends, type ScoreTrendsResponse } from '../api/presentation';
+import { apiGetMyApplications, type ApplicantApplicationStatus } from '../api/recruitment';
+
+interface ActivityItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  time: string;
+  timestamp: number;
+}
 
 export function StudentDashboard({ notify }: { notify: Notify }) {
   const [, setLocation] = useLocation();
   const [cvFeedback, setCvFeedback] = useState<CVFeedback | null>(null);
+  const [trendsData, setTrendsData] = useState<ScoreTrendsResponse | null>(null);
+  const [applications, setApplications] = useState<ApplicantApplicationStatus[]>([]);
+  const [, setLoading] = useState(true);
 
   const user = useMemo(() => {
     try {
@@ -35,30 +47,174 @@ export function StudentDashboard({ notify }: { notify: Notify }) {
   }, []);
 
   useEffect(() => {
-    apiGetCurrentCVFeedback()
-      .then((fb) => setCvFeedback(fb))
-      .catch(() => {});
+    setLoading(true);
+    Promise.allSettled([
+      apiGetCurrentCVFeedback(),
+      apiGetPresentationScoreTrends(),
+      apiGetMyApplications(),
+    ]).then(([cvRes, trendsRes, appsRes]) => {
+      if (cvRes.status === 'fulfilled') {
+        setCvFeedback(cvRes.value);
+      }
+      if (trendsRes.status === 'fulfilled') {
+        setTrendsData(trendsRes.value);
+      }
+      if (appsRes.status === 'fulfilled') {
+        setApplications(appsRes.value || []);
+      }
+      setLoading(false);
+    });
   }, []);
 
-  const userName = user?.full_name?.split(' ')[0] || user?.user?.split(' ')[0] || 'Alex';
+  const userName = user?.full_name?.split(' ')[0] || user?.user?.split(' ')[0] || 'Candidate';
 
-  const handleAction = (label: string) => {
-    notify(`Sprint 2 feature: "${label}" workflow will be enabled in next sprint!`, 'info');
-  };
+  // 1. Presentation Score
+  const latestPresentationScore = trendsData?.summary?.latest_score;
+  const presentationScoreValue = latestPresentationScore != null ? String(latestPresentationScore) : '--';
+  const presentationScoreDetail = latestPresentationScore != null
+    ? (trendsData?.improvements?.overall_delta && trendsData.improvements.overall_delta !== '+0%')
+      ? `${trendsData.improvements.overall_delta} vs baseline`
+      : 'Latest take score'
+    : 'No practice attempts yet';
 
-  const cvScoreValue = cvFeedback ? String(cvFeedback.overall_score) : '87';
+  // 2. CV Score
+  const cvScoreValue = cvFeedback?.overall_score != null ? String(cvFeedback.overall_score) : '--';
   const cvScoreDetail = cvFeedback
     ? cvFeedback.overall_score >= 85
       ? 'Strong role alignment'
       : cvFeedback.overall_score >= 70
       ? 'Good potential'
       : 'Needs revision'
-    : 'Click to view signals';
+    : 'Upload CV in Studio';
+
+  // 3. Practice Attempts
+  const totalAttempts = trendsData?.total_attempts ?? 0;
+  const practiceAttemptsValue = String(totalAttempts);
+  const attemptsThisWeek = useMemo(() => {
+    if (!trendsData?.trend_points?.length) return 0;
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    return trendsData.trend_points.filter((p) => {
+      const timestamp = p.timestamp ? new Date(p.timestamp) : null;
+      return timestamp && timestamp >= oneWeekAgo;
+    }).length;
+  }, [trendsData]);
+
+  const practiceAttemptsDetail = totalAttempts > 0
+    ? attemptsThisWeek > 0
+      ? `${attemptsThisWeek} this week`
+      : `${totalAttempts} total take${totalAttempts > 1 ? 's' : ''}`
+    : 'Start your first practice';
+
+  // 4. Applications
+  const applicationsCount = applications.length;
+  const applicationsValue = String(applicationsCount);
+  const inReviewCount = applications.filter(
+    (a) =>
+      a.status === 'UNDER_REVIEW' ||
+      a.current_stage === 'HR_REVIEW' ||
+      a.current_stage === 'SUBMITTED' ||
+      a.current_stage === 'AI_ANALYSIS'
+  ).length;
+
+  const applicationsDetail = applicationsCount > 0
+    ? inReviewCount > 0
+      ? `${inReviewCount} in review`
+      : `${applicationsCount} submitted`
+    : 'No applications yet';
+
+  // Confidence over time chart
+  const chartPoints = useMemo(() => {
+    if (!trendsData?.trend_points || trendsData.trend_points.length === 0) {
+      return { values: [], labels: [] };
+    }
+    const slice = trendsData.trend_points.slice(-8);
+    return {
+      values: slice.map((p) => p.overall_score),
+      labels: slice.map((p, idx) =>
+        p.formatted_date ? p.formatted_date.replace(/, \d{4}$/, '') : `Take ${idx + 1}`
+      ),
+    };
+  }, [trendsData]);
+
+  // AI Recommendation
+  const aiRecommendation = useMemo(() => {
+    if (trendsData?.highlights && trendsData.highlights.length > 0) {
+      return {
+        title: 'Refine your delivery.',
+        text: trendsData.highlights[0],
+        action: 'Practice presentation',
+        path: '/student/presentation',
+      };
+    }
+    if (cvFeedback?.suggestions && cvFeedback.suggestions.length > 0) {
+      return {
+        title: 'Strengthen your CV.',
+        text: cvFeedback.suggestions[0],
+        action: 'View CV suggestions',
+        path: '/student/cv/results',
+      };
+    }
+    return {
+      title: 'Start your preparation.',
+      text: 'Upload your CV to extract matching skills and record a presentation take to receive tailored delivery analytics.',
+      action: 'Try presentation practice',
+      path: '/student/presentation',
+    };
+  }, [trendsData, cvFeedback]);
+
+  // Recent Activities
+  const recentActivities = useMemo<ActivityItem[]>(() => {
+    const items: ActivityItem[] = [];
+
+    applications.forEach((app) => {
+      items.push({
+        id: `app-${app.id}`,
+        title: 'Application submitted',
+        subtitle: `${app.room_title || 'Recruitment Room'}${app.company_name ? ` • ${app.company_name}` : ''}${
+          app.badge?.label ? ` (${app.badge.label})` : ''
+        }`,
+        time: app.applied_at
+          ? new Date(app.applied_at).toLocaleDateString([], { month: 'short', day: 'numeric' })
+          : 'Recently',
+        timestamp: app.applied_at ? new Date(app.applied_at).getTime() : 0,
+      });
+    });
+
+    (trendsData?.trend_points || []).forEach((p, idx) => {
+      items.push({
+        id: `pres-${p.video_id || idx}`,
+        title: 'Presentation analyzed',
+        subtitle: `Take #${p.attempt} scored ${p.overall_score}/100 • ${p.grade_label}`,
+        time:
+          p.formatted_date ||
+          (p.timestamp
+            ? new Date(p.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })
+            : 'Recently'),
+        timestamp: p.timestamp ? new Date(p.timestamp).getTime() : 0,
+      });
+    });
+
+    if (cvFeedback) {
+      items.push({
+        id: `cv-${cvFeedback.id}`,
+        title: 'CV reviewed',
+        subtitle: `${cvFeedback.overall_score}/100 overall score • ${cvFeedback.original_filename || 'Uploaded Resume'}`,
+        time: cvFeedback.updated_at
+          ? new Date(cvFeedback.updated_at).toLocaleDateString([], { month: 'short', day: 'numeric' })
+          : 'Recently',
+        timestamp: new Date(cvFeedback.updated_at || cvFeedback.created_at || 0).getTime(),
+      });
+    }
+
+    items.sort((a, b) => b.timestamp - a.timestamp);
+    return items.slice(0, 4);
+  }, [applications, trendsData, cvFeedback]);
 
   return (
     <AppShell role="student" notify={notify}>
       <PageHeading
-title={`Good morning, ${userName}.`}
+        title={`Good morning, ${userName}.`}
         description="You are building a stronger case for yourself, one small action at a time."
         action={
           <button
@@ -81,8 +237,8 @@ title={`Good morning, ${userName}.`}
         >
           <StatCard
             label="Presentation score"
-            value="82"
-            detail="+8 points this month"
+            value={presentationScoreValue}
+            detail={presentationScoreDetail}
             icon={Presentation}
             accent="yellow"
           />
@@ -108,8 +264,8 @@ title={`Good morning, ${userName}.`}
         >
           <StatCard
             label="Practice attempts"
-            value="12"
-            detail="3 this week"
+            value={practiceAttemptsValue}
+            detail={practiceAttemptsDetail}
             icon={Target}
             accent="blue"
           />
@@ -121,8 +277,8 @@ title={`Good morning, ${userName}.`}
         >
           <StatCard
             label="Applications"
-            value="5"
-            detail="2 in review"
+            value={applicationsValue}
+            detail={applicationsDetail}
             icon={BriefcaseBusiness}
             accent="coral"
           />
@@ -147,10 +303,24 @@ title={`Good morning, ${userName}.`}
             </button>
           </div>
           <div className="mt-6">
-            <Chart
-              values={[51, 58, 61, 64, 69, 72, 77, 82]}
-              labels={['Apr 1', 'Apr 8', 'Apr 15', 'Apr 22', 'Apr 29', 'May 6', 'May 13', 'Now']}
-            />
+            {chartPoints.values.length > 0 ? (
+              <Chart values={chartPoints.values} labels={chartPoints.labels} />
+            ) : (
+              <div className="flex h-44 flex-col items-center justify-center rounded-xl border border-dashed border-[#d9dbd1] bg-[#faf8f2] p-6 text-center">
+                <Presentation className="h-7 w-7 text-[#9da5ac] mb-2" />
+                <p className="text-sm font-semibold text-[#526072]">No practice sessions recorded yet</p>
+                <p className="mt-1 text-xs text-[#8a929c]">
+                  Record your first presentation take to start tracking your confidence trend over time.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setLocation('/student/presentation')}
+                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-[#277254] hover:underline"
+                >
+                  Start practice take →
+                </button>
+              </div>
+            )}
           </div>
         </section>
 
@@ -162,18 +332,18 @@ title={`Good morning, ${userName}.`}
               </span>
               <Sparkles size={19} className="text-[#f5c84b]" />
             </div>
-            <h2 className="cf-display mt-6 text-2xl font-bold">Make your opening count.</h2>
+            <h2 className="cf-display mt-6 text-2xl font-bold">{aiRecommendation.title}</h2>
             <p className="mt-3 text-sm leading-6 text-[#d5e8da]">
-              Your answers are thoughtful. Practice a tighter 90-second introduction to land your strongest point sooner.
+              {aiRecommendation.text}
             </p>
           </div>
           <button
             type="button"
-            onClick={() => setLocation('/student/presentation')}
+            onClick={() => setLocation(aiRecommendation.path)}
             data-testid="button-ai-recommendation"
             className="mt-6 inline-flex w-fit items-center gap-2 rounded-xl bg-[#e2f0e9] px-4 py-2.5 text-xs font-bold text-[#277254] hover:bg-[#d2e7dc] transition"
           >
-            Try this practice <ArrowRight size={15} />
+            {aiRecommendation.action} <ArrowRight size={15} />
           </button>
         </section>
       </div>
@@ -203,15 +373,21 @@ title={`Good morning, ${userName}.`}
                 <Presentation size={18} />
               </div>
               <div className="flex-1">
-                <div className="text-sm font-bold text-[#253142]">Practice your introduction</div>
-                <div className="text-xs text-[#7b8490]">8 minutes • Suggested for today</div>
+                <div className="text-sm font-bold text-[#253142]">
+                  {totalAttempts > 0 ? 'Continue presentation practice' : 'Practice your introduction'}
+                </div>
+                <div className="text-xs text-[#7b8490]">
+                  {totalAttempts > 0
+                    ? `Latest score: ${latestPresentationScore ?? 0}/100 • Target: 90+`
+                    : 'Record video • Instant speech & behavioral feedback'}
+                </div>
               </div>
               <ChevronRight size={17} className="text-[#9da5ac]" />
             </button>
 
             <button
               type="button"
-              onClick={() => setLocation('/student/cv')}
+              onClick={() => setLocation(cvFeedback ? '/student/cv/results' : '/student/cv')}
               data-testid="action-review-cv"
               className="flex w-full items-center gap-3 rounded-xl bg-[#fbfaf5] border border-[#eef0e7] p-3.5 text-left hover:bg-[#e2f0e9] transition"
             >
@@ -219,8 +395,16 @@ title={`Good morning, ${userName}.`}
                 <FileText size={18} />
               </div>
               <div className="flex-1">
-                <div className="text-sm font-bold text-[#253142]">Review your CV suggestions</div>
-                <div className="text-xs text-[#7b8490]">3 improvements waiting in CV Studio</div>
+                <div className="text-sm font-bold text-[#253142]">
+                  {cvFeedback ? 'Review your CV suggestions' : 'Upload your CV in CV Studio'}
+                </div>
+                <div className="text-xs text-[#7b8490]">
+                  {cvFeedback
+                    ? `${cvFeedback.suggestions?.length || 0} improvement${
+                        (cvFeedback.suggestions?.length || 0) === 1 ? '' : 's'
+                      } waiting in CV Studio`
+                    : 'Get instant ATS scoring and keyword analysis'}
+                </div>
               </div>
               <ChevronRight size={17} className="text-[#9da5ac]" />
             </button>
@@ -233,27 +417,31 @@ title={`Good morning, ${userName}.`}
             <Clock3 size={17} className="text-[#9aa2a9]" />
           </div>
           <div className="mt-4 space-y-4">
-            {[
-              ['Presentation analyzed', 'Your score moved up to 82', 'Today, 10:42 AM'],
-              ['Application submitted', 'Frontend Developer • TechNova Ltd.', 'Yesterday'],
-              ['CV reviewed', '87 overall match • 3 suggestions', 'May 16'],
-            ].map(([title, subtitle, time]) => (
-              <div key={title} className="flex gap-3">
-                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#f5c84b]" />
-                <div>
-                  <div className="text-sm font-bold text-[#253142]">{title}</div>
-                  <div className="text-xs text-[#7b8490]">{subtitle}</div>
-                  <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#a0a7ad]">
-                    {time}
+            {recentActivities.length > 0 ? (
+              recentActivities.map((act) => (
+                <div key={act.id} className="flex gap-3">
+                  <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#f5c84b]" />
+                  <div>
+                    <div className="text-sm font-bold text-[#253142]">{act.title}</div>
+                    <div className="text-xs text-[#7b8490]">{act.subtitle}</div>
+                    <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#a0a7ad]">
+                      {act.time}
+                    </div>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center text-[#7b8490]">
+                <Clock3 className="h-8 w-8 text-[#9da5ac] mb-2" />
+                <p className="text-sm font-semibold text-[#526072]">No recent activity</p>
+                <p className="mt-1 text-xs text-[#8a929c]">
+                  Your presentation takes, CV reviews, and job applications will appear here.
+                </p>
               </div>
-            ))}
+            )}
           </div>
         </section>
       </div>
-
-      <DataAccessCard />
     </AppShell>
   );
 }
