@@ -6,9 +6,10 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { useLocation, Router as WouterRouter } from 'wouter';
 import {
   ArrowRight, BriefcaseBusiness, Building2, Check, CheckCircle2,
-  Eye, EyeOff, Home, LockKeyhole, LogOut, Play, ShieldCheck, TrendingUp, X
+  Eye, EyeOff, Home, LockKeyhole, LogOut, Play, ShieldCheck, Sparkles, TrendingUp, X
 } from 'lucide-react';
 import { apiRegister, apiLogin, apiLogout, apiGetCurrentUser, getStoredUser } from '@/api/auth';
+import { LandingPage } from './components/landing/LandingPage';
 import { StudentDashboard } from './pages/StudentDashboard';
 import { HrDashboard } from './pages/HrDashboard';
 import { AgencyDashboard } from './pages/AgencyDashboard';
@@ -186,147 +187,7 @@ function AuthLayout({ title, eyebrow, children, aside }: { title: string; eyebro
 }
 
 function Landing() {
-  const [, setLocation] = useLocation();
-  return (
-    <div className="cf-shell cf-noise bg-[#f5f1e6]">
-      <header className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 md:px-10">
-        <Logo />
-        <div className="flex items-center gap-2">
-          <button onClick={() => setLocation('/login')} data-testid="link-login" className="rounded-xl px-4 py-2 text-sm font-bold text-[#526072] hover:bg-[#e9e6dc]">
-            Log in
-          </button>
-          <Button variant="soft" onClick={() => setLocation('/register')} testId="link-register">
-            Create account <ArrowRight size={16} />
-          </Button>
-        </div>
-      </header>
-
-      <section className="mx-auto grid max-w-7xl gap-12 px-5 pb-20 pt-14 md:grid-cols-[1.05fr_.95fr] md:items-center md:px-10 md:pb-28 md:pt-24">
-        <div className="cf-rise">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#d8c98e] bg-[#fff4ca] px-3 py-1.5 text-xs font-bold text-[#7b6217]">
-            <span className="h-2 w-2 rounded-full bg-[#f5c84b]" />A clearer way to move forward
-          </div>
-          <h1 className="cf-display max-w-3xl text-5xl font-bold leading-[.98] text-[#253142] md:text-7xl">
-            Prepare better.<br /><span className="text-[#277254]">Apply smarter.</span><br />Hire faster.
-          </h1>
-          <p className="mt-7 max-w-xl text-lg leading-8 text-[#657081]">
-            CareerFlow brings candidates, hiring teams, and recruitment agencies into one focused workspace — with better preparation on one side and clearer decisions on the other.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Button variant="primary" onClick={() => setLocation('/register')} testId="button-landing-start">
-              Start your flow <ArrowRight size={17} />
-            </Button>
-            <button onClick={() => setLocation('/login')} data-testid="button-landing-demo" className="inline-flex items-center gap-2 rounded-xl border border-[#ccd0c6] px-4 py-2.5 text-sm font-bold text-[#253142] hover:bg-[#fffaf0]">
-              Explore the demo <Play size={15} fill="currentColor" />
-            </button>
-          </div>
-          <div className="mt-10 flex items-center gap-5 text-xs font-semibold text-[#78818d]">
-            <span className="flex items-center gap-1.5"><ShieldCheck size={15} className="text-[#277254]" /> Explainable scores</span>
-            <span className="flex items-center gap-1.5"><LockKeyhole size={15} className="text-[#277254]" /> Private by default</span>
-          </div>
-        </div>
-
-        <div className="relative">
-          <div className="absolute -right-8 -top-10 h-40 w-40 rounded-full bg-[#f5c84b]/35 blur-2xl" />
-          <div className="cf-card relative rounded-[2rem] bg-[#253142] p-4 shadow-2xl shadow-[#253142]/20 md:rotate-2">
-            <div className="rounded-[1.4rem] border border-[#47576b] bg-[#2d3b4e] p-5 text-[#faf7ef]">
-              <div className="flex items-center justify-between text-xs text-[#aab5c0]">
-                <span>YOUR WEEK, IN VIEW</span>
-                <span className="rounded-full bg-[#394b5e] px-2 py-1">Sprint 1 Ready</span>
-              </div>
-              <div className="mt-8 flex items-end justify-between">
-                <div>
-                  <div className="text-sm text-[#b5bfca]">Preparation progress</div>
-                  <div className="cf-display mt-1 text-6xl font-bold text-[#f5c84b]">100%</div>
-                  <div className="mt-2 flex items-center gap-1 text-xs text-[#84c49f]">
-                    <TrendingUp size={13} /> Foundation online
-                  </div>
-                </div>
-                <div className="h-28 w-28 rounded-full border-[10px] border-[#f5c84b] border-r-[#4a5b6c] border-b-[#4a5b6c] p-3">
-                  <div className="grid h-full place-items-center rounded-full bg-[#253142] text-center text-[10px] font-bold text-[#c4ccd3]">
-                    READY<br />TO GROW
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="absolute -bottom-7 -left-5 flex items-center gap-3 rounded-2xl border border-[#d8d7cc] bg-[#fffaf0] px-4 py-3 shadow-lg">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-[#e2f0e9] text-[#277254]">
-              <Check size={18} />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-[#253142]">Registration ready</div>
-              <div className="text-[11px] text-[#7b8490]">CareerFlow Core · Sprint 1</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="border-y border-[#ddd8ca] bg-[#faf7ef] px-5 py-16 md:px-10 md:py-20">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid gap-8 md:grid-cols-[.8fr_1.2fr] md:items-end">
-            <div>
-              <div className="mb-4 text-sm font-bold text-[#9a7922]">01 — For candidates</div>
-              <h2 className="cf-display text-3xl font-bold leading-tight text-[#253142] md:text-4xl">
-                Confidence is a skill you can train.
-              </h2>
-            </div>
-            <div className="max-w-2xl">
-              <p className="text-base leading-7 text-[#657081]">
-                Practice the moments that matter, get feedback you can act on, and watch your progress become visible.
-              </p>
-              <button onClick={() => setLocation('/register')} className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-[#277254] hover:gap-3">
-                Build your candidate profile <ArrowRight size={15} />
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-[#253142] px-5 py-16 text-[#faf7ef] md:px-10 md:py-20">
-        <div className="mx-auto grid max-w-7xl gap-10 md:grid-cols-[.8fr_1.2fr] md:items-center">
-          <div>
-            <div className="mb-4 flex items-center gap-2 text-sm font-bold text-[#f5c84b]">
-              <Building2 size={17} />02 — For hiring teams
-            </div>
-            <h2 className="cf-display text-3xl font-bold leading-tight md:text-4xl">
-              Make every hiring decision clearer.
-            </h2>
-            <p className="mt-5 max-w-md text-base leading-7 text-[#c3ccd5]">
-              Create structured recruitment rooms, compare candidates on the same signals, and keep the human context in every shortlist.
-            </p>
-            <button onClick={() => setLocation('/register')} className="mt-7 inline-flex items-center gap-2 rounded-xl bg-[#f5c84b] px-4 py-2.5 text-sm font-bold text-[#253142] transition hover:bg-[#ffd969]">
-              Join as hiring team <ArrowRight size={16} />
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section className="border-b border-[#ddd8ca] bg-[#f5f1e6] px-5 py-16 md:px-10 md:py-20">
-        <div className="mx-auto grid max-w-7xl gap-10 md:grid-cols-[1.2fr_.8fr] md:items-center">
-          <div>
-            <div className="mb-4 flex items-center gap-2 text-sm font-bold text-[#277254]">
-              <BriefcaseBusiness size={17} />03 — For recruitment agencies
-            </div>
-            <h2 className="cf-display text-3xl font-bold leading-tight text-[#253142] md:text-4xl">
-              Move the right people forward.
-            </h2>
-            <p className="mt-5 max-w-md text-base leading-7 text-[#657081]">
-              Keep every client, room, and candidate in view with a dependable way to manage the recruitment pipeline.
-            </p>
-            <button onClick={() => setLocation('/register')} className="mt-7 inline-flex items-center gap-2 text-sm font-bold text-[#277254] hover:gap-3">
-              Join as an agency <ArrowRight size={15} />
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <footer className="mx-auto flex max-w-7xl flex-col gap-3 border-t border-[#ddd8ca] px-5 py-8 text-sm text-[#7b8490] md:flex-row md:items-center md:justify-between md:px-10">
-        <Logo />
-        <span>CareerFlow · Sprint 1 Architecture & Registration</span>
-      </footer>
-    </div>
-  );
+  return <LandingPage />;
 }
 
 function getPasswordStrength(pass: string) {

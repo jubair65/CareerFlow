@@ -72,6 +72,20 @@
   --button-outline: rgba(0, 0, 0, 0.1);
   --badge-outline: rgba(0, 0, 0, 0.05);
 
+  /* Landing page color tokens */
+  --cf-landing-light: #f5f1e6;
+  --cf-landing-dark: #253142;
+  --cf-landing-border: #ddd8ca;
+  --cf-landing-border-dark: #3a4b60;
+  --cf-landing-card: #ffffff;
+  --cf-landing-card-dark: #2d3b4e;
+  --cf-landing-text-main: #253142;
+  --cf-landing-text-muted: #4b5563;
+  --cf-landing-text-dark-main: #faf7ef;
+  --cf-landing-text-dark-muted: #c3ccd5;
+  --cf-landing-eyebrow-light: #7c5e14;
+  --cf-landing-eyebrow-dark: #f5c84b;
+
   /* Automatic computation of border around primary / danger buttons */
   --opaque-button-border-intensity: -8; /* In terms of percentages */
 
@@ -293,6 +307,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
 @layer base {
   * {
     @apply border-border;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--cf-landing-light, #f5f1e6);
   }
 
   body {
