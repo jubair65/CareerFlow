@@ -23,3 +23,4 @@ class AIConsentLogAdmin(admin.ModelAdmin):
     list_filter = ('consent_type', 'agreed', 'timestamp')
     search_fields = ('user__email', 'email', 'consent_token')
     readonly_fields = ('timestamp',)
+

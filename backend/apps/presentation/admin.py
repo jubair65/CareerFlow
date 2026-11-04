@@ -32,3 +32,4 @@ class PresentationScoreAdmin(admin.ModelAdmin):
 class PresentationFeedbackAdmin(admin.ModelAdmin):
     list_display = ('id', 'video', 'generated_at')
     search_fields = ('video__user__email',)
+

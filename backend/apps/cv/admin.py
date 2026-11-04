@@ -35,3 +35,4 @@ class CVJobMatchAdmin(admin.ModelAdmin):
     list_display = ('id', 'cv', 'job_title', 'company', 'match_score', 'keyword_coverage', 'updated_at')
     list_filter = ('match_score', 'created_at')
     search_fields = ('cv__user__email', 'job_title', 'company')
+

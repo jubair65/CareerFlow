@@ -48,3 +48,4 @@ class StatusNotificationLogAdmin(admin.ModelAdmin):
     list_display = ('id', 'application', 'recipient_email', 'notification_type', 'is_sent', 'created_at')
     list_filter = ('is_sent', 'notification_type', 'created_at')
     search_fields = ('recipient_email', 'application__candidate__email')
+
