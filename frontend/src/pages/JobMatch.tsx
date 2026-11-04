@@ -14,6 +14,8 @@ import {
   Info,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
+import { motion, useReducedMotion } from 'framer-motion';
+import { PageTransition, AnimatedNumber, MOTION } from '../motion';
 import { PageHeading, Badge, type Notify } from '../components/dashboard/DashboardShared';
 import {
   apiGetCurrentCV,
@@ -81,6 +83,7 @@ const PLACEHOLDER_COMPANIES = new Set([
 ]);
 
 export function JobMatch({ notify }: { notify: Notify }) {
+  const prefersReduced = useReducedMotion();
   const [, setLocation] = useLocation();
 
   const [currentCv, setCurrentCv] = useState<CandidateCV | null>(null);
@@ -266,7 +269,7 @@ export function JobMatch({ notify }: { notify: Notify }) {
           </button>
         </div>
       ) : (
-        <div className="space-y-6">
+        <PageTransition className="space-y-6">
           {/* Main Grid Row 1: Hero Card + Sub-signals Card (shared 1.6fr 1fr grid) */}
           <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
             {/* Hero Role Match Card */}
@@ -329,25 +332,36 @@ export function JobMatch({ notify }: { notify: Notify }) {
 
                       if (isMatched) {
                         return (
-                          <span
+                          <motion.span
                             key={idx}
+                            initial={prefersReduced ? false : { scale: 0.95, opacity: 0 }}
+                            animate={{ scale: [1, 1.05, 1], opacity: 1 }}
+                            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
                             className="inline-flex items-center gap-1.5 rounded-xl border border-[#bce2d1] bg-[#e2f0e9] px-3 py-1 text-xs font-bold text-[#166534]"
                           >
                             <Check size={13} className="shrink-0 text-[#166534]" />
                             <span>{skill}</span>
-                          </span>
+                          </motion.span>
                         );
                       }
 
                       if (isMissing) {
                         return (
-                          <span
+                          <div
                             key={idx}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-[#fecaca] bg-[#fee2e2] px-3 py-1 text-xs font-bold text-[#991b1b]"
+                            className="group relative inline-flex items-center gap-1.5 rounded-xl border border-[#fecaca] bg-[#fee2e2] pl-3 pr-2 py-1 text-xs font-bold text-[#991b1b]"
                           >
                             <X size={13} className="shrink-0 text-[#991b1b]" />
                             <span>{skill}</span>
-                          </span>
+                            <button
+                              type="button"
+                              onClick={() => setLocation(`/student/practice?skill=${encodeURIComponent(skill)}`)}
+                              title={`Practice presentation take for ${skill}`}
+                              className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 rounded-md bg-[#991b1b] text-white px-1.5 py-0.5 text-[10px] font-bold hover:bg-[#7f1d1d] cursor-pointer"
+                            >
+                              Practice this
+                            </button>
+                          </div>
                         );
                       }
 
@@ -405,9 +419,11 @@ export function JobMatch({ notify }: { notify: Notify }) {
                           </span>
                         </div>
                         <div className="h-2 w-full overflow-hidden rounded-full bg-[#eef0e7]">
-                          <div
-                            className={`h-full transition-all duration-300 ${getSignalBarColor(scoreVal)}`}
-                            style={{ width: `${scoreVal}%` }}
+                          <motion.div
+                            initial={prefersReduced ? false : { width: 0 }}
+                            animate={{ width: `${scoreVal}%` }}
+                            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                            className={`h-full ${getSignalBarColor(scoreVal)}`}
                           />
                         </div>
                       </div>
@@ -645,7 +661,7 @@ export function JobMatch({ notify }: { notify: Notify }) {
               </div>
             </section>
           )}
-        </div>
+        </PageTransition>
       )}
     </AppShell>
   );

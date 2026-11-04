@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { PageHeading, type Notify } from '../components/dashboard/DashboardShared';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { PageTransition, MOTION } from '../motion';
 import { VideoRecorder } from '../components/presentation/VideoRecorder';
 import { WebcamPlaybackPlayer } from '../components/presentation/WebcamPlaybackPlayer';
 import { PresentationScoreCard } from '../components/presentation/PresentationScoreCard';
@@ -29,6 +31,7 @@ import {
 } from '../api/presentation';
 
 export function PresentationStudio({ notify }: { notify: Notify }) {
+  const prefersReduced = useReducedMotion();
   const [activeVideo, setActiveVideo] = useState<PresentationVideo | null>(null);
   const [videoHistory, setVideoHistory] = useState<PresentationVideo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -85,22 +88,52 @@ export function PresentationStudio({ notify }: { notify: Notify }) {
 
   return (
     <AppShell role="student" notify={notify}>
-      <PageHeading
-title="Video Presentation Studio"
-        description="Record or upload your 1-3 minute introduction. Our pipeline analyzes speaking pace, filler words, eye contact, and posture."
-        action={
-          activeVideo && !showRecorder ? (
-            <button
-              type="button"
-              onClick={() => setShowRecorder(true)}
-              data-testid="button-record-new-take"
-              className="inline-flex items-center gap-2 rounded-xl bg-[#253142] px-4 py-2.5 text-sm font-bold text-[#faf7ef] hover:bg-[#33435a] transition"
-            >
-              <RotateCcw size={16} /> Record New Take
-            </button>
-          ) : undefined
-        }
-      />
+      <PageTransition>
+        <PageHeading
+          title="Video Presentation Studio"
+          description="Record or upload your 1-3 minute introduction. Our pipeline analyzes speaking pace, filler words, eye contact, and posture."
+          action={
+            activeVideo && !showRecorder ? (
+              <button
+                type="button"
+                onClick={() => setShowRecorder(true)}
+                data-testid="button-record-new-take"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#f5c84b] px-4 py-2 text-xs font-bold text-[#253142] hover:bg-[#e8b93c] transition shadow-xs cursor-pointer active:scale-[0.98]"
+              >
+                <RotateCcw size={14} /> Record New Take
+              </button>
+            ) : undefined
+          }
+        />
+
+        {/* Question Prompt Card (slides in from bottom 16px + fade) */}
+        <motion.div
+          initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+          data-testid="presentation-prompt-card"
+          className="mt-6 mb-6 rounded-2xl border border-[#d9dbd1] bg-[#faf8f2] p-5 shadow-xs"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#277254]">
+                PRACTICE PROMPT • ELEVATOR PITCH
+              </span>
+              <h2 className="text-base font-bold text-[#253142]">
+                "Tell me about your background, key technical strengths, and what drives you."
+              </h2>
+              <p className="text-xs text-[#687382] leading-relaxed pt-1">
+                Aim for 90 to 150 seconds. Maintain direct eye contact with the camera, speak at a conversational pace (130–160 WPM), and avoid filler phrases like "um", "ah", or "like".
+              </p>
+            </div>
+            <div className="hidden sm:flex flex-col items-end text-right shrink-0">
+              <span className="rounded-lg bg-[#e2f0e9] px-2.5 py-1 text-[11px] font-bold text-[#277254]">
+                Target: 1–3 mins
+              </span>
+              <span className="text-[10px] text-[#7b8490] mt-1">Multi-modal AI evaluation</span>
+            </div>
+          </div>
+        </motion.div>
 
       <div className="space-y-8">
         {/* RECORDER / UPLOADER ACCORDION */}
@@ -304,6 +337,7 @@ title="Video Presentation Studio"
           </div>
         )}
       </div>
+      </PageTransition>
     </AppShell>
   );
 }

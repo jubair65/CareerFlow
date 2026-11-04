@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { PageHeading, type Notify } from '../components/dashboard/DashboardShared';
+import { motion, useReducedMotion } from 'framer-motion';
+import { PageTransition, Reveal } from '../motion';
 import {
   apiGetCandidateProfile,
   apiUpdateCandidateProfile,
@@ -37,6 +39,8 @@ export function ProfilePage({ notify }: { notify: Notify }) {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const prefersReduced = useReducedMotion();
   const [profile, setProfile] = useState<any>(null);
 
   // Editable Form State
@@ -200,6 +204,8 @@ export function ProfilePage({ notify }: { notify: Notify }) {
       window.dispatchEvent(new CustomEvent('careerflow_user_updated', { detail: updatedUser }));
 
       notify?.('Profile updated successfully!', 'success');
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2200);
     } catch (err: any) {
       const serverErrors = err?.response?.data?.errors;
       if (serverErrors && typeof serverErrors === 'object') {
@@ -266,10 +272,11 @@ title="Candidate Profile & Career Objectives"
           <span className="ml-3 text-sm font-semibold text-[#253142]">Loading your profile details...</span>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="mt-6 grid gap-6 lg:grid-cols-[1fr_2fr]" data-testid="profile-container">
-          {/* Left Column: Avatar & Identity Card */}
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-[#d9dbd1] bg-white p-6 shadow-xs text-center space-y-4">
+        <PageTransition>
+          <form onSubmit={handleSubmit} className="mt-6 grid gap-6 lg:grid-cols-[1fr_2fr]" data-testid="profile-container">
+            {/* Left Column: Avatar & Identity Card */}
+            <div className="space-y-6">
+              <div className="rounded-3xl border border-[#d9dbd1] bg-white p-6 shadow-xs text-center space-y-4">
               {/* Avatar Preview with Change Button */}
               <div className="relative mx-auto w-28 h-28">
                 {avatarPreview ? (
@@ -589,12 +596,19 @@ title="Candidate Profile & Career Objectives"
                   type="submit"
                   disabled={saving}
                   data-testid="button-profile-save"
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#277254] px-6 py-2.5 text-xs font-bold text-white hover:bg-[#1f5b43] transition shadow-xs cursor-pointer disabled:opacity-50"
+                  className={`inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-xs font-bold text-white transition-all duration-150 shadow-xs cursor-pointer disabled:opacity-50 active:scale-[0.98] ${
+                    saveSuccess ? 'bg-[#166534]' : 'bg-[#277254] hover:bg-[#1f5b43]'
+                  }`}
                 >
                   {saving ? (
                     <>
                       <Loader2 size={14} className="animate-spin" />
                       <span>Saving Profile...</span>
+                    </>
+                  ) : saveSuccess ? (
+                    <>
+                      <CheckCircle2 size={14} />
+                      <span>Changes Saved!</span>
                     </>
                   ) : (
                     <>
@@ -607,6 +621,7 @@ title="Candidate Profile & Career Objectives"
             </div>
           </div>
         </form>
+        </PageTransition>
       )}
     </AppShell>
   );

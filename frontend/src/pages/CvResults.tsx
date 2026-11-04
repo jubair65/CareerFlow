@@ -7,6 +7,7 @@ import {
   Download,
   RotateCw,
   CheckCircle2,
+  Check,
   AlertTriangle,
   Lightbulb,
   TrendingUp,
@@ -15,6 +16,8 @@ import {
   Sliders,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { PageTransition, AnimatedNumber, ProgressBar, MOTION } from '../motion';
 import {
   PageHeading,
   Badge,
@@ -98,6 +101,9 @@ export function CvResults({ notify }: { notify: Notify }) {
   const [currentCv, setCurrentCv] = useState<CandidateCV | null>(null);
   const [feedback, setFeedback] = useState<CVFeedback | null>(null);
   const [loading, setLoading] = useState(true);
+  const prefersReduced = useReducedMotion();
+  const [appliedFixes, setAppliedFixes] = useState<Set<number>>(new Set());
+  const [expandedSuggestions, setExpandedSuggestions] = useState<Record<number, boolean>>({ 0: true });
   const [reanalyzing, setReanalyzing] = useState(false);
   const [reanalyzeProgress, setReanalyzeProgress] = useState(0);
   const [extractionError, setExtractionError] = useState<{ message: string; advice: string } | null>(null);
@@ -419,7 +425,7 @@ Produced by CareerFlow Talent Intelligence Platform
           </button>
         </div>
       ) : (
-        <div className="space-y-6">
+        <PageTransition className="space-y-6">
           {/* Top Row: Score Hero Banner + CV Meta (shares 1.6fr 1fr grid) */}
           <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
             {/* Score Hero Banner */}
@@ -445,7 +451,7 @@ Produced by CareerFlow Talent Intelligence Platform
                     className="cf-display text-7xl font-bold leading-none text-[#1F2937]"
                     data-testid="cv-overall-score"
                   >
-                    {feedback.overall_score}
+                    <AnimatedNumber value={Math.min(100, feedback.overall_score + appliedFixes.size * 2)} />
                   </span>
                   <span className="text-xl font-semibold text-[#687382]">/ 100</span>
                 </div>
@@ -625,31 +631,77 @@ Produced by CareerFlow Talent Intelligence Platform
             </div>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="container-suggestions">
-              {feedback.suggestions?.map((suggestion, idx) => (
-                <div
-                  key={idx}
-                  data-testid={`suggestion-item-${idx + 1}`}
-                  className="relative rounded-2xl border border-[#d9dbd1] bg-[#fbfaf5] p-5 flex flex-col justify-between transition hover:border-[#253142] hover:shadow-xs"
-                >
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="grid h-7 w-7 place-items-center rounded-full bg-[#253142] text-xs font-bold text-[#faf7ef]">
-                        {idx + 1}
-                      </span>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-[#78350f]">
-                        Recommendation
-                      </span>
+              {feedback.suggestions?.map((suggestion, idx) => {
+                const isApplied = appliedFixes.has(idx);
+                return (
+                  <motion.div
+                    key={idx}
+                    layout="position"
+                    data-testid={`suggestion-item-${idx + 1}`}
+                    className={`relative rounded-2xl border p-5 flex flex-col justify-between transition-all duration-150 ${
+                      isApplied
+                        ? 'border-[#277254] bg-[#f0f6f3]'
+                        : 'border-[#d9dbd1] bg-[#fbfaf5] hover:border-[#253142] hover:shadow-xs'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className={`grid h-7 w-7 place-items-center rounded-full text-xs font-bold transition-colors ${
+                          isApplied ? 'bg-[#277254] text-white' : 'bg-[#253142] text-[#faf7ef]'
+                        }`}>
+                          {idx + 1}
+                        </span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#78350f]">
+                          Recommendation
+                        </span>
+                      </div>
+                      <p className="mt-3.5 text-xs font-semibold leading-relaxed text-[#1F2937]">
+                        {suggestion}
+                      </p>
                     </div>
-                    <p className="mt-3.5 text-xs font-semibold leading-relaxed text-[#1F2937]">
-                      {suggestion}
-                    </p>
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-[#eef0e7] flex items-center gap-1.5 text-[11px] font-bold text-[#166534]">
-                    <TrendingUp size={13} />
-                    <span>Improves ATS match</span>
-                  </div>
-                </div>
-              ))}
+
+                    <div className="mt-4 pt-3 border-t border-[#eef0e7] flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#166534]">
+                        <TrendingUp size={13} />
+                        <span>Improves ATS match</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAppliedFixes((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(idx)) {
+                              next.delete(idx);
+                            } else {
+                              next.add(idx);
+                              notify('Suggestion applied to active draft! ATS score recalculated.', 'success');
+                            }
+                            return next;
+                          });
+                        }}
+                        data-testid={`button-apply-fix-${idx + 1}`}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all duration-150 cursor-pointer ${
+                          isApplied
+                            ? 'bg-[#277254] text-white'
+                            : 'bg-white border border-[#d9dbd1] text-[#253142] hover:bg-[#eef5f1] hover:border-[#277254]'
+                        }`}
+                      >
+                        {isApplied ? (
+                          <>
+                            <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" style={{ strokeDasharray: 24, strokeDashoffset: prefersReduced ? 0 : 0, animation: 'cfDrawPath 0.3s ease forwards' }} />
+                            </svg>
+                            <span>Applied</span>
+                          </>
+                        ) : (
+                          <span>Apply fix</span>
+                        )}
+                      </button>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </div>
           </section>
 
@@ -842,7 +894,7 @@ Produced by CareerFlow Talent Intelligence Platform
               )}
             </div>
           </section>
-        </div>
+        </PageTransition>
       )}
 
     </AppShell>

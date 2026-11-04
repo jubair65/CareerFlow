@@ -3,18 +3,20 @@ import { ArrowLeft, TrendingUp, Video as VideoIcon } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { ScoreTrendsDashboard } from '../components/presentation/ScoreTrendsDashboard';
 import { type Notify } from '../components/dashboard/DashboardShared';
+import { PageTransition } from '../motion';
 
 export function ScoreTrendsPage({ notify }: { notify: Notify }) {
   const [, setLocation] = useLocation();
 
   return (
     <AppShell activeTab="videos">
-      <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+      <PageTransition className="max-w-7xl mx-auto px-4 py-8 space-y-6">
         {/* Navigation Breadcrumbs & Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setLocation('/student/videos')}
+              data-testid="button-back-to-videos"
               className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-[#d9dbd1] bg-[#f4f6ef] hover:bg-[#ecefe7] text-[#526072] hover:text-[#253142] transition-all text-sm font-medium shadow-xs cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -29,6 +31,7 @@ export function ScoreTrendsPage({ notify }: { notify: Notify }) {
 
           <button
             onClick={() => setLocation('/student/videos')}
+            data-testid="button-view-all-takes"
             className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-[#b8d8c7] bg-[#e2f0e9] hover:bg-[#d0e8db] text-[#277254] transition-all text-xs font-semibold self-start sm:self-auto cursor-pointer"
           >
             <VideoIcon className="w-3.5 h-3.5" />
@@ -38,7 +41,7 @@ export function ScoreTrendsPage({ notify }: { notify: Notify }) {
 
         {/* Score Trends Analytics Dashboard */}
         <ScoreTrendsDashboard notify={notify} />
-      </div>
+      </PageTransition>
     </AppShell>
   );
 }

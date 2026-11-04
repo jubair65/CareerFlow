@@ -11,6 +11,10 @@ import { TrustBand } from './TrustBand';
 import { LandingFooter } from './LandingFooter';
 
 gsap.registerPlugin(ScrollTrigger);
+if (typeof window !== 'undefined') {
+  (window as any).ScrollTrigger = ScrollTrigger;
+  (window as any).gsap = gsap;
+}
 
 export function LandingPage() {
   const lenisRef = useRef<Lenis | null>(null);
@@ -43,6 +47,7 @@ export function LandingPage() {
     return () => {
       gsap.ticker.remove(tickerCb);
       lenis.destroy();
+      lenisRef.current = null;
       ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
     };
   }, []);

@@ -21,6 +21,8 @@ import {
   Users,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
+import { PageTransition, AnimatedNumber } from '../motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { PageHeading, StatCard, Badge, type Notify } from '../components/dashboard/DashboardShared';
 import {
   apiGetAgencyClients,
@@ -56,6 +58,7 @@ interface FormErrors {
 }
 
 export function AgencyClientManagementPage({ notify }: { notify: Notify }) {
+  const prefersReduced = useReducedMotion();
   const [clients, setClients] = useState<ClientCompany[]>([]);
   const [stats, setStats] = useState<AgencyClientStats>({
     total_clients: 0,
@@ -292,7 +295,8 @@ export function AgencyClientManagementPage({ notify }: { notify: Notify }) {
   };
 
   return (
-    <AppShell role="agency" notify={notify}>
+    <AppShell role="agency" activeTab="Clients" notify={notify}>
+      <PageTransition>
       <PageHeading
 title="Client Companies"
         description="Manage multi-tenant client organizations, contact representatives, and active recruitment openings."
@@ -496,11 +500,18 @@ title="Client Companies"
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {filteredClients.map((client) => (
-              <div
+            <AnimatePresence>
+            {filteredClients.map((client, idx) => (
+              <motion.div
                 key={client.id}
+                layout="position"
+                initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                whileHover={prefersReduced ? undefined : { y: -2 }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1], delay: prefersReduced ? 0 : Math.min(idx * 0.04, 0.3) }}
                 data-testid={`client-card-${client.id}`}
-                className={`flex flex-col justify-between rounded-2xl border bg-white p-5 shadow-sm transition hover:shadow-md ${
+                className={`flex flex-col justify-between rounded-2xl border bg-white p-5 shadow-sm transition-shadow ${
                   client.is_active
                     ? 'border-[#d9dbd1]'
                     : 'border-[#ebd9d7] bg-[#fdfbfb]'
@@ -629,8 +640,9 @@ title="Client Companies"
                     </button>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             ))}
+            </AnimatePresence>
           </div>
         )}
       </div>
@@ -865,6 +877,7 @@ title="Client Companies"
       {/* ==================================================================== */}
       {/* DEACTIVATION / REACTIVATION CONFIRMATION MODAL */}
       {/* ==================================================================== */}
+      </PageTransition>
       {toggleConfirmClient && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"

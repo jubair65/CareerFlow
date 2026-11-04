@@ -124,7 +124,7 @@ export function StatCard({
   accent = 'yellow',
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   detail: string;
   icon: LucideIcon;
   accent?: 'yellow' | 'green' | 'blue' | 'coral';

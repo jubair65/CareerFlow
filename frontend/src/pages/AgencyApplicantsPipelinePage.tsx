@@ -25,6 +25,8 @@ import {
   Loader2,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
+import { PageTransition, AnimatedNumber } from '../motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { PageHeading, StatCard, type Notify } from '../components/dashboard/DashboardShared';
 import { ForwardCandidatesModal } from '../components/recruitment/ForwardCandidatesModal';
 import {
@@ -41,6 +43,7 @@ import {
 } from '../api/recruitment';
 
 export function AgencyApplicantsPipelinePage({ notify }: { notify: Notify }) {
+  const prefersReduced = useReducedMotion();
   // Data state
   const [applicants, setApplicants] = useState<AgencyCrossClientApplicant[]>([]);
   const [stats, setStats] = useState<AgencyCrossClientApplicantStats>({
@@ -212,7 +215,8 @@ export function AgencyApplicantsPipelinePage({ notify }: { notify: Notify }) {
   };
 
   return (
-    <AppShell role="agency" notify={notify}>
+    <AppShell role="agency" activeTab="Pipeline" notify={notify}>
+      <PageTransition>
       <div data-testid="page-agency-applicants" className="space-y-6">
         {/* Page Heading */}
         <PageHeading
@@ -234,21 +238,21 @@ title="Cross-Client Applicant Pipeline"
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             label="Total Applicants"
-            value={String(stats.total_applicants)}
+            value={<AnimatedNumber value={stats.total_applicants} />}
             detail={`Across ${stats.clients_count} clients & ${stats.rooms_count} rooms`}
             icon={Users}
             accent="blue"
           />
           <StatCard
             label="Completed Analyses"
-            value={String(stats.completed_evaluations)}
+            value={<AnimatedNumber value={stats.completed_evaluations} />}
             detail="With calculated scores"
             icon={CheckCircle2}
             accent="green"
           />
           <StatCard
             label="Shortlisted Candidates"
-            value={String(stats.shortlisted_candidates)}
+            value={<AnimatedNumber value={stats.shortlisted_candidates} />}
             detail="Ready for client forwarding"
             icon={Star}
             accent="coral"
@@ -397,10 +401,15 @@ title="Cross-Client Applicant Pipeline"
 
 
         {/* US-32: Selection action bar */}
+        <AnimatePresence>
         {selectedAppIds.length > 0 && (
-          <div
+          <motion.div
+            initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.98 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
             data-testid="bar-forward-selection"
-            className="flex items-center justify-between rounded-xl bg-[#253142] p-3 text-white shadow-lg animate-in fade-in duration-150"
+            className="flex items-center justify-between rounded-xl bg-[#253142] p-3 text-white shadow-lg"
           >
             <div className="flex items-center gap-2.5 text-xs font-bold">
               <span className="grid h-6 w-6 place-items-center rounded-md bg-[#f5c84b] text-[#253142] text-[11px] font-black">
@@ -426,8 +435,9 @@ title="Cross-Client Applicant Pipeline"
                 <Send size={13} /> Forward to Client
               </button>
             </div>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
 
         {/* Applicants Table / List View */}
         {loading ? (
@@ -505,8 +515,13 @@ title="Cross-Client Applicant Pipeline"
                       .toUpperCase();
 
                     return (
-                      <tr
+                      <motion.tr
                         key={app.id}
+                        layout="position"
+                        initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
                         data-testid={`applicant-row-${app.id}`}
                         className="hover:bg-[#fafaf7]/80 transition group"
                       >
@@ -697,7 +712,7 @@ title="Cross-Client Applicant Pipeline"
                             </button>
                           </div>
                         </td>
-                      </tr>
+                      </motion.tr>
                     );
                   })}
                 </tbody>
@@ -706,15 +721,26 @@ title="Cross-Client Applicant Pipeline"
           </div>
         )}
 
-        {/* Applicant Details Modal */}
+      {/* Applicant Details Modal */}
+      <AnimatePresence>
         {detailApplicant && (
-          <div
+          <motion.div
             role="dialog"
             aria-modal="true"
             data-testid="modal-applicant-detail"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs overflow-y-auto"
           >
-            <div className="relative w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl border border-[#d9dbd1] my-8 animate-in fade-in zoom-in-95 duration-150">
+            <motion.div
+              initial={prefersReduced ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={prefersReduced ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className="relative w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl border border-[#d9dbd1] my-8"
+            >
               {/* Header */}
               <div className="flex items-start justify-between border-b border-[#eef0e7] pb-4">
                 <div className="flex items-center gap-3">
@@ -845,9 +871,10 @@ title="Cross-Client Applicant Pipeline"
                   Close
                 </button>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
+      </AnimatePresence>
 
         {/* US-32: Forward Candidates Modal */}
         {forwardModalOpen && (
@@ -863,6 +890,7 @@ title="Cross-Client Applicant Pipeline"
           />
         )}
       </div>
+      </PageTransition>
     </AppShell>
   );
 }

@@ -18,6 +18,8 @@ import {
   FlipHorizontal
 } from 'lucide-react';
 import fixWebmDuration from 'fix-webm-duration';
+import { motion, useReducedMotion } from 'framer-motion';
+import { ProgressRing } from '../../motion';
 import { WebcamPlaybackPlayer } from './WebcamPlaybackPlayer';
 import { apiUploadPresentationVideo, type PresentationVideo } from '../../api/presentation';
 import { AIConsentModal } from './AIConsentModal';
@@ -32,6 +34,7 @@ const MAX_FILE_SIZE_BYTES = 250 * 1024 * 1024; // 250 MB
 const MAX_DURATION_SECONDS = 180; // 3 minutes
 
 export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
+  const prefersReduced = useReducedMotion();
   const [activeTab, setActiveTab] = useState<'upload' | 'record'>('record');
 
   // US-48: AI Biometric Consent Gatekeeper State
@@ -489,7 +492,7 @@ export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
           type="button"
           onClick={() => handleOpenConsentNotice(true)}
           data-testid="link-ai-consent-policy"
-          className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline flex items-center gap-1.5 transition"
+          className="text-xs text-[#277254] font-semibold hover:underline flex items-center gap-1.5 transition cursor-pointer"
         >
           <ShieldCheck size={14} />
           <span>AI Biometric & Evaluation Privacy Notice</span>
@@ -605,13 +608,26 @@ export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
               />
             )}
 
-            {/* Timer Overlay (Only shown during active recording) */}
+            {/* Timer Overlay with subtle pulsing dot and ProgressRing (visual matches elapsed time) */}
             {!recordedPreviewUrl && recordingState === 'recording' && (
-              <div className="absolute top-4 left-4 flex items-center gap-2 rounded-full bg-black/60 px-3.5 py-1.5 text-xs font-bold text-white backdrop-blur-md">
-                <span className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse" />
-                <span>REC</span>
-                <span className="font-mono text-sm">{formatTimer(elapsedSeconds)}</span>
-                <span className="text-white/60">/ 03:00</span>
+              <div className="absolute top-4 left-4 flex items-center gap-2.5 rounded-full bg-black/75 px-3.5 py-1.5 text-xs font-bold text-white backdrop-blur-md border border-white/10 shadow-lg">
+                <motion.span
+                  animate={prefersReduced ? undefined : { scale: [1, 1.25, 1], opacity: [0.75, 1, 0.75] }}
+                  transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                  className="h-2.5 w-2.5 rounded-full bg-red-500"
+                />
+                <span className="text-red-400 font-extrabold text-[11px] tracking-wider">REC</span>
+                <ProgressRing
+                  value={elapsedSeconds}
+                  max={MAX_DURATION_SECONDS}
+                  size={20}
+                  strokeWidth={2}
+                  color="#ef4444"
+                  bgColor="rgba(255,255,255,0.2)"
+                  showLabel={false}
+                />
+                <span className="font-mono text-xs">{formatTimer(elapsedSeconds)}</span>
+                <span className="text-white/60 text-[10px]">/ 03:00</span>
               </div>
             )}
 
@@ -695,6 +711,24 @@ export function VideoRecorder({ onUploadSuccess, notify }: VideoRecorderProps) {
                 </button>
               )}
             </div>
+
+            {/* Indeterminate analyzing progress bar */}
+            {isProcessing && (
+              <div className="w-full my-2">
+                <div className="flex items-center justify-between text-xs text-[#277254] font-semibold mb-1">
+                  <span>Analyzing take...</span>
+                  <span>Audio & behavioral AI processing</span>
+                </div>
+                <div className="w-full bg-[#eef0e7] h-[2px] overflow-hidden rounded-full relative">
+                  <motion.div
+                    initial={{ x: '-100%' }}
+                    animate={{ x: '100%' }}
+                    transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+                    className="h-full w-1/3 bg-gradient-to-r from-[#253142] via-[#277254] to-[#f5c84b]"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Submit Recorded Video */}
             {recordedBlob && (

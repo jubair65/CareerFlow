@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
+import { useReducedMotion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
+import { Logo } from '../brand/Logo';
 import { BRAND } from './motionTokens';
 
 interface LandingHeaderProps {
@@ -10,6 +12,7 @@ interface LandingHeaderProps {
 export function LandingHeader({ onLogoClick }: LandingHeaderProps) {
   const [, setLocation] = useLocation();
   const [condensed, setCondensed] = useState(false);
+  const prefersReduced = useReducedMotion();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -36,32 +39,7 @@ export function LandingHeader({ onLogoClick }: LandingHeaderProps) {
         }`}
       >
         <div className={`flex items-center justify-between ${BRAND.layout.container}`}>
-          <div
-            onClick={onLogoClick}
-            className="flex items-center gap-2.5 cursor-pointer"
-            data-testid="brand-careerflow"
-          >
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-[#253142] text-[#f5c84b]">
-              <svg viewBox="0 0 24 24" className="h-[21px] w-[21px]" fill="none" aria-hidden="true">
-                <path
-                  d="M4 6.5h5.25c1.52 0 2.75 1.23 2.75 2.75v5.5c0 1.52 1.23 2.75 2.75 2.75H20"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="m17.2 14.75 2.8 2.75-2.8 2.75"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <circle cx="4" cy="6.5" r="1.55" fill="currentColor" />
-                <circle cx="12" cy="9.25" r="1.55" fill="currentColor" />
-              </svg>
-            </div>
-            <span className="cf-display text-lg font-bold text-[#253142]">CareerFlow</span>
-          </div>
+          <Logo animated tone="color" onClick={onLogoClick} className="group" />
 
           <div className="flex items-center gap-3">
             <button

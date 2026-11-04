@@ -5,6 +5,7 @@ import { PageHeading, type Notify } from '../components/dashboard/DashboardShare
 import { RoomList } from '../components/recruitment/RoomList';
 import { RoomCreateModal } from '../components/recruitment/RoomCreateModal';
 import { apiGetRooms, type RecruitmentRoom } from '../api/recruitment';
+import { PageTransition } from '../motion';
 
 export function RecruitmentRoomsPage({ notify }: { notify: Notify }) {
   const [rooms, setRooms] = useState<RecruitmentRoom[]>([]);
@@ -42,46 +43,51 @@ export function RecruitmentRoomsPage({ notify }: { notify: Notify }) {
   };
 
   return (
-    <AppShell role="hr" notify={notify}>
-      <PageHeading
-title="Recruitment Rooms"
-        description="Create and manage job-specific hiring rooms, evaluation criteria, and candidate application links."
-        action={
-          <button
-            type="button"
-            onClick={() => setCreateModalOpen(true)}
-            data-testid="button-create-room-page"
-            className="inline-flex items-center gap-2 rounded-xl bg-[#277254] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#1f5b43] transition shadow-xs shrink-0 whitespace-nowrap"
-          >
-            <Plus size={16} /> Create Room
-          </button>
-        }
-      />
+    <AppShell role="hr" activeTab="Recruitment rooms" notify={notify}>
+      <PageTransition>
+        <PageHeading
+          title="Recruitment Rooms"
+          description="Create and manage job-specific hiring rooms, evaluation criteria, and candidate application links."
+          action={
+            <button
+              type="button"
+              onClick={() => setCreateModalOpen(true)}
+              data-testid="button-create-room-page"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#277254] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#1f5b43] transition shadow-xs shrink-0 whitespace-nowrap cursor-pointer"
+            >
+              <Plus size={16} /> Create Room
+            </button>
+          }
+        />
 
-      {loading ? (
-        <div className="flex h-64 items-center justify-center rounded-2xl bg-white border border-[#d9dbd1]">
-          <div className="flex items-center gap-2 text-sm text-[#7b8490]">
-            <Loader2 size={18} className="animate-spin text-[#277254]" />
-            Loading recruitment rooms...
+        {loading ? (
+          <div className="flex h-64 items-center justify-center rounded-2xl bg-white border border-[#d9dbd1] mt-6">
+            <div className="flex items-center gap-2 text-sm text-[#7b8490]">
+              <Loader2 size={18} className="animate-spin text-[#277254]" />
+              Loading recruitment rooms...
+            </div>
           </div>
-        </div>
-      ) : (
-        <RoomList
-          rooms={rooms}
-          onOpenCreateModal={() => setCreateModalOpen(true)}
-          onRoomUpdated={handleRoomUpdated}
-          onRoomDeleted={handleRoomDeleted}
+        ) : (
+          <div className="mt-6">
+            <RoomList
+              rooms={rooms}
+              onOpenCreateModal={() => setCreateModalOpen(true)}
+              onRoomUpdated={handleRoomUpdated}
+              onRoomDeleted={handleRoomDeleted}
+              notify={notify}
+            />
+          </div>
+        )}
+
+        {/* Creation Modal */}
+        <RoomCreateModal
+          isOpen={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+          onRoomCreated={handleRoomCreated}
           notify={notify}
         />
-      )}
-
-      {/* Creation Modal */}
-      <RoomCreateModal
-        isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        onRoomCreated={handleRoomCreated}
-        notify={notify}
-      />
+      </PageTransition>
     </AppShell>
   );
 }
+export default RecruitmentRoomsPage;

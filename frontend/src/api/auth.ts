@@ -140,7 +140,7 @@ export async function apiPasswordResetConfirm(data: {
     const response = await apiClient.post('/auth/password-reset-confirm/', data);
     return response.data;
 }
-
+
 export async function apiGetCandidateProfile() {
     const response = await apiClient.get('/auth/profile/');
     return response.data;

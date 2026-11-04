@@ -29,6 +29,7 @@ import {
   type CandidateCV,
 } from '../api/cv';
 import { CvProcessingView } from '../components/cv/CvProcessingView';
+import { PageTransition } from '../motion';
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_EXTENSIONS = ['.pdf', '.docx'];
@@ -256,6 +257,7 @@ title="CV Studio & Document Vault"
         description="Upload and manage your CV in PDF or DOCX format. Keep your profile up to date for instant role matching and analysis."
       />
 
+      <PageTransition className="mt-6 space-y-6">
       <div className="grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
         {/* Left Column: Current Active CV */}
         <section className="cf-card rounded-2xl bg-white p-6 border border-[#d9dbd1] shadow-sm flex flex-col justify-between">
@@ -372,12 +374,12 @@ title="CV Studio & Document Vault"
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
               data-testid="cv-dropzone"
-              className={`mt-6 cursor-pointer rounded-2xl border-2 border-dashed p-6 text-center transition ${
+              className={`mt-6 cursor-pointer rounded-2xl p-6 text-center transition-all duration-150 ${
                 dragOver
-                  ? 'border-[#f5c84b] bg-[#314154]'
+                  ? 'border-4 border-dashed border-[#f5c84b] bg-[#36495f] scale-[1.01]'
                   : selectedFile
-                  ? 'border-[#277254] bg-[#2d3e35]'
-                  : 'border-[#47576b] bg-[#2d3b4e] hover:border-[#f5c84b] hover:bg-[#314154]'
+                  ? 'border-2 border-dashed border-[#277254] bg-[#2d3e35]'
+                  : 'border-2 border-dashed border-[#47576b] bg-[#2d3b4e] hover:border-[#f5c84b] hover:bg-[#314154]'
               }`}
             >
               <input
@@ -575,6 +577,7 @@ title="CV Studio & Document Vault"
         </section>
       )}
 
+    </PageTransition>
     </AppShell>
   );
 }

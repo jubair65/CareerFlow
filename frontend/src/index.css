@@ -299,6 +299,19 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .cf-rise { animation: cfRise .55s cubic-bezier(.2,.75,.25,1) both; }
 @keyframes cfFade { from { opacity:0 } to { opacity:1 } }
 @keyframes cfRise { from { opacity:0; transform:translateY(10px) } to { opacity:1; transform:translateY(0) } }
+@keyframes cfDrawPath { to { stroke-dashoffset: 0; } }
+
+
+/* Single point soft pulse animation (stops after 3 cycles) */
+@keyframes chartPulse {
+  0% { r: 6px; opacity: 0.9; stroke-width: 2.5px; }
+  50% { r: 14px; opacity: 0.4; stroke-width: 1.5px; }
+  100% { r: 20px; opacity: 0; stroke-width: 0.5px; }
+}
+.chart-single-pulse {
+  animation: chartPulse 1.5s ease-out 3 forwards;
+  transform-origin: center;
+}
 @media (max-width: 1023px) {
   .cf-table-wrap { overflow-x:auto; }
   .cf-table { min-width: 700px; }

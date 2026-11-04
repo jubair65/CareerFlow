@@ -15,6 +15,8 @@ import {
   Send,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
+import { PageTransition, AnimatedNumber } from '../motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { PageHeading, StatCard, type Notify } from '../components/dashboard/DashboardShared';
 import {
   apiGetAgencyClients,
@@ -29,6 +31,7 @@ import {
 } from '../api/recruitment';
 
 export function AgencyReportsPage({ notify }: { notify: Notify }) {
+  const prefersReduced = useReducedMotion();
   const [, setLocation] = useLocation();
   const [clients, setClients] = useState<ClientCompany[]>([]);
   const [rooms, setRooms] = useState<RecruitmentRoom[]>([]);
@@ -120,6 +123,7 @@ export function AgencyReportsPage({ notify }: { notify: Notify }) {
 
   return (
     <AppShell role="agency" activeTab="Reports" notify={notify}>
+      <PageTransition>
       <PageHeading
 title="Client Reports & Dossier Exports"
         description="Comprehensive hiring throughput reports, candidate dossiers, and room summary exports across all client companies."
@@ -139,21 +143,21 @@ title="Client Reports & Dossier Exports"
       <div className="mt-6 grid gap-4 sm:grid-cols-3" data-testid="agency-reports-stats">
         <StatCard
           label="Client Companies"
-          value={String(clients.length)}
+          value={<AnimatedNumber value={clients.length} />}
           detail="Active client organizations"
           icon={Building2}
-          accent="amber"
+          accent="yellow"
         />
         <StatCard
           label="Active Client Rooms"
-          value={String(rooms.length)}
+          value={<AnimatedNumber value={rooms.length} />}
           detail="Recruitment rooms managed"
           icon={FolderOpen}
           accent="blue"
         />
         <StatCard
           label="Forwarded Dossiers"
-          value={String(applicants.filter((a) => a.is_forwarded).length)}
+          value={<AnimatedNumber value={applicants.filter((a) => a.is_forwarded).length} />}
           detail="Transmitted to client contacts"
           icon={Send}
           accent="green"
@@ -201,8 +205,14 @@ title="Client Reports & Dossier Exports"
               const clientName = room.client_company_name || 'Direct Client';
 
               return (
-                <div
+                <motion.div
                   key={room.id}
+                  layout="position"
+                  initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  whileHover={prefersReduced ? undefined : { y: -2 }}
+                  transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                   data-testid={`agency-room-report-${room.id}`}
                   className="flex flex-col justify-between rounded-2xl border border-[#d9dbd1] bg-white p-5 shadow-xs hover:shadow-sm transition"
                 >
@@ -240,7 +250,7 @@ title="Client Reports & Dossier Exports"
                       Download Room PDF Summary
                     </button>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </div>
@@ -289,7 +299,15 @@ title="Client Reports & Dossier Exports"
                   const isDownloading = downloadingAppId === candidate.id;
 
                   return (
-                    <tr key={candidate.id} className="hover:bg-[#fbfaf7] transition">
+                    <motion.tr
+                      key={candidate.id}
+                      layout="position"
+                      initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                      className="hover:bg-[#fbfaf7] transition"
+                    >
                       <td className="py-3 px-4">
                         <div className="font-bold text-[#253142]">{candidate.candidate_name}</div>
                         <div className="text-[11px] text-[#7b8490]">{candidate.candidate_email}</div>
@@ -332,7 +350,7 @@ title="Client Reports & Dossier Exports"
                           Download Dossier
                         </button>
                       </td>
-                    </tr>
+                    </motion.tr>
                   );
                 })}
               </tbody>
@@ -340,6 +358,7 @@ title="Client Reports & Dossier Exports"
           </div>
         )}
       </div>
+      </PageTransition>
     </AppShell>
   );
 }

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { useLocation } from 'wouter';
-import { ArrowRight, CheckCircle2, Eye, EyeOff, KeyRound, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Eye, EyeOff, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Logo } from '../components/brand/Logo';
 import { apiPasswordResetConfirm } from '@/api/auth';
 
 type Notify = (message: string, tone?: 'success' | 'info' | 'error') => void;
@@ -96,12 +97,7 @@ export function ResetPasswordPage({ notify }: { notify: Notify }) {
     <div className="cf-shell grid min-h-screen bg-[#f5f1e6] md:grid-cols-[.85fr_1.15fr]">
       {/* Left Brand Panel */}
       <div className="hidden bg-[#253142] p-10 text-[#faf7ef] md:flex md:flex-col md:justify-between">
-        <div className="flex items-center gap-2.5" data-testid="brand-careerflow">
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-[#f5c84b] text-[#253142]">
-            <KeyRound className="h-[21px] w-[21px]" />
-          </div>
-          <span className="cf-display text-lg font-bold text-[#f8f4e9]">CareerFlow</span>
-        </div>
+        <Logo tone="onDark" />
 
         <div className="max-w-md pb-14">
           <div className="mb-5 text-xs font-bold uppercase tracking-[.18em] text-[#f5c84b]">Password Security</div>
