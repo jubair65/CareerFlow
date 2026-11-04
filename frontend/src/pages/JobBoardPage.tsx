@@ -33,6 +33,7 @@ import {
   apiGetPublicJobRoomDetail,
   type JobBoardRoom,
 } from '../api/recruitment';
+import { apiGetCurrentCVFeedback } from '../api/cv';
 import {
   MOTION,
   PageTransition,
@@ -48,6 +49,8 @@ export function JobBoardPage({ notify }: { notify: Notify }) {
   const prefersReduced = useReducedMotion();
   const [rooms, setRooms] = useState<JobBoardRoom[]>([]);
   const [loading, setLoading] = useState(true);
+  const [candidateSkills, setCandidateSkills] = useState<string[]>([]);
+  const [hasCv, setHasCv] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [expFilter, setExpFilter] = useState('ALL');
   const [statusTab, setStatusTab] = useState<'all' | 'not_applied' | 'applied'>('all');
@@ -71,8 +74,22 @@ export function JobBoardPage({ notify }: { notify: Notify }) {
   const fetchRooms = async () => {
     try {
       setLoading(true);
-      const data = await apiGetPublicJobRooms();
-      setRooms(data);
+      const [roomsData, feedbackData] = await Promise.all([
+        apiGetPublicJobRooms().catch(() => []),
+        apiGetCurrentCVFeedback().catch(() => null),
+      ]);
+      setRooms(roomsData);
+
+      if (feedbackData && Array.isArray(feedbackData.extracted_skills) && feedbackData.extracted_skills.length > 0) {
+        setCandidateSkills(feedbackData.extracted_skills);
+        setHasCv(true);
+      } else if (feedbackData) {
+        setCandidateSkills([]);
+        setHasCv(true);
+      } else {
+        setCandidateSkills([]);
+        setHasCv(false);
+      }
     } catch {
       notify('Unable to load open recruitment rooms. Please try again.', 'error');
     } finally {
@@ -209,23 +226,107 @@ export function JobBoardPage({ notify }: { notify: Notify }) {
     }
   };
 
-  // Derive candidate matched vs missing skills for selected room
-  const candidateSkills = ['React', 'TypeScript', 'Node.js', 'Tailwind CSS', 'Git', 'REST APIs', 'PostgreSQL'];
-  const drawerSkills = useMemo(() => {
-    if (!selectedRoomModal) return { matched: [], missing: [] };
-    const required = selectedRoomModal.skill_names || (selectedRoomModal.skills_required as string[]) || [];
+  // Flexible skill normalization & case-insensitive matching
+  const isSkillMatch = (candidateSkill: string, requiredSkill: string): boolean => {
+    if (!candidateSkill || !requiredSkill) return false;
+    const c = candidateSkill.trim().toLowerCase();
+    const r = requiredSkill.trim().toLowerCase();
+    if (c === r) return true;
+
+    // Normalize JS/TS frameworks, spaces, dashes
+    const norm = (s: string) => s.replace(/\.js$/i, '').replace(/[\-_]/g, ' ').trim();
+    const nc = norm(c);
+    const nr = norm(r);
+    if (nc === nr) return true;
+
+    // Pluralization e.g. "REST API" vs "REST APIs"
+    if (nc.replace(/s$/i, '') === nr.replace(/s$/i, '')) return true;
+
+    // Substring / containment e.g. "Django REST Framework" contains "Django", "PostgreSQL" contains "Postgres"
+    if (c.includes(r) || r.includes(c)) return true;
+
+    return false;
+  };
+
+  // Derive match calculation for any room given candidate skills and CV presence
+  const calculateRoomMatch = (
+    room: JobBoardRoom | null,
+    skills: string[],
+    userHasCv: boolean
+  ) => {
+    if (!room) {
+      return {
+        matchScore: 0,
+        matched: [] as string[],
+        missing: [] as string[],
+        totalRequired: 0,
+        hasCv: userHasCv,
+        hasRequirements: false,
+      };
+    }
+
+    const rawRequired =
+      room.skill_names && room.skill_names.length > 0
+        ? room.skill_names
+        : Array.isArray(room.skills_required)
+        ? (room.skills_required as string[]).map((s) => (typeof s === 'string' ? s : (s as any)?.name || ''))
+        : [];
+
+    const required = rawRequired.filter((s) => typeof s === 'string' && s.trim().length > 0);
+    const totalRequired = required.length;
+
+    // Case 1: Room has NO skills listed
+    if (totalRequired === 0) {
+      return {
+        matchScore: 0,
+        matched: [] as string[],
+        missing: [] as string[],
+        totalRequired: 0,
+        hasCv: userHasCv,
+        hasRequirements: false,
+      };
+    }
+
+    // Case 2: Candidate has NOT uploaded a CV yet
+    if (!userHasCv || skills.length === 0) {
+      return {
+        matchScore: 0,
+        matched: [] as string[],
+        missing: required,
+        totalRequired,
+        hasCv: userHasCv,
+        hasRequirements: true,
+      };
+    }
+
+    // Case 3: Candidate has CV and room has skills
     const matched: string[] = [];
     const missing: string[] = [];
-    required.forEach((s) => {
-      const sName = typeof s === 'string' ? s : (s as any)?.name || 'Skill';
-      if (candidateSkills.some((cs) => cs.toLowerCase() === sName.toLowerCase())) {
-        matched.push(sName);
+
+    required.forEach((req) => {
+      if (skills.some((cand) => isSkillMatch(cand, req))) {
+        matched.push(req);
       } else {
-        missing.push(sName);
+        missing.push(req);
       }
     });
-    return { matched, missing };
-  }, [selectedRoomModal]);
+
+    const matchScore = Math.round((matched.length / totalRequired) * 100);
+
+    return {
+      matchScore,
+      matched,
+      missing,
+      totalRequired,
+      hasCv: true,
+      hasRequirements: true,
+    };
+  };
+
+  // Derive candidate matched vs missing skills for selected room modal
+  const modalMatch = useMemo(() => {
+    return calculateRoomMatch(selectedRoomModal, candidateSkills, hasCv);
+  }, [selectedRoomModal, candidateSkills, hasCv]);
 
   return (
     <AppShell role="student" notify={notify}>
@@ -474,10 +575,13 @@ export function JobBoardPage({ notify }: { notify: Notify }) {
                 const skillList =
                   room.skill_names && room.skill_names.length > 0
                     ? room.skill_names
-                    : (room.skills_required as string[]).map((s) => (typeof s === 'string' ? s : (s as any)?.name || 'Skill'));
+                    : Array.isArray(room.skills_required)
+                    ? (room.skills_required as string[]).map((s) => (typeof s === 'string' ? s : (s as any)?.name || '')).filter(Boolean)
+                    : [];
                 
-                // Match score simulated or real
-                const matchScore = (room as any).match_score || 72 + ((room.id * 7) % 24);
+                // Calculate match score based on candidate's real CV skills vs room requirements
+                const matchInfo = calculateRoomMatch(room, candidateSkills, hasCv);
+                const matchScore = matchInfo.matchScore;
 
                 return (
                   <motion.div
@@ -560,17 +664,38 @@ export function JobBoardPage({ notify }: { notify: Notify }) {
                         </div>
 
                         {/* Match Progress Ring */}
-                        <div className="flex items-center gap-1.5 shrink-0 bg-white border border-[#dedfd6] rounded-xl px-2 py-1 shadow-2xs">
+                        <div
+                          title={
+                            !hasCv
+                              ? 'Upload your CV in CV Studio to calculate match'
+                              : !matchInfo.hasRequirements
+                              ? 'No required skills specified for this role'
+                              : `${matchInfo.matched.length} of ${matchInfo.totalRequired} skills matched (${matchScore}%)`
+                          }
+                          className="flex items-center gap-1.5 shrink-0 bg-white border border-[#dedfd6] rounded-xl px-2 py-1 shadow-2xs"
+                        >
                           <ProgressRing
                             value={matchScore}
                             max={100}
                             size={24}
                             strokeWidth={2.5}
-                            color={matchScore >= 80 ? '#277254' : '#f5c84b'}
+                            color={
+                              !hasCv || !matchInfo.hasRequirements || matchScore === 0
+                                ? '#9ca3af'
+                                : matchScore >= 80
+                                ? '#277254'
+                                : '#f5c84b'
+                            }
                             bgColor="#e5e3d8"
                             showLabel={false}
                           />
-                          <span className="text-[11px] font-bold text-[#253142]">
+                          <span
+                            className={`text-[11px] font-bold ${
+                              !hasCv || !matchInfo.hasRequirements || matchScore === 0
+                                ? 'text-[#7b8490]'
+                                : 'text-[#253142]'
+                            }`}
+                          >
                             <AnimatedNumber value={matchScore} suffix="%" />
                           </span>
                         </div>
@@ -765,54 +890,107 @@ export function JobBoardPage({ notify }: { notify: Notify }) {
                 )}
               </div>
 
-              {/* Candidate Match Breakdown (Matched skills in green, Missing in gray) */}
+              {/* Candidate Match Breakdown */}
               <div className="rounded-2xl border border-[#d9dbd1] bg-white p-4 shadow-xs">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#253142]">
-                    <Sparkles size={14} className="text-[#277254]" /> Match Breakdown
+                    <Sparkles size={14} className={modalMatch.hasRequirements && modalMatch.hasCv && modalMatch.matchScore > 0 ? 'text-[#277254]' : 'text-[#7b8490]'} /> Match Breakdown
                   </div>
-                  <span className="text-xs font-bold text-[#277254]">
-                    {drawerSkills.matched.length} of {drawerSkills.matched.length + drawerSkills.missing.length} requirements matched
+                  <span className={`text-xs font-bold ${
+                    modalMatch.hasRequirements && modalMatch.hasCv && modalMatch.matchScore >= 80
+                      ? 'text-[#277254]'
+                      : modalMatch.hasRequirements && modalMatch.hasCv && modalMatch.matchScore > 0
+                      ? 'text-[#b4820d]'
+                      : 'text-[#7b8490]'
+                  }`}>
+                    {!modalMatch.hasRequirements
+                      ? 'No requirements specified (0% match)'
+                      : !modalMatch.hasCv
+                      ? `0 of ${modalMatch.totalRequired} matched (No CV uploaded)`
+                      : `${modalMatch.matched.length} of ${modalMatch.totalRequired} requirements matched (${modalMatch.matchScore}%)`}
                   </span>
                 </div>
 
-                <div className="space-y-3">
-                  {drawerSkills.matched.length > 0 && (
-                    <div>
-                      <div className="text-[11px] font-bold text-[#277254] mb-1.5 flex items-center gap-1">
-                        <Check size={12} strokeWidth={3} /> Matched Skills
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {drawerSkills.matched.map((skill, idx) => (
-                          <span
-                            key={idx}
-                            className="rounded-lg bg-[#eef5f1] border border-[#c0dcd0] px-2.5 py-1 text-xs font-bold text-[#277254]"
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
+                {!modalMatch.hasRequirements ? (
+                  <div className="rounded-xl bg-[#f8f9fa] border border-[#e2e4dc] p-3 text-xs text-[#526072] leading-relaxed">
+                    The employer has not specified mandatory technical skill criteria for this opening. You are eligible to submit your application directly.
+                  </div>
+                ) : !modalMatch.hasCv ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-3 rounded-xl bg-[#f0f6fb] border border-[#d2e4f3] p-3 text-xs text-[#2b4c68]">
+                      <span>Upload your CV in CV Studio to calculate your skill match against this role.</span>
+                      <button
+                        type="button"
+                        onClick={() => setLocation('/student/cv')}
+                        className="rounded-lg bg-[#3a6384] px-2.5 py-1 text-xs font-bold text-white hover:bg-[#2b4c68] transition shrink-0 cursor-pointer"
+                      >
+                        Upload CV
+                      </button>
                     </div>
-                  )}
 
-                  {drawerSkills.missing.length > 0 && (
-                    <div>
-                      <div className="text-[11px] font-bold text-[#7b8490] mb-1.5">
-                        Missing Skills / Skills to Highlight
+                    {modalMatch.missing.length > 0 && (
+                      <div>
+                        <div className="text-[11px] font-bold text-[#7b8490] mb-1.5">
+                          Required Role Skills ({modalMatch.totalRequired})
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {modalMatch.missing.map((skill, idx) => (
+                            <span
+                              key={idx}
+                              className="rounded-lg bg-[#f3f1ea] border border-[#d9dbd1] px-2.5 py-1 text-xs font-medium text-[#687382]"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {drawerSkills.missing.map((skill, idx) => (
-                          <span
-                            key={idx}
-                            className="rounded-lg bg-[#f3f1ea] border border-[#d9dbd1] px-2.5 py-1 text-xs font-medium text-[#687382]"
-                          >
-                            {skill}
-                          </span>
-                        ))}
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {modalMatch.matched.length > 0 && (
+                      <div>
+                        <div className="text-[11px] font-bold text-[#277254] mb-1.5 flex items-center gap-1">
+                          <Check size={12} strokeWidth={3} /> Matched Skills ({modalMatch.matched.length})
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {modalMatch.matched.map((skill, idx) => (
+                            <span
+                              key={idx}
+                              className="rounded-lg bg-[#eef5f1] border border-[#c0dcd0] px-2.5 py-1 text-xs font-bold text-[#277254]"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+
+                    {modalMatch.missing.length > 0 && (
+                      <div>
+                        <div className="text-[11px] font-bold text-[#7b8490] mb-1.5">
+                          Missing Skills / Skills to Highlight ({modalMatch.missing.length})
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {modalMatch.missing.map((skill, idx) => (
+                            <span
+                              key={idx}
+                              className="rounded-lg bg-[#f3f1ea] border border-[#d9dbd1] px-2.5 py-1 text-xs font-medium text-[#687382]"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {modalMatch.matched.length === 0 && modalMatch.missing.length > 0 && (
+                      <div className="text-xs text-[#a33d35] bg-[#fbf0ef] border border-[#f5cfcc] rounded-xl p-2.5">
+                        None of your current CV skills match the required skills for this role. Consider updating your CV in CV Studio or highlighting transferable skills in your video pitch.
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Evaluation Weights Architecture */}

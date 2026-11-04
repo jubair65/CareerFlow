@@ -30,6 +30,6 @@ class PresentationScoreAdmin(admin.ModelAdmin):
 
 @admin.register(PresentationFeedback)
 class PresentationFeedbackAdmin(admin.ModelAdmin):
-    list_display = ('id', 'video', 'generated_at')
+    list_display = ('id', 'video', 'created_at')
     search_fields = ('video__user__email',)
 

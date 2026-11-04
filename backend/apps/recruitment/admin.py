@@ -33,19 +33,19 @@ class CandidateApplicationAdmin(admin.ModelAdmin):
 @admin.register(CandidateNote)
 class CandidateNoteAdmin(admin.ModelAdmin):
     list_display = ('id', 'application', 'author', 'created_at')
-    search_fields = ('application__candidate__email', 'author__email', 'note_text')
+    search_fields = ('application__candidate__email', 'author__email', 'content')
 
 
 @admin.register(CandidateStageHistory)
 class CandidateStageHistoryAdmin(admin.ModelAdmin):
-    list_display = ('id', 'application', 'from_stage', 'to_stage', 'changed_by', 'changed_at')
-    list_filter = ('from_stage', 'to_stage', 'changed_at')
-    search_fields = ('application__candidate__email', 'changed_by__email')
+    list_display = ('id', 'application', 'from_stage', 'to_stage', 'updated_by', 'created_at')
+    list_filter = ('from_stage', 'to_stage', 'created_at')
+    search_fields = ('application__candidate__email', 'updated_by__email')
 
 
 @admin.register(StatusNotificationLog)
 class StatusNotificationLogAdmin(admin.ModelAdmin):
-    list_display = ('id', 'application', 'recipient_email', 'notification_type', 'is_sent', 'created_at')
-    list_filter = ('is_sent', 'notification_type', 'created_at')
+    list_display = ('id', 'application', 'recipient_email', 'status_type', 'email_sent', 'dispatched_at')
+    list_filter = ('email_sent', 'status_type', 'dispatched_at')
     search_fields = ('recipient_email', 'application__candidate__email')
 
