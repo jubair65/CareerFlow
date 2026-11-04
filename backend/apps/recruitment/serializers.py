@@ -498,6 +498,9 @@ class RankedApplicantItemSerializer(serializers.Serializer):
     score_tier = serializers.CharField()
     cv_score = serializers.FloatField(allow_null=True)
     video_score = serializers.FloatField(allow_null=True)
+    cv_filename = serializers.CharField(allow_null=True, required=False, default=None)
+    cv_file_url = serializers.CharField(allow_null=True, required=False, default=None)
+    keyword_coverage = serializers.IntegerField(allow_null=True, required=False, default=0)
     is_partial_score = serializers.BooleanField()
     score_calculated_at = serializers.DateTimeField(allow_null=True)
     is_shortlisted = serializers.BooleanField(default=False)
@@ -522,6 +525,9 @@ class UnrankedApplicantItemSerializer(serializers.Serializer):
     score_tier = serializers.CharField()
     cv_score = serializers.FloatField(allow_null=True)
     video_score = serializers.FloatField(allow_null=True)
+    cv_filename = serializers.CharField(allow_null=True, required=False, default=None)
+    cv_file_url = serializers.CharField(allow_null=True, required=False, default=None)
+    keyword_coverage = serializers.IntegerField(allow_null=True, required=False, default=0)
     is_partial_score = serializers.BooleanField()
     status = serializers.CharField()
     stage = serializers.CharField(required=False, default='APPLIED')
@@ -606,6 +612,10 @@ class ShortlistedApplicantItemSerializer(serializers.Serializer):
     is_shortlisted = serializers.BooleanField()
     shortlist_reason = serializers.CharField(allow_blank=True)
     shortlisted_at = serializers.DateTimeField(allow_null=True)
+    hr_decision = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    hr_decision_display = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    hr_decision_notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    hr_decided_at = serializers.DateTimeField(required=False, allow_null=True)
 
 
 class RoomShortlistResponseSerializer(serializers.Serializer):

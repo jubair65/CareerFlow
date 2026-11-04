@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useLocation } from 'wouter';
 import {
   LayoutDashboard,
@@ -21,44 +22,17 @@ import {
   Menu,
 } from 'lucide-react';
 import type { Role, Notify } from '../dashboard/DashboardShared';
-import { apiLogout, getStoredUser, apiGetCurrentUser } from '../../api/auth';
+import { apiLogout, getStoredUser, apiGetCurrentUser, apiGetCandidateProfile, storeUser } from '../../api/auth';
 import { NotificationCenter } from './NotificationCenter';
 import {
   apiGetNotifications,
   onNotificationsUpdated,
 } from '../../api/notifications';
+import { Logo as BrandLogo, type LogoTone } from '../brand/Logo';
 
-export function Logo({ dark = false }: { dark?: boolean }) {
-  return (
-    <div className="flex items-center gap-2.5" data-testid="brand-careerflow">
-      <div
-        className={`grid h-9 w-9 place-items-center rounded-xl ${
-          dark ? 'bg-[#f5c84b] text-[#253142]' : 'bg-[#253142] text-[#f5c84b]'
-        }`}
-      >
-        <svg viewBox="0 0 24 24" className="h-[21px] w-[21px]" fill="none" aria-hidden="true">
-          <path
-            d="M4 6.5h5.25c1.52 0 2.75 1.23 2.75 2.75v5.5c0 1.52 1.23 2.75 2.75 2.75H20"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-          />
-          <path
-            d="m17.2 14.75 2.8 2.75-2.8 2.75"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <circle cx="4" cy="6.5" r="1.55" fill="currentColor" />
-          <circle cx="12" cy="9.25" r="1.55" fill="currentColor" />
-        </svg>
-      </div>
-      <span className={`cf-display text-lg font-bold ${dark ? 'text-[#f8f4e9]' : 'text-[#253142]'}`}>
-        CareerFlow
-      </span>
-    </div>
-  );
+export function Logo({ dark = false, tone }: { dark?: boolean; tone?: LogoTone }) {
+  const resolvedTone: LogoTone = tone || (dark ? 'onDark' : 'color');
+  return <BrandLogo tone={resolvedTone} />;
 }
 
 export interface AppShellProps {
@@ -76,8 +50,27 @@ export function AppShell({
   children,
   notify = () => {},
 }: AppShellProps) {
+  const prefersReduced = useReducedMotion();
   const [path, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && mobileOpen) {
+        setMobileOpen(false);
+      }
+    };
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [mobileOpen]);
   const [user, setUser] = useState<any>(() => {
     try {
       return getStoredUser() || JSON.parse(localStorage.getItem('careerflow-session') || '{}');
@@ -87,12 +80,50 @@ export function AppShell({
   });
   const [unreadCount, setUnreadCount] = useState<number>(0);
 
+  const [avatarError, setAvatarError] = useState(false);
+  const avatarUrl = user?.avatar_url || getStoredUser()?.avatar_url;
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [avatarUrl]);
+
   useEffect(() => {
     apiGetCurrentUser()
-      .then((data) => setUser(data))
+      .then((data) => {
+        setUser((prev: any) => ({ ...prev, ...data }));
+        const curr = getStoredUser() || {};
+        storeUser({ ...curr, ...data });
+
+        if (!data?.avatar_url) {
+          apiGetCandidateProfile()
+            .then((prof) => {
+              if (prof?.avatar_url) {
+                setUser((prev: any) => ({ ...prev, avatar_url: prof.avatar_url }));
+                storeUser({ ...curr, ...data, avatar_url: prof.avatar_url });
+              }
+            })
+            .catch(() => {});
+        }
+      })
       .catch(() => {
-        // Keep stored user fallback
+        apiGetCandidateProfile()
+          .then((prof) => {
+            if (prof?.avatar_url) {
+              setUser((prev: any) => ({ ...prev, avatar_url: prof.avatar_url }));
+              const curr = getStoredUser() || {};
+              storeUser({ ...curr, avatar_url: prof.avatar_url });
+            }
+          })
+          .catch(() => {});
       });
+
+    const handleUserUpdate = (e: any) => {
+      if (e?.detail) {
+        setUser((prev: any) => ({ ...prev, ...e.detail }));
+      }
+    };
+    window.addEventListener('careerflow_user_updated', handleUserUpdate);
+    return () => window.removeEventListener('careerflow_user_updated', handleUserUpdate);
   }, []);
 
   const refreshUnreadCount = useCallback(async () => {
@@ -268,14 +299,23 @@ export function AppShell({
                   type="button"
                   onClick={() => handleNavClick(itemPath, active)}
                   data-testid={`nav-${label.toLowerCase().replaceAll(' ', '-')}`}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
+                  className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
                     isCurrent
-                      ? 'bg-[#f5c84b] text-[#253142]'
+                      ? 'text-[#253142]'
                       : 'text-[#b7c0cc] hover:bg-[#303e50] hover:text-[#faf7ef]'
                   }`}
                 >
-                  <Icon size={17} />
-                  <span>{label}</span>
+                  {isCurrent && (
+                    <motion.div
+                      layoutId="active-sidebar-pill"
+                      className="absolute inset-0 rounded-xl bg-[#f5c84b]"
+                      transition={prefersReduced ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    />
+                  )}
+                  <span className="relative z-10 flex items-center gap-3">
+                    <Icon size={17} />
+                    <span>{label}</span>
+                  </span>
                 </button>
               );
             })}
@@ -288,52 +328,79 @@ export function AppShell({
               type="button"
               onClick={() => handleNavClick('/notifications')}
               data-testid="nav-notifications"
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
+              className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
                 isNotificationsActive
-                  ? 'bg-[#f5c84b] text-[#253142]'
+                  ? 'text-[#253142]'
                   : 'text-[#b7c0cc] hover:bg-[#303e50] hover:text-[#faf7ef]'
               }`}
             >
-              <Bell size={17} />
-              <span>Notifications</span>
-              {unreadCount > 0 && (
-                <span
-                  data-testid="sidebar-notification-badge"
-                  className={`ml-auto grid min-h-5 min-w-5 place-items-center rounded-full px-1.5 text-[10px] font-bold ${
-                    isNotificationsActive
-                      ? 'bg-[#253142] text-[#f5c84b]'
-                      : 'bg-[#ee7564] text-white shadow-xs'
-                  }`}
-                >
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
+              {isNotificationsActive && (
+                <motion.div
+                  layoutId="active-sidebar-pill"
+                  className="absolute inset-0 rounded-xl bg-[#f5c84b]"
+                  transition={prefersReduced ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                />
               )}
+              <span className="relative z-10 flex items-center gap-3 w-full">
+                <Bell size={17} />
+                <span>Notifications</span>
+                {unreadCount > 0 && (
+                  <span
+                    data-testid="sidebar-notification-badge"
+                    className={`ml-auto grid min-h-5 min-w-5 place-items-center rounded-full px-1.5 text-[10px] font-bold ${
+                      isNotificationsActive
+                        ? 'bg-[#253142] text-[#f5c84b]'
+                        : 'bg-[#ee7564] text-white shadow-xs'
+                    }`}
+                  >
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </span>
             </button>
             <button
               type="button"
               onClick={() => handleNavClick('/profile')}
               data-testid="nav-profile"
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
+              className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
                 isProfileActive
-                  ? 'bg-[#f5c84b] text-[#253142]'
+                  ? 'text-[#253142]'
                   : 'text-[#b7c0cc] hover:bg-[#303e50] hover:text-[#faf7ef]'
               }`}
             >
-              <UserRound size={17} />
-              <span>Profile</span>
+              {isProfileActive && (
+                <motion.div
+                  layoutId="active-sidebar-pill"
+                  className="absolute inset-0 rounded-xl bg-[#f5c84b]"
+                  transition={prefersReduced ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-3">
+                <UserRound size={17} />
+                <span>Profile</span>
+              </span>
             </button>
             <button
               type="button"
               onClick={() => handleNavClick('/settings')}
               data-testid="nav-settings"
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
+              className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
                 isSettingsActive
-                  ? 'bg-[#f5c84b] text-[#253142]'
+                  ? 'text-[#253142]'
                   : 'text-[#b7c0cc] hover:bg-[#303e50] hover:text-[#faf7ef]'
               }`}
             >
-              <Settings size={17} />
-              <span>Settings</span>
+              {isSettingsActive && (
+                <motion.div
+                  layoutId="active-sidebar-pill"
+                  className="absolute inset-0 rounded-xl bg-[#f5c84b]"
+                  transition={prefersReduced ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-3">
+                <Settings size={17} />
+                <span>Settings</span>
+              </span>
             </button>
           </nav>
         </div>
@@ -341,8 +408,17 @@ export function AppShell({
         {/* User Card & Logout in Sidebar */}
         <div className="rounded-2xl bg-[#303e50] p-3">
           <div className="mb-2 flex items-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-[#f5c84b] text-xs font-bold text-[#253142]">
-              {initials || 'U'}
+            <div className="grid h-8 w-8 place-items-center rounded-full bg-[#f5c84b] text-xs font-bold text-[#253142] overflow-hidden shrink-0">
+              {avatarUrl && !avatarError ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="h-full w-full object-cover"
+                  onError={() => setAvatarError(true)}
+                />
+              ) : (
+                initials || 'U'
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <div className="truncate text-xs font-bold text-[#faf7ef]">{displayName}</div>
@@ -409,14 +485,31 @@ export function AppShell({
               onClick={() => handleNavClick('/profile')}
               data-testid="button-header-profile"
               title="View Profile"
-              className="grid h-9 w-9 place-items-center rounded-full bg-[#dce8e1] text-xs font-bold text-[#277254] hover:ring-2 hover:ring-[#277254]/30 transition cursor-pointer"
+              className="grid h-9 w-9 place-items-center rounded-full bg-[#dce8e1] text-xs font-bold text-[#277254] hover:ring-2 hover:ring-[#277254]/30 transition cursor-pointer overflow-hidden shrink-0"
             >
-              {initials || 'U'}
+              {avatarUrl && !avatarError ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="h-full w-full object-cover"
+                  onError={() => setAvatarError(true)}
+                />
+              ) : (
+                initials || 'U'
+              )}
             </button>
           </div>
         </header>
 
-        <div className="p-4 sm:p-6 lg:p-8 min-w-0 w-full max-w-full">{children}</div>
+        <motion.div
+          key={path}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={prefersReduced ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          className="p-4 sm:p-6 lg:p-8 min-w-0 w-full max-w-full"
+        >
+          {children}
+        </motion.div>
       </main>
     </div>
   );

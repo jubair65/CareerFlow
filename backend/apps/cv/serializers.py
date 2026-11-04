@@ -181,6 +181,15 @@ class CVJobMatchSerializer(serializers.ModelSerializer):
     candidate_name = serializers.CharField(source='cv.user.full_name', read_only=True)
     candidate_email = serializers.CharField(source='cv.user.email', read_only=True)
     original_filename = serializers.CharField(source='cv.original_filename', read_only=True)
+    cv_file_url = serializers.SerializerMethodField()
+
+    def get_cv_file_url(self, obj):
+        if obj.cv and obj.cv.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.cv.file.url)
+            return obj.cv.file.url
+        return None
 
     class Meta:
         model = CVJobMatch
@@ -191,6 +200,7 @@ class CVJobMatchSerializer(serializers.ModelSerializer):
             'candidate_name',
             'candidate_email',
             'original_filename',
+            'cv_file_url',
             'job_title',
             'company',
             'job_description',

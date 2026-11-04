@@ -138,6 +138,20 @@ def get_ranked_room_applicants(
         cand = app.candidate
         cand_name = getattr(cand, 'full_name', '') or getattr(cand, 'username', '')
 
+        cv_obj = getattr(app, 'cv', None)
+        cv_filename = cv_obj.original_filename if cv_obj else None
+        cv_file_url = None
+        if cv_obj and getattr(cv_obj, 'file', None):
+            try:
+                cv_file_url = cv_obj.file.url
+            except Exception:
+                pass
+        keyword_coverage = 0
+        if cv_obj:
+            match_rec = cv_obj.job_matches.filter(job_title=room.title).first() or cv_obj.job_matches.first()
+            if match_rec and hasattr(match_rec, 'keyword_coverage'):
+                keyword_coverage = match_rec.keyword_coverage
+
         ranked_results.append({
             "rank": rank_num,
             "badge": get_rank_badge(rank_num),
@@ -149,6 +163,9 @@ def get_ranked_room_applicants(
             "score_tier": get_score_tier(app.final_score),
             "cv_score": app.cv_score,
             "video_score": app.video_score,
+            "cv_filename": cv_filename,
+            "cv_file_url": cv_file_url,
+            "keyword_coverage": keyword_coverage,
             "is_partial_score": app.is_partial_score,
             "score_calculated_at": app.score_calculated_at,
             "is_shortlisted": app.is_shortlisted,
@@ -166,6 +183,20 @@ def get_ranked_room_applicants(
         for app in unranked_qs:
             cand = app.candidate
             cand_name = getattr(cand, 'full_name', '') or getattr(cand, 'username', '')
+            cv_obj = getattr(app, 'cv', None)
+            cv_filename = cv_obj.original_filename if cv_obj else None
+            cv_file_url = None
+            if cv_obj and getattr(cv_obj, 'file', None):
+                try:
+                    cv_file_url = cv_obj.file.url
+                except Exception:
+                    pass
+            keyword_coverage = 0
+            if cv_obj:
+                match_rec = cv_obj.job_matches.filter(job_title=room.title).first() or cv_obj.job_matches.first()
+                if match_rec and hasattr(match_rec, 'keyword_coverage'):
+                    keyword_coverage = match_rec.keyword_coverage
+
             unranked_results.append({
                 "application_id": app.id,
                 "candidate_id": cand.id,
@@ -175,6 +206,9 @@ def get_ranked_room_applicants(
                 "score_tier": "TIER_PENDING",
                 "cv_score": app.cv_score,
                 "video_score": app.video_score,
+                "cv_filename": cv_filename,
+                "cv_file_url": cv_file_url,
+                "keyword_coverage": keyword_coverage,
                 "is_partial_score": False,
                 "is_shortlisted": app.is_shortlisted,
                 "status": app.status,

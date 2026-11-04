@@ -101,11 +101,7 @@ export function PageHeading({
   return (
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between min-w-0 w-full">
       <div className="min-w-0 flex-1">
-        {eyebrow && (
-          <div className="mb-2 text-[11px] font-bold uppercase tracking-[.18em] text-[#9a7922]">
-            {eyebrow}
-          </div>
-        )}
+
         <h1 className="cf-display text-2xl sm:text-3xl md:text-[2.5rem] font-bold text-[#253142] break-words leading-tight" data-testid="page-title">
           {title}
         </h1>
@@ -128,7 +124,7 @@ export function StatCard({
   accent = 'yellow',
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   detail: string;
   icon: LucideIcon;
   accent?: 'yellow' | 'green' | 'blue' | 'coral';
@@ -222,7 +218,7 @@ export function DataAccessCard() {
             </svg>
           </div>
           <h3 className="font-bold text-sm text-[#253142]">
-            Data Access Control & Security Auditing (US-36)
+            Data Access Control & Security Auditing
           </h3>
         </div>
         <span className="rounded-full bg-[#e2f0e9] px-2.5 py-0.5 text-[11px] font-bold text-[#277254]">

@@ -20,14 +20,15 @@ import {
   Search,
   Filter,
   ArrowUpDown,
-  Award,
-  TrendingUp,
   BarChart2,
   Copy,
   Check,
-  Edit2
+  Edit2,
+  TrendingUp
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { PageTransition, AnimatedNumber, MOTION } from '../motion';
 import { type Notify } from '../components/dashboard/DashboardShared';
 import {
   apiGetPresentationVideoHistory,
@@ -46,15 +47,13 @@ import { WebcamPlaybackPlayer } from '../components/presentation/WebcamPlaybackP
 import { PresentationScoreCard } from '../components/presentation/PresentationScoreCard';
 import { SuggestionsList } from '../components/presentation/SuggestionsList';
 import { PipelineStatusAlert } from '../components/presentation/PipelineStatusAlert';
-import { ScoreTrendsDashboard } from '../components/presentation/ScoreTrendsDashboard';
 
 export function VideoHistory({ notify }: { notify: Notify }) {
+  const prefersReduced = useReducedMotion();
   const [, setLocation] = useLocation();
   const [videoHistory, setVideoHistory] = useState<PresentationVideo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // US-17 Tab: 'takes' (History list) vs 'trends' (Analytics & Progress curves)
-  const [activeMainTab, setActiveMainTab] = useState<'takes' | 'trends'>('takes');
 
   // Filter & Search Controls (US-16-T3)
   const [searchTerm, setSearchTerm] = useState('');
@@ -103,7 +102,8 @@ export function VideoHistory({ notify }: { notify: Notify }) {
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get('tab');
     if (tabParam === 'trends') {
-      setActiveMainTab('trends');
+      setLocation('/student/progress');
+      return;
     }
 
     const videoIdStr = params.get('video') || params.get('id');
@@ -348,23 +348,6 @@ export function VideoHistory({ notify }: { notify: Notify }) {
     return null;
   };
 
-  // Trajectory Summary Stats (US-16-T1)
-  const stats = useMemo(() => {
-    const total = videoHistory.length;
-    const scores = videoHistory
-      .map(getVideoScore)
-      .filter((s): s is number => s !== null);
-    const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
-    const bestScore = scores.length > 0 ? Math.max(...scores) : null;
-
-    const wpms = videoHistory
-      .map((v) => v.speech_analysis?.words_per_minute)
-      .filter((w): w is number => typeof w === 'number' && w > 0);
-    const avgWpm = wpms.length > 0 ? Math.round(wpms.reduce((a, b) => a + b, 0) / wpms.length) : null;
-
-    return { total, avgScore, bestScore, avgWpm };
-  }, [videoHistory]);
-
   // Filtered and Sorted Video List (US-16-T3 & AC 3)
   const filteredVideos = useMemo(() => {
     return videoHistory
@@ -447,108 +430,7 @@ export function VideoHistory({ notify }: { notify: Notify }) {
           </div>
         </div>
 
-        {/* US-17 Tab Navigation: Video Takes vs Score Trends */}
-        <div className="flex items-center justify-between border-b border-[#ecefe7] pb-3">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveMainTab('takes')}
-              data-testid="tab-takes-history"
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
-                activeMainTab === 'takes'
-                  ? 'bg-[#253142] text-white shadow-xs'
-                  : 'bg-[#f4f6ef] text-[#687382] hover:text-[#253142]'
-              }`}
-            >
-              <VideoIcon size={16} />
-              <span>Video Takes ({videoHistory.length})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveMainTab('trends')}
-              data-testid="tab-score-trends"
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer ${
-                activeMainTab === 'trends'
-                  ? 'bg-[#253142] text-white shadow-xs'
-                  : 'bg-[#f4f6ef] text-[#687382] hover:text-[#253142]'
-              }`}
-            >
-              <TrendingUp size={16} />
-              <span>Score Trends & Progress</span>
-              <span className="hidden sm:inline-block rounded-full bg-[#e2f0e9] px-2 py-0.5 text-[10px] font-bold text-[#277254]">
-                Analytics
-              </span>
-            </button>
-          </div>
-        </div>
 
-        {/* Tab 2: Score Trends Dashboard (US-17, US-44-T5) */}
-        {activeMainTab === 'trends' && (
-          <ScoreTrendsDashboard
-            key={`trends-${videoHistory.length}-${videoHistory.map((v) => v.id).join('-')}`}
-            notify={notify}
-            onSelectAttempt={(vidId) => {
-              const vid = videoHistory.find((v) => v.id === vidId);
-              if (vid) handleOpenAnalysis(vid);
-            }}
-          />
-        )}
-
-        {/* Tab 1: Video Takes List & Overview (US-16) */}
-        {activeMainTab === 'takes' && (
-          <div className="space-y-6">
-            {/* Overview Trajectory Summary Cards (US-16-T1) */}
-            {videoHistory.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {/* Total Takes */}
-            <div className="rounded-2xl border border-[#d9dbd1] bg-white p-4 shadow-xs">
-              <div className="flex items-center justify-between text-xs font-semibold text-[#687382]">
-                <span>Total Reps</span>
-                <VideoIcon size={16} className="text-[#253142]" />
-              </div>
-              <p className="mt-2 text-2xl font-bold text-[#253142]" data-testid="stat-total-takes">
-                {stats.total}
-              </p>
-              <span className="text-[11px] text-[#687382]">Recorded takes</span>
-            </div>
-
-            {/* Average Composite Score */}
-            <div className="rounded-2xl border border-[#d9dbd1] bg-white p-4 shadow-xs">
-              <div className="flex items-center justify-between text-xs font-semibold text-[#687382]">
-                <span>Average Score</span>
-                <TrendingUp size={16} className="text-[#277254]" />
-              </div>
-              <p className="mt-2 text-2xl font-bold text-[#277254]" data-testid="stat-avg-score">
-                {stats.avgScore !== null ? `${stats.avgScore}/100` : '—'}
-              </p>
-              <span className="text-[11px] text-[#687382]">Across all takes</span>
-            </div>
-
-            {/* Highest Score */}
-            <div className="rounded-2xl border border-[#d9dbd1] bg-white p-4 shadow-xs">
-              <div className="flex items-center justify-between text-xs font-semibold text-[#687382]">
-                <span>Top Score</span>
-                <Award size={16} className="text-[#b89c3b]" />
-              </div>
-              <p className="mt-2 text-2xl font-bold text-[#b89c3b]" data-testid="stat-best-score">
-                {stats.bestScore !== null ? `${stats.bestScore}/100` : '—'}
-              </p>
-              <span className="text-[11px] text-[#687382]">Personal best</span>
-            </div>
-
-            {/* Average Speaking Pace */}
-            <div className="rounded-2xl border border-[#d9dbd1] bg-white p-4 shadow-xs">
-              <div className="flex items-center justify-between text-xs font-semibold text-[#687382]">
-                <span>Average Pace</span>
-                <Mic size={16} className="text-[#3a6384]" />
-              </div>
-              <p className="mt-2 text-2xl font-bold text-[#3a6384]" data-testid="stat-avg-pace">
-                {stats.avgWpm !== null ? `${stats.avgWpm} WPM` : '—'}
-              </p>
-              <span className="text-[11px] text-[#687382]">Ideal: 130–160 WPM</span>
-            </div>
-          </div>
-        )}
 
         {/* Filter and Search Bar (US-16-T3) */}
         {videoHistory.length > 0 && (
@@ -615,6 +497,79 @@ export function VideoHistory({ notify }: { notify: Notify }) {
           </div>
         )}
 
+        {/* Mini SVG Score Trend Line above the list (draws left-to-right 900ms) */}
+        {videoHistory.length >= 2 && (
+          <div className="rounded-2xl border border-[#d9dbd1] bg-[#faf8f2] p-5 shadow-xs">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#253142]">
+                <TrendingUp size={15} className="text-[#277254]" /> Presentation Score Trend
+              </div>
+              <span className="text-xs text-[#7b8490]">
+                Past {videoHistory.length} takes performance trajectory
+              </span>
+            </div>
+
+            {(() => {
+              const chronological = [...videoHistory].reverse();
+              const scores = chronological.map(v => v.score_overall || (v as any).overall_score || 70);
+              const maxScore = 100;
+              const minScore = 0;
+              const width = 500;
+              const height = 65;
+              const padding = 16;
+              const chartW = width - padding * 2;
+              const chartH = height - padding * 2;
+
+              const points = scores.map((s, i) => {
+                const x = padding + (i / Math.max(1, scores.length - 1)) * chartW;
+                const y = padding + (1 - s / maxScore) * chartH;
+                return { x, y, score: s };
+              });
+
+              const pathD = points.reduce((acc, p, i) => `${acc} ${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`, '');
+
+              return (
+                <div className="w-full overflow-hidden">
+                  <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-16 overflow-visible">
+                    {/* Background gridlines */}
+                    <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="#e8e6dc" strokeDasharray="3 3" />
+                    <line x1={padding} y1={padding + chartH} x2={width - padding} y2={padding + chartH} stroke="#d9dbd1" />
+
+                    {/* Animated Path (900ms stroke-dashoffset) */}
+                    <path
+                      d={pathD}
+                      fill="none"
+                      stroke="#277254"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{
+                        strokeDasharray: 800,
+                        strokeDashoffset: prefersReduced ? 0 : 800,
+                        animation: prefersReduced ? 'none' : 'cfDrawPath 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+                      }}
+                    />
+
+                    {/* Dots */}
+                    {points.map((p, i) => (
+                      <circle
+                        key={i}
+                        cx={p.x}
+                        cy={p.y}
+                        r="4"
+                        fill="#faf8f2"
+                        stroke="#277254"
+                        strokeWidth="2"
+                        className="hover:scale-125 transition-transform"
+                      />
+                    ))}
+                  </svg>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
         {/* Video History Table Card (US-16-T3) */}
         <div className="w-full rounded-2xl border border-[#d9dbd1] bg-white shadow-sm overflow-hidden">
           {isLoading ? (
@@ -674,8 +629,13 @@ export function VideoHistory({ notify }: { notify: Notify }) {
                   const isHighlighted = video.is_active;
 
                   return (
-                    <div
+                    <motion.div
                       key={video.id}
+                      layout="position"
+                      initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
+                      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
                       data-testid={`history-row-${video.id}`}
                       className={`grid grid-cols-[minmax(240px,2fr)_minmax(130px,1fr)_minmax(120px,1fr)_minmax(220px,1.8fr)_minmax(110px,0.8fr)] px-6 py-4 items-center transition ${
                         isHighlighted ? 'bg-[#fdfaf2] hover:bg-[#fbf7ed]' : 'bg-white hover:bg-[#fbf7ed]/60'
@@ -683,15 +643,16 @@ export function VideoHistory({ notify }: { notify: Notify }) {
                     >
                       {/* PRACTICE Column */}
                       <div className="flex items-center gap-3.5 pr-2">
-                        <button
+                        <motion.button
                           type="button"
                           onClick={() => setPreviewVideo(video)}
+                          whileHover={prefersReduced ? undefined : { scale: 1.02 }}
                           data-testid={`button-play-take-${video.id}`}
                           title="Watch Take Preview"
-                          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#253142] text-[#f5c84b] hover:bg-[#33435a] hover:scale-105 active:scale-95 transition shadow-xs cursor-pointer"
+                          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#253142] text-[#f5c84b] hover:bg-[#33435a] active:scale-95 transition-colors duration-150 shadow-xs cursor-pointer"
                         >
                           <Play size={16} fill="currentColor" className="ml-0.5 text-[#f5c84b]" />
-                        </button>
+                        </motion.button>
                         {editingVideoId === video.id ? (
                           <div className="flex flex-col gap-1 w-full max-w-xs">
                             <div className="flex items-center gap-1.5">
@@ -897,15 +858,13 @@ export function VideoHistory({ notify }: { notify: Notify }) {
                           <Trash2 size={16} />
                         </button>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>
             </div>
           )}
         </div>
-      </div>
-    )}
   </div>
 
       {/* US-44-T4: Delete Confirmation Modal Dialog (AC-3) */}

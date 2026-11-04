@@ -4,6 +4,7 @@ venv/
 *$py.class
 __pycache__/
 *.sqlite3
+*.db
 *.log
 backend/media/
 

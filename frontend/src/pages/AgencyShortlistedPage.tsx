@@ -15,6 +15,8 @@ import {
   Sliders,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
+import { PageTransition, AnimatedNumber } from '../motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { PageHeading, type Notify } from '../components/dashboard/DashboardShared';
 import {
   apiGetAgencyCrossClientApplicants,
@@ -30,6 +32,7 @@ import { ForwardCandidatesModal } from '../components/recruitment/ForwardCandida
 import { ShortlistConfigModal } from '../components/recruitment/ShortlistConfigModal';
 
 export function AgencyShortlistedPage({ notify }: { notify: Notify }) {
+  const prefersReduced = useReducedMotion();
   const [, setLocation] = useLocation();
   const [candidates, setCandidates] = useState<AgencyCrossClientApplicant[]>([]);
   const [clients, setClients] = useState<ClientCompany[]>([]);
@@ -147,9 +150,9 @@ export function AgencyShortlistedPage({ notify }: { notify: Notify }) {
 
   return (
     <AppShell role="agency" activeTab="Shortlisted" notify={notify}>
+      <PageTransition>
       <PageHeading
-        eyebrow="Agency Hiring Portal • US-32 Forward Shortlist"
-        title="Shortlisted Candidate Dossiers"
+title="Shortlisted Candidate Dossiers"
         description="Review top candidates qualifying across client hiring rooms and dispatch dossiers directly to client representatives."
         action={
           <div className="flex items-center gap-2">
@@ -323,8 +326,13 @@ export function AgencyShortlistedPage({ notify }: { notify: Notify }) {
                   const isDownloading = downloadingAppId === candidate.id;
 
                   return (
-                    <tr
+                    <motion.tr
                       key={candidate.id}
+                      layout="position"
+                      initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
                       data-testid={`agency-shortlist-row-${candidate.id}`}
                       className={`hover:bg-[#fbfaf7] transition ${isSelected ? 'bg-[#fffcf2]' : ''}`}
                     >
@@ -357,8 +365,16 @@ export function AgencyShortlistedPage({ notify }: { notify: Notify }) {
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         {candidate.is_forwarded ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[#e2f0e9] px-2.5 py-0.5 text-[11px] font-bold text-[#277254]">
-                            <CheckCircle2 size={12} /> Forwarded
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e2f0e9] px-2.5 py-0.5 text-[11px] font-bold text-[#277254]">
+                            <svg className="h-3.5 w-3.5 text-[#277254]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <motion.path
+                                d="M20 6L9 17l-5-5"
+                                initial={prefersReduced ? { pathLength: 1 } : { pathLength: 0 }}
+                                animate={{ pathLength: 1 }}
+                                transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                              />
+                            </svg>
+                            Forwarded
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 rounded-full bg-[#fff4db] px-2.5 py-0.5 text-[11px] font-bold text-[#966b0a]">
@@ -390,7 +406,7 @@ export function AgencyShortlistedPage({ notify }: { notify: Notify }) {
                           </button>
                         </div>
                       </td>
-                    </tr>
+                    </motion.tr>
                   );
                 })}
               </tbody>
@@ -424,6 +440,7 @@ export function AgencyShortlistedPage({ notify }: { notify: Notify }) {
         </div>
       )}
 
+      </PageTransition>
       {/* Shortlist Configuration Modal (US-25) */}
       {configRoom && (
         <ShortlistConfigModal

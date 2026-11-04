@@ -30,6 +30,8 @@ import {
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { PageHeading, type Notify } from '../components/dashboard/DashboardShared';
+import { motion, useReducedMotion } from 'framer-motion';
+import { PageTransition, Drawer, AnimatedNumber, MOTION } from '../motion';
 import {
   apiGetMyApplications,
   apiGetMyApplicationDetail,
@@ -39,6 +41,7 @@ import {
 } from '../api/recruitment';
 
 export function ApplicantStatusPage({ notify }: { notify: Notify }) {
+  const prefersReduced = useReducedMotion();
   const [, setLocation] = useLocation();
   const [applications, setApplications] = useState<ApplicantApplicationStatus[]>([]);
   const [loading, setLoading] = useState(true);
@@ -247,8 +250,7 @@ export function ApplicantStatusPage({ notify }: { notify: Notify }) {
   return (
     <AppShell role="student" notify={notify}>
       <PageHeading
-        eyebrow="Candidate Portal • US-43 My Applications Dashboard"
-        title="My Applications & Hiring Pipeline"
+title="My Applications & Hiring Pipeline"
         description="Track all your submitted recruitment room applications, live evaluation milestones, and hiring committee decisions."
         action={
           <div className="flex items-center gap-2">
@@ -272,6 +274,7 @@ export function ApplicantStatusPage({ notify }: { notify: Notify }) {
         }
       />
 
+      <PageTransition className="space-y-6">
       {/* Summary Metrics Cards */}
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-5" data-testid="summary-metrics-bar">
         <div className="rounded-2xl border border-[#d9dbd1] bg-white p-4 shadow-xs">
@@ -593,9 +596,22 @@ export function ApplicantStatusPage({ notify }: { notify: Notify }) {
                         >
                           <div className="flex items-center gap-2">
                             <div
-                              className={`grid h-6 w-6 place-items-center rounded-full text-xs font-bold border ${stepColor}`}
+                              className={`relative grid h-6 w-6 place-items-center rounded-full text-xs font-bold border ${stepColor}`}
                             >
-                              {isComplete ? <CheckCircle2 size={14} /> : stage.stage}
+                              {isComplete ? (
+                                <CheckCircle2 size={14} />
+                              ) : isActive ? (
+                                <>
+                                  <motion.span
+                                    animate={prefersReduced ? undefined : { scale: [1, 1.4, 1], opacity: [0.6, 1, 0.6] }}
+                                    transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                                    className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-[#f5c84b]"
+                                  />
+                                  <span>{stage.stage}</span>
+                                </>
+                              ) : (
+                                stage.stage
+                              )}
                             </div>
                             <span className="truncate text-xs font-bold text-[#253142]">
                               {stage.title}
@@ -992,6 +1008,7 @@ export function ApplicantStatusPage({ notify }: { notify: Notify }) {
           </div>
         </div>
       )}
+      </PageTransition>
     </AppShell>
   );
 }

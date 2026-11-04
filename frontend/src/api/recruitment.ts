@@ -502,6 +502,9 @@ export interface RankedApplicantItem {
   score_tier: 'TIER_HIGH' | 'TIER_MEDIUM' | 'TIER_LOW' | 'TIER_PENDING';
   cv_score: number | null;
   video_score: number | null;
+  cv_filename?: string | null;
+  cv_file_url?: string | null;
+  keyword_coverage?: number;
   is_partial_score: boolean;
   score_calculated_at: string | null;
   is_shortlisted?: boolean;
@@ -523,6 +526,9 @@ export interface UnrankedApplicantItem {
   score_tier: 'TIER_PENDING';
   cv_score: number | null;
   video_score: number | null;
+  cv_filename?: string | null;
+  cv_file_url?: string | null;
+  keyword_coverage?: number;
   is_partial_score: boolean;
   is_shortlisted?: boolean;
   stage?: PipelineStage;
@@ -639,6 +645,10 @@ export interface ShortlistedApplicantItem {
   is_shortlisted: boolean;
   shortlist_reason: string;
   shortlisted_at: string | null;
+  hr_decision?: string;
+  hr_decision_display?: string;
+  hr_decision_notes?: string;
+  hr_decided_at?: string | null;
 }
 
 export interface RoomShortlistResponse {
@@ -1543,6 +1553,9 @@ export interface ApplicantApplicationStatus {
   final_score: number | null;
   cv_score: number | null;
   video_score: number | null;
+  cv_filename?: string | null;
+  cv_file_url?: string | null;
+  keyword_coverage?: number;
   is_partial_score: boolean;
   score_calculated_at: string | null;
   is_shortlisted: boolean;

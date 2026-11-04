@@ -20,6 +20,8 @@ import {
   type PresentationScoreData
 } from '../../api/presentation';
 import { type Notify } from '../dashboard/DashboardShared';
+import { motion, useReducedMotion } from 'framer-motion';
+import { AnimatedNumber, ProgressRing } from '../../motion';
 
 interface PresentationScoreCardProps {
   videoId: number;
@@ -246,7 +248,7 @@ export function PresentationScoreCard({
                 data-testid="overall-score-value"
                 className="text-3xl font-black text-[#253142] tracking-tight"
               >
-                {score.overall_score}
+                <AnimatedNumber value={score.overall_score} />
               </span>
               <span className="text-[10px] uppercase font-bold text-[#687382]">out of 100</span>
             </div>

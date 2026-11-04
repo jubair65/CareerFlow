@@ -12,6 +12,8 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { PageTransition, MOTION } from '../motion';
 import type { Role, Notify } from '../components/dashboard/DashboardShared';
 import { getStoredUser } from '../api/auth';
 import {
@@ -29,6 +31,7 @@ interface NotificationsPageProps {
 }
 
 export function NotificationsPage({ notify }: NotificationsPageProps) {
+  const prefersReduced = useReducedMotion();
   const [, setLocation] = useLocation();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
@@ -168,7 +171,7 @@ export function NotificationsPage({ notify }: NotificationsPageProps) {
 
   return (
     <AppShell role={userRole} activeNav="/notifications" notify={notify || (() => {})}>
-      <div className="mx-auto max-w-4xl space-y-6">
+      <PageTransition className="mx-auto max-w-4xl space-y-6">
         {/* Top Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -256,7 +259,11 @@ export function NotificationsPage({ notify }: NotificationsPageProps) {
         ) : (
           <div className="space-y-3">
             {filteredNotifications.map((notif) => (
-              <div
+              <motion.div
+                initial={prefersReduced ? false : { opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
                 key={notif.id}
                 onClick={() => handleItemClick(notif)}
                 data-testid={`notification-card-${notif.id}`}
@@ -322,11 +329,11 @@ export function NotificationsPage({ notify }: NotificationsPageProps) {
                     <Trash2 size={16} />
                   </button>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         )}
-      </div>
+      </PageTransition>
     </AppShell>
   );
 }

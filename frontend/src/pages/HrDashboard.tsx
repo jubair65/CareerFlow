@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'wouter';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   FolderOpen,
   Users,
@@ -8,39 +9,59 @@ import {
   Plus,
   ArrowRight,
   ChevronRight,
-  Eye,
-  CheckCircle2,
-  XCircle,
-  FileText,
-  X,
-  Award,
+  Clock3,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
-import {
-  PageHeading,
-  StatCard,
-  Chart,
-  Badge,
-  candidatesSeed,
-  type Notify,
-} from '../components/dashboard/DashboardShared';
+import { PageHeading, type Notify } from '../components/dashboard/DashboardShared';
 import { getStoredUser } from '../api/auth';
 import { apiGetHRMatches, type CVJobMatch } from '../api/cv';
 import { apiGetRooms, type RecruitmentRoom } from '../api/recruitment';
 import { RoomCreateModal } from '../components/recruitment/RoomCreateModal';
-import { RoomCvScoresModal } from '../components/recruitment/RoomCvScoresModal';
-import { RankedApplicantsModal } from '../components/recruitment/RankedApplicantsModal';
 import { ShortlistConfigModal } from '../components/recruitment/ShortlistConfigModal';
+import { InteractiveStatCard } from '../components/dashboard/InteractiveStatCard';
+import { InteractiveChecklist, type ChecklistItem } from '../components/dashboard/InteractiveChecklist';
+import { ActivityFlowChart, type ActivityDataPoint } from '../components/dashboard/ActivityFlowChart';
+import { DASHBOARD_MOTION } from '../components/dashboard/motionTokens';
+
+interface HrActivityItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  time: string;
+  timestamp: number;
+  path: string;
+}
+
+function formatRelativeTime(timestamp: number): string {
+  if (!timestamp) return 'Recently';
+  const now = Date.now();
+  const diffMs = now - timestamp;
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  if (diffMinutes < 1) return 'Just now';
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  const diffHours = Math.floor(diffMinutes / (1000 * 60 * 60));
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return new Date(timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
 
 export function HrDashboard({ notify }: { notify: Notify }) {
   const [, setLocation] = useLocation();
+  const prefersReduced = useReducedMotion();
+
   const [hrMatches, setHrMatches] = useState<CVJobMatch[]>([]);
-  const [selectedMatch, setSelectedMatch] = useState<CVJobMatch | null>(null);
   const [rooms, setRooms] = useState<RecruitmentRoom[]>([]);
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [selectedRoomForCvScores, setSelectedRoomForCvScores] = useState<RecruitmentRoom | null>(null);
-  const [selectedRoomForRanking, setSelectedRoomForRanking] = useState<RecruitmentRoom | null>(null);
   const [selectedRoomForShortlist, setSelectedRoomForShortlist] = useState<RecruitmentRoom | null>(null);
+
+  // Check for test state preview (?state=empty | single | multi)
+  const previewState = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('state');
+  }, []);
 
   const user = useMemo(() => {
     try {
@@ -54,414 +75,423 @@ export function HrDashboard({ notify }: { notify: Notify }) {
 
   useEffect(() => {
     apiGetHRMatches()
-      .then((data) => setHrMatches(data))
+      .then((data) => setHrMatches(data || []))
       .catch(() => {});
 
     apiGetRooms()
-      .then((data) => setRooms(data))
+      .then((data) => setRooms(data || []))
       .catch(() => {});
   }, []);
 
-  const handleAction = (label: string) => {
-    notify(`Workflow "${label}" activated in HR workspace!`, 'info');
-  };
+  // --- DERIVE EFFECTIVE DATA (State Preview or Live API) ---
+  const effectiveRooms = useMemo(() => {
+    if (previewState === 'empty') return [];
+    if (previewState === 'single') {
+      return [
+        {
+          id: 1,
+          title: 'Senior Frontend Engineer',
+          company: 'CareerFlow Tech',
+          description: 'Lead web platform initiatives.',
+          status: 'ACTIVE',
+          created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+        } as unknown as RecruitmentRoom,
+      ];
+    }
+    if (previewState === 'multi') {
+      return [
+        { id: 1, title: 'Senior Frontend Engineer', company: 'TechNova Ltd.', status: 'ACTIVE' },
+        { id: 2, title: 'Backend Systems Lead', company: 'BrightStack', status: 'ACTIVE' },
+        { id: 3, title: 'Product Designer', company: 'Vertex Digital', status: 'ACTIVE' },
+        { id: 4, title: 'Data Analytics Lead', company: 'NextGen', status: 'DRAFT' },
+      ] as unknown as RecruitmentRoom[];
+    }
+    return rooms;
+  }, [previewState, rooms]);
 
-  const activeRoomsCount = rooms.filter((r) => r.status === 'ACTIVE').length;
+  const effectiveMatches = useMemo(() => {
+    if (previewState === 'empty') return [];
+    if (previewState === 'single') {
+      return [
+        {
+          id: 1,
+          candidate_name: 'Alex Rahman',
+          room_title: 'Senior Frontend Engineer',
+          match_score: 84,
+          created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
+        } as unknown as CVJobMatch,
+      ];
+    }
+    if (previewState === 'multi') {
+      return [
+        { id: 1, candidate_name: 'Alex Rahman', room_title: 'Senior Frontend Engineer', match_score: 92, created_at: new Date(Date.now() - 3600000 * 2).toISOString() },
+        { id: 2, candidate_name: 'Sara Ahmed', room_title: 'Backend Systems Lead', match_score: 86, created_at: new Date(Date.now() - 3600000 * 8).toISOString() },
+        { id: 3, candidate_name: 'Tanvir Hasan', room_title: 'Product Designer', match_score: 88, created_at: new Date(Date.now() - 86400000).toISOString() },
+        { id: 4, candidate_name: 'Nusrat Jahan', room_title: 'Data Analytics Lead', match_score: 81, created_at: new Date(Date.now() - 86400000 * 2).toISOString() },
+        { id: 5, candidate_name: 'Fahim Karim', room_title: 'Senior Frontend Engineer', match_score: 74, created_at: new Date(Date.now() - 86400000 * 3).toISOString() },
+      ] as unknown as CVJobMatch[];
+    }
+    return hrMatches;
+  }, [previewState, hrMatches]);
 
-  // Derive live stats from real API data; fall back to seed values only when data hasn't loaded
-  const applicantsCount = hrMatches.length > 0 ? hrMatches.length : 48;
-  const shortlistedCount = hrMatches.length > 0
-    ? hrMatches.filter((m) => m.match_score >= 80).length
-    : 11;
-  const shortlistedPct = applicantsCount > 0
-    ? Math.round((shortlistedCount / applicantsCount) * 100)
-    : 23;
-  const avgCvMatch = hrMatches.length > 0
-    ? Math.round(hrMatches.reduce((acc, m) => acc + m.match_score, 0) / hrMatches.length)
-    : 82;
+  const activeRoomsCount = effectiveRooms.filter((r) => r.status === 'ACTIVE').length;
+  const applicantsCount = effectiveMatches.length;
+  const shortlistedCount = effectiveMatches.filter((m) => m.match_score >= 80).length;
+  const shortlistedPct = applicantsCount > 0 ? Math.round((shortlistedCount / applicantsCount) * 100) : 0;
+  const avgCvMatch = applicantsCount > 0
+    ? Math.round(effectiveMatches.reduce((acc, m) => acc + m.match_score, 0) / applicantsCount)
+    : 0;
+
+  const readyCandidatesCount = effectiveMatches.filter((m) => m.match_score >= 75).length;
+
+  // 7-day flow chart data calculation
+  const flowChartData = useMemo<ActivityDataPoint[]>(() => {
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const now = new Date();
+    const days: { label: string; dateStr: string; count: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i);
+      days.push({
+        label: dayNames[d.getDay()],
+        dateStr: d.toISOString().split('T')[0],
+        count: 0,
+      });
+    }
+
+    if (effectiveMatches.length > 0) {
+      effectiveMatches.forEach((m, idx) => {
+        if (m.created_at) {
+          const dStr = m.created_at.split('T')[0];
+          const target = days.find((item) => item.dateStr === dStr);
+          if (target) {
+            target.count += 1;
+          } else {
+            days[idx % days.length].count += 1;
+          }
+        } else {
+          days[idx % days.length].count += 1;
+        }
+      });
+    }
+
+    return days;
+  }, [effectiveMatches]);
+
+  // Dynamic Subtitle
+  const pageSubtitle = useMemo(() => {
+    if (effectiveRooms.length > 0 && applicantsCount > 0) {
+      return `You have ${activeRoomsCount} active recruitment room${
+        activeRoomsCount === 1 ? '' : 's'
+      } and ${applicantsCount} evaluated candidate${applicantsCount === 1 ? '' : 's'}.`;
+    }
+    if (effectiveRooms.length > 0 && applicantsCount === 0) {
+      return `You have ${activeRoomsCount} active room${
+        activeRoomsCount === 1 ? '' : 's'
+      }. Awaiting first applicant submissions.`;
+    }
+    return 'Welcome to your hiring workspace. Create your first recruitment room to begin evaluating candidates.';
+  }, [effectiveRooms, activeRoomsCount, applicantsCount]);
+
+  // First-use checklist items
+  const checklistItems = useMemo<ChecklistItem[]>(() => {
+    return [
+      {
+        id: 'create-room',
+        title: 'Create recruitment room',
+        description:
+          effectiveRooms.length > 0
+            ? `${effectiveRooms.length} room${effectiveRooms.length === 1 ? '' : 's'} created • Active hiring briefs`
+            : 'Set required skills, weights, and criteria',
+        completed: effectiveRooms.length > 0,
+        path: '/hr/rooms',
+        icon: FolderOpen,
+      },
+      {
+        id: 'review-candidates',
+        title: 'Evaluate applicant matches',
+        description:
+          applicantsCount > 0
+            ? `${applicantsCount} candidate${applicantsCount === 1 ? '' : 's'} evaluated • CV Studio`
+            : 'AI semantic matching against requirements',
+        completed: applicantsCount > 0,
+        path: '/hr/applicants',
+        icon: Users,
+      },
+      {
+        id: 'configure-shortlist',
+        title: 'Configure automated shortlist',
+        description:
+          shortlistedCount > 0
+            ? `${shortlistedCount} candidate${shortlistedCount === 1 ? '' : 's'} shortlisted`
+            : 'Establish threshold rules for candidate advancement',
+        completed: shortlistedCount > 0,
+        path: '/hr/shortlisted',
+        icon: Star,
+      },
+    ];
+  }, [effectiveRooms, applicantsCount, shortlistedCount]);
+
+  // Recent Activity Items
+  const recentActivities = useMemo<HrActivityItem[]>(() => {
+    const list: HrActivityItem[] = [];
+
+    effectiveMatches.forEach((m, idx) => {
+      const ts = m.created_at ? new Date(m.created_at).getTime() : Date.now() - (idx + 1) * 3600000;
+      list.push({
+        id: `match-${m.id || idx}`,
+        title: `${m.candidate_name || 'Candidate'} evaluated`,
+        subtitle: `Scored ${m.match_score}/100 match for ${m.room_title || 'Recruitment Room'}`,
+        time: formatRelativeTime(ts),
+        timestamp: ts,
+        path: '/hr/applicants',
+      });
+    });
+
+    effectiveRooms.forEach((r, idx) => {
+      const ts = r.created_at ? new Date(r.created_at).getTime() : Date.now() - (idx + 2) * 86400000;
+      list.push({
+        id: `room-${r.id || idx}`,
+        title: `Room ${r.title} ${r.status === 'ACTIVE' ? 'active' : 'draft'}`,
+        subtitle: `${r.company || 'Company'} • Minimum score threshold set`,
+        time: formatRelativeTime(ts),
+        timestamp: ts,
+        path: '/hr/rooms',
+      });
+    });
+
+    list.sort((a, b) => b.timestamp - a.timestamp);
+    return list.slice(0, 4);
+  }, [effectiveMatches, effectiveRooms]);
 
   return (
     <AppShell role="hr" notify={notify}>
-      <PageHeading
-        eyebrow="HR Hiring Portal • US-18 Recruitment Rooms"
-        title={`Good morning, ${userName}.`}
-        description="Your hiring workspace is ready for candidate evaluation, room creation, and CV match scoring."
-        action={
-          <button
-            type="button"
-            onClick={() => setCreateModalOpen(true)}
-            data-testid="button-create-room-dashboard"
-            className="inline-flex items-center gap-2 rounded-xl bg-[#277254] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#1f5b43] transition shadow-sm"
-          >
-            <Plus size={16} /> Create room
-          </button>
-        }
-      />
+      {/* Header with Title and Primary Action */}
+      <motion.div
+        initial={prefersReduced ? false : { opacity: 0, y: -12 }}
+        animate={prefersReduced ? false : { opacity: 1, y: 0 }}
+        transition={{ duration: DASHBOARD_MOTION.duration.section, ease: DASHBOARD_MOTION.easeOutQuint }}
+      >
+        <PageHeading
+          title={`Good morning, ${userName}.`}
+          description={pageSubtitle}
+          action={
+            <button
+              type="button"
+              onClick={() => setCreateModalOpen(true)}
+              data-testid="button-create-room-dashboard"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#277254] px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#1f5b43] active:bg-[#184734] shadow-xs cursor-pointer focus-visible:outline-2 focus-visible:outline-[#277254]"
+            >
+              <Plus size={16} /> Create room
+            </button>
+          }
+        />
+      </motion.div>
 
-      {/* 4 Metric Cards */}
+      {/* 4 Interactive Clickable Stat Cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div onClick={() => setLocation('/hr/rooms')} className="cursor-pointer">
-          <StatCard
-            label="Active rooms"
-            value={rooms.length > 0 ? `${activeRoomsCount}` : "0"}
-            detail={`${rooms.length} total created rooms`}
-            icon={FolderOpen}
-            accent="yellow"
-          />
-        </div>
-        <StatCard
+        {/* 1. Active Rooms */}
+        <InteractiveStatCard
+          label="Active rooms"
+          numericValue={activeRoomsCount}
+          detail={`${effectiveRooms.length} total created rooms`}
+          icon={FolderOpen}
+          accent="yellow"
+          onClick={() => setLocation('/hr/rooms')}
+          testId="stat-active-rooms"
+          delayIndex={0}
+        />
+
+        {/* 2. Applicants */}
+        <InteractiveStatCard
           label="Applicants"
-          value={`${applicantsCount}`}
-          detail="+12 this week"
+          numericValue={applicantsCount}
+          detail={applicantsCount > 0 ? `${applicantsCount} candidates evaluated` : 'No candidates yet'}
           icon={Users}
           accent="blue"
+          onClick={() => setLocation('/hr/applicants')}
+          testId="stat-applicants"
+          delayIndex={1}
         />
-        <StatCard
+
+        {/* 3. Shortlisted */}
+        <InteractiveStatCard
           label="Shortlisted"
-          value={`${shortlistedCount}`}
-          detail={`${shortlistedPct}% of applicants`}
+          numericValue={shortlistedCount}
+          detail={applicantsCount > 0 ? `${shortlistedPct}% of applicants` : 'Awaiting evaluations'}
           icon={Star}
           accent="green"
+          onClick={() => setLocation('/hr/shortlisted')}
+          testId="stat-shortlisted"
+          delayIndex={2}
         />
-        <StatCard
+
+        {/* 4. Average CV Match */}
+        <InteractiveStatCard
           label="Average CV Match"
-          value={`${avgCvMatch}`}
-          detail="US-09 Semantic score"
+          numericValue={avgCvMatch}
+          displayOverride={avgCvMatch > 0 ? `${avgCvMatch}%` : '--'}
+          detail="Semantic match score"
           icon={Gauge}
           accent="coral"
+          onClick={() => setLocation('/hr/applicants')}
+          testId="stat-average-cv-match"
+          delayIndex={3}
         />
       </div>
 
-      {/* Applicant Flow Chart & Hiring Signal Card */}
-      <div className="mt-5 grid gap-5 xl:grid-cols-[1.2fr_.8fr]">
-        <section className="cf-card rounded-2xl bg-white p-5 md:p-6 border border-[#d9dbd1] shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="font-bold text-[#253142] text-lg">Applicant flow</h2>
-              <p className="mt-1 text-xs text-[#7b8490]">Last 7 days across active candidate rooms</p>
+      {/* Applicant Flow Chart & Semantic Signal Card */}
+      <motion.div
+        initial={prefersReduced ? false : { opacity: 0, y: 16 }}
+        animate={prefersReduced ? false : { opacity: 1, y: 0 }}
+        transition={{
+          duration: DASHBOARD_MOTION.duration.section,
+          delay: 0.15,
+          ease: DASHBOARD_MOTION.easeOutQuint,
+        }}
+        className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_.65fr]"
+      >
+        {/* Applicant Flow Chart */}
+        <section className="cf-card rounded-2xl bg-white p-5 md:p-6 border border-[#d9dbd1] shadow-xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="font-bold text-[#253142] text-lg">Applicant flow</h2>
+                <p className="mt-1 text-xs text-[#7b8490]">
+                  Last 7 days of candidate evaluations across active hiring rooms
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLocation('/hr/reports')}
+                data-testid="link-hr-reports"
+                className="flex items-center gap-1 text-xs font-bold text-[#277254] hover:underline cursor-pointer"
+              >
+                View reports <ChevronRight size={14} />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => handleAction('View HR Reports')}
-              data-testid="link-hr-reports"
-              className="text-xs font-bold text-[#277254] hover:underline"
-            >
-              View report
-            </button>
-          </div>
-          <div className="mt-6">
-            {/* FIX #6: values are daily applicant counts; Chart bars already carry title tooltips */}
-            <Chart
-              values={[32, 47, 41, 66, 57, 78, 92]}
-              labels={['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']}
-              color="#277254"
-              unit=" applicants"
-            />
+            <div className="mt-5">
+              <ActivityFlowChart
+                data={flowChartData}
+                color="#277254"
+                unit="applicants"
+                emptyMessage="No applicant activity in the last 7 days."
+              />
+            </div>
           </div>
         </section>
 
+        {/* Semantic Signal Card */}
         <section className="rounded-2xl bg-[#253142] p-6 text-[#faf7ef] shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
-              <div>
-                <div className="text-xs font-bold uppercase tracking-[.14em] text-[#f5c84b]">
-                  US-09 Semantic Signal
-                </div>
-                <div className="cf-display mt-2 text-4xl font-bold">
-                  {hrMatches.filter((m) => m.match_score >= 75).length || 11} ready
-                </div>
-              </div>
-              <Users size={28} className="text-[#f5c84b]" />
+              <span className="text-[11px] font-bold uppercase tracking-[.14em] text-[#f5c84b]">
+                Semantic signal
+              </span>
+              <Users size={20} className="text-[#f5c84b]" />
             </div>
-            <p className="mt-5 text-sm leading-6 text-[#bfc8d0]">
-              Candidates exceeding your minimum score threshold across all active hiring briefs.
+            <h2 className="cf-display mt-5 text-4xl font-bold tracking-tight">
+              {readyCandidatesCount} ready
+            </h2>
+            <p className="mt-2.5 text-sm leading-relaxed text-[#bfc8d0]">
+              Candidates exceeding your minimum threshold across active briefs, prepared for team review.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              if (rooms.length > 0) {
-                setSelectedRoomForShortlist(rooms[0]);
-              } else {
-                handleAction('Review Shortlist');
-              }
-            }}
-            data-testid="button-view-shortlisted-dashboard"
-            className="mt-5 inline-flex w-fit items-center gap-2 rounded-xl bg-[#303e50] px-4 py-2.5 text-xs font-bold text-[#f5c84b] hover:bg-[#3b4c62] transition"
-          >
-            Review shortlist <ArrowRight size={15} />
-          </button>
-        </section>
-      </div>
 
-      {/* Recent Applications Table with US-09 CV Match Scores */}
-      {/* FIX #2: Two-row header — title row + controls row — prevents clipping on narrow screens */}
-      <section className="cf-card mt-5 overflow-hidden rounded-2xl bg-white border border-[#d9dbd1] shadow-sm">
-        <div className="p-5 border-b border-[#eef0e7] space-y-3">
-          {/* Row 1: Title + badge */}
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-bold text-[#253142] text-lg leading-tight">Candidate CV Match Scores</h2>
-                <span className="shrink-0 rounded-md bg-[#e2f0e9] border border-[#a7d7c1] px-2 py-0.5 text-[10px] font-bold text-[#1f5b43]">
-                  US-10 Active
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-[#7b8490] leading-5">
-                Real-time semantic similarity and skill coverage evaluation across your rooms
-              </p>
-            </div>
-            {/* FIX #1: Manage Rooms button always fully visible — lives in its own column */}
+          <div className="mt-6 border-t border-[#3a4b60] pt-4">
             <button
               type="button"
-              onClick={() => setLocation('/hr/rooms')}
-              data-testid="link-hr-rooms-all"
-              className="shrink-0 flex items-center gap-1 rounded-xl bg-[#277254] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#1f5b43] transition shadow-2xs"
+              onClick={() => {
+                if (effectiveRooms.length > 0) {
+                  setSelectedRoomForShortlist(effectiveRooms[0]);
+                } else {
+                  setLocation('/hr/shortlisted');
+                }
+              }}
+              data-testid="button-view-shortlisted-dashboard"
+              className="group inline-flex items-center gap-1.5 text-xs font-bold text-[#f5c84b] hover:text-[#fff1c9] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-[#f5c84b]"
             >
-              <span>Manage Rooms</span>
-              <ChevronRight size={14} />
+              <span>Review shortlist</span>
+              <ArrowRight size={14} className="transition-transform duration-200 group-hover:translate-x-1" />
             </button>
           </div>
+        </section>
+      </motion.div>
 
-          {/* Row 2: Room selectors (only when rooms exist) */}
-          {rooms.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                onChange={(e) => {
-                  const r = rooms.find((x) => x.id === Number(e.target.value));
-                  if (r) setSelectedRoomForCvScores(r);
-                }}
-                defaultValue=""
-                data-testid="select-room-cv-scores-dashboard"
-                className="min-w-0 flex-1 sm:flex-none rounded-xl border border-[#d9dbd1] bg-[#fbfaf5] px-3 py-1.5 text-xs font-semibold text-[#253142] focus:outline-none focus:ring-2 focus:ring-[#277254]/30"
-              >
-                <option value="" disabled>Inspect Room CV Scores…</option>
-                {rooms.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.title} ({r.company_name})
-                  </option>
-                ))}
-              </select>
-              <select
-                onChange={(e) => {
-                  const r = rooms.find((x) => x.id === Number(e.target.value));
-                  if (r) setSelectedRoomForRanking(r);
-                }}
-                defaultValue=""
-                data-testid="select-room-rankings-dashboard"
-                className="min-w-0 flex-1 sm:flex-none rounded-xl border border-[#fde68a] bg-[#fef3c7]/60 px-3 py-1.5 text-xs font-bold text-[#92400e] focus:outline-none focus:ring-2 focus:ring-[#d97706]/30"
-              >
-                <option value="" disabled>🏆 View Room Leaderboard…</option>
-                {rooms.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    🏆 {r.title} Leaderboard
-                  </option>
-                ))}
-              </select>
-              <select
-                onChange={(e) => {
-                  const r = rooms.find((x) => x.id === Number(e.target.value));
-                  if (r) setSelectedRoomForShortlist(r);
-                }}
-                defaultValue=""
-                data-testid="select-room-shortlist-dashboard"
-                className="min-w-0 flex-1 sm:flex-none rounded-xl border border-[#a7d7c1] bg-[#e2f0e9]/60 px-3 py-1.5 text-xs font-bold text-[#1f5b43] focus:outline-none focus:ring-2 focus:ring-[#277254]/30"
-              >
-                <option value="" disabled>⭐ View Room Shortlist…</option>
-                {rooms.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    ⭐ {r.title} Shortlist
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
+      {/* Onboarding Checklist & Recent Activity */}
+      <motion.div
+        initial={prefersReduced ? false : { opacity: 0, y: 16 }}
+        animate={prefersReduced ? false : { opacity: 1, y: 0 }}
+        transition={{
+          duration: DASHBOARD_MOTION.duration.section,
+          delay: 0.25,
+          ease: DASHBOARD_MOTION.easeOutQuint,
+        }}
+        className="mt-5 grid gap-5 xl:grid-cols-2"
+      >
+        {/* Starter workflow interactive checklist */}
+        <section className="cf-card rounded-2xl bg-white p-5 md:p-6 border border-[#d9dbd1] shadow-xs">
+          <InteractiveChecklist initialItems={checklistItems} />
+        </section>
 
-        {/* FIX #3 & #4: always overflow-x-auto so table never clips on tablet or mobile */}
-        <div className="overflow-x-auto">
-          <table className="cf-table w-full text-left text-sm" data-testid="table-hr-applicants">
-            <thead className="bg-[#fbfaf5] border-b border-[#eef0e7] text-xs font-semibold text-[#7b8490] uppercase tracking-wider">
-              <tr>
-                <th className="px-5 py-3.5">Candidate</th>
-                <th className="px-5 py-3.5">Target Role</th>
-                <th className="px-5 py-3.5">CV Match Score</th>
-                <th className="px-5 py-3.5">Keyword Coverage</th>
-                <th className="px-5 py-3.5">Status</th>
-                <th className="px-5 py-3.5 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#eef0e7]">
-              {hrMatches.length > 0
-                ? hrMatches.map((m) => (
-                    <tr key={m.id} className="hover:bg-[#fbfaf5] transition" data-testid={`row-applicant-${m.id}`}>
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="grid h-8 w-8 place-items-center rounded-full bg-[#dce8e1] text-xs font-bold text-[#277254]">
-                            {(m.candidate_name || m.candidate_email || 'C')
-                              .split(' ')
-                              .map((x) => x[0])
-                              .join('')
-                              .toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-bold text-[#253142]">{m.candidate_name || m.candidate_email}</div>
-                            <div className="text-[11px] text-[#7b8490]">{m.original_filename}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-sm text-[#687382] font-semibold">{m.job_title}</td>
-                      <td className="px-5 py-4">
-                        <span className="inline-flex items-center gap-1 rounded-lg bg-[#e2f0e9] px-2.5 py-1 text-xs font-bold text-[#277254]">
-                          {m.match_score} / 100
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-sm font-semibold text-[#253142]">
-                        {m.keyword_coverage}%
-                      </td>
-                      <td className="px-5 py-4">
-                        <Badge tone={m.match_score >= 80 ? 'good' : m.match_score >= 65 ? 'warn' : 'neutral'}>
-                          {m.match_score >= 80 ? 'Shortlisted' : 'Under Review'}
-                        </Badge>
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedMatch(m)}
-                          data-testid={`button-review-applicant-${m.id}`}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#ccd0c6] bg-white px-3 py-1.5 text-xs font-bold text-[#253142] hover:bg-[#fffaf0] transition"
-                        >
-                          <Eye size={13} /> Review Signal
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                : candidatesSeed.slice(0, 4).map((c) => (
-                    <tr key={c.id} className="hover:bg-[#fbfaf5] transition">
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="grid h-8 w-8 place-items-center rounded-full bg-[#dce8e1] text-xs font-bold text-[#277254]">
-                            {c.name
-                              .split(' ')
-                              .map((x) => x[0])
-                              .join('')}
-                          </div>
-                          <span className="font-bold text-[#253142]">{c.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-sm text-[#687382]">{c.position}</td>
-                      <td className="px-5 py-4 font-bold text-[#277254]">{c.overallScore} / 100</td>
-                      <td className="px-5 py-4 text-sm font-semibold text-[#253142]">84%</td>
-                      <td className="px-5 py-4">
-                        <Badge tone={c.status === 'Shortlisted' ? 'good' : c.status === 'Rejected' ? 'bad' : 'warn'}>
-                          {c.status}
-                        </Badge>
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleAction(`Review candidate ${c.name}`)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#ccd0c6] bg-white px-3 py-1.5 text-xs font-bold text-[#253142] hover:bg-[#fffaf0]"
-                        >
-                          <Eye size={13} /> Review Signal
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* Candidate Signal Review Modal (matching CareerFlow-Recruitment-Coach design) */}
-      {selectedMatch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#253142]/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl border border-[#d9dbd1]">
-            <div className="flex items-center justify-between pb-4 border-b border-[#eef0e7]">
+        {/* Recent Activity Timeline */}
+        <section className="cf-card rounded-2xl bg-white p-5 md:p-6 border border-[#d9dbd1] shadow-xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between border-b border-[#eef0e7] pb-4">
               <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#9a7922]">
-                  CANDIDATE CV EVALUATION (US-09)
+                <span className="text-[11px] font-bold uppercase tracking-[.14em] text-[#7b8490]">
+                  Hiring audit trail
                 </span>
-                <h3 className="text-xl font-bold text-[#253142]">
-                  {selectedMatch.candidate_name || selectedMatch.candidate_email}
-                </h3>
-                <p className="text-xs text-[#687382]">{selectedMatch.job_title} · {selectedMatch.company}</p>
+                <h2 className="text-base font-bold text-[#253142] mt-0.5">Recent activity</h2>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedMatch(null)}
-                data-testid="button-close-review-modal"
-                className="grid h-8 w-8 place-items-center rounded-xl bg-[#f4f2e9] text-[#253142] hover:bg-[#e2dfd2]"
-              >
-                <X size={16} />
-              </button>
+              <Clock3 size={17} className="text-[#9aa2a9]" />
             </div>
 
-            <div className="mt-5 flex items-center gap-5 rounded-2xl bg-[#253142] p-5 text-[#faf7ef]">
-              <div>
-                <div className="text-xs uppercase tracking-wider text-[#aab5c0]">CV Match Score</div>
-                <div className="cf-display text-5xl font-bold text-[#f5c84b] mt-1">
-                  {selectedMatch.match_score}
+            <div className="relative mt-4 space-y-3.5">
+              {recentActivities.length > 0 && (
+                <div className="absolute left-[7px] top-2.5 bottom-2.5 w-[2px] bg-[#eef0e7]" />
+              )}
+
+              {recentActivities.length > 0 ? (
+                recentActivities.map((act) => (
+                  <motion.div
+                    key={act.id}
+                    initial={prefersReduced ? false : { opacity: 0, x: -8 }}
+                    animate={prefersReduced ? false : { opacity: 1, x: 0 }}
+                    transition={{ duration: DASHBOARD_MOTION.duration.component, ease: DASHBOARD_MOTION.easeOutQuint }}
+                    onClick={() => setLocation(act.path)}
+                    className="group relative flex items-start gap-3.5 rounded-xl p-2 transition-colors hover:bg-[#faf8f2] cursor-pointer"
+                  >
+                    <span className="relative z-10 mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[#f5c84b] ring-4 ring-white" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-[#253142] group-hover:text-[#277254] transition-colors">
+                          {act.title}
+                        </span>
+                        <span className="text-[10px] font-semibold text-[#8d9aab]">
+                          {act.time}
+                        </span>
+                      </div>
+                      <p className="truncate text-[11px] text-[#7b8490] mt-0.5">{act.subtitle}</p>
+                    </div>
+                    <ChevronRight size={14} className="mt-1 text-[#9da5ac] opacity-0 transition-all group-hover:opacity-100 group-hover:translate-x-0.5" />
+                  </motion.div>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-center text-[#7b8490]">
+                  <Clock3 className="h-8 w-8 text-[#9da5ac] mb-2" />
+                  <p className="text-sm font-semibold text-[#526072]">No recent activity recorded</p>
+                  <p className="mt-1 text-xs text-[#8a929c]">
+                    New room creations, candidate evaluations, and shortlist promotions will appear here.
+                  </p>
                 </div>
-              </div>
-              <div className="border-l border-[#3d4d62] pl-5">
-                <h4 className="font-bold text-sm text-[#faf7ef]">
-                  {selectedMatch.match_score >= 80 ? 'Strong alignment for role' : 'Moderate candidate fit'}
-                </h4>
-                <p className="text-xs text-[#c4ccd3] mt-1">
-                  Keyword coverage: <strong>{selectedMatch.keyword_coverage}%</strong>
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-5 space-y-3 text-xs">
-              <div className="font-bold text-[#253142]">Extracted Matched Skills:</div>
-              <div className="flex flex-wrap gap-1.5">
-                {selectedMatch.skills_matched?.map((s, i) => (
-                  <span key={i} className="rounded-lg bg-[#e2f0e9] px-2.5 py-1 font-bold text-[#277254]">
-                    ✓ {s}
-                  </span>
-                ))}
-              </div>
-
-              {selectedMatch.skills_missing?.length > 0 && (
-                <>
-                  <div className="font-bold text-[#253142] mt-3">Missing Role Keywords:</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedMatch.skills_missing?.map((s, i) => (
-                      <span key={i} className="rounded-lg bg-[#f7e5e1] px-2.5 py-1 font-bold text-[#a33d35]">
-                        + {s}
-                      </span>
-                    ))}
-                  </div>
-                </>
               )}
             </div>
-
-            <div className="mt-6 pt-4 border-t border-[#eef0e7] flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setSelectedMatch(null)}
-                className="rounded-xl border border-[#ccd0c6] px-4 py-2 text-xs font-bold text-[#253142]"
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  notify(`Candidate ${selectedMatch.candidate_name || selectedMatch.candidate_email} shortlisted!`, 'success');
-                  setSelectedMatch(null);
-                }}
-                data-testid="button-shortlist-candidate"
-                className="rounded-xl bg-[#277254] px-4 py-2 text-xs font-bold text-white hover:bg-[#1f5b43]"
-              >
-                Shortlist Candidate
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        </section>
+      </motion.div>
 
+      {/* Room Creation Modal */}
       <RoomCreateModal
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
@@ -472,27 +502,7 @@ export function HrDashboard({ notify }: { notify: Notify }) {
         notify={notify}
       />
 
-      {/* US-10 Room CV Scores Modal */}
-      {selectedRoomForCvScores && (
-        <RoomCvScoresModal
-          isOpen={Boolean(selectedRoomForCvScores)}
-          onClose={() => setSelectedRoomForCvScores(null)}
-          room={selectedRoomForCvScores}
-          notify={notify}
-        />
-      )}
-
-      {/* US-24 Room Ranked Applicants Leaderboard Modal */}
-      {selectedRoomForRanking && (
-        <RankedApplicantsModal
-          isOpen={Boolean(selectedRoomForRanking)}
-          onClose={() => setSelectedRoomForRanking(null)}
-          room={selectedRoomForRanking}
-          notify={notify}
-        />
-      )}
-
-      {/* US-25 Room Automatic Shortlisting Modal */}
+      {/* Shortlist Config Modal */}
       {selectedRoomForShortlist && (
         <ShortlistConfigModal
           isOpen={Boolean(selectedRoomForShortlist)}
@@ -508,4 +518,3 @@ export function HrDashboard({ notify }: { notify: Notify }) {
     </AppShell>
   );
 }
-

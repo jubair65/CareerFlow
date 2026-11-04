@@ -92,7 +92,7 @@ export function RoomCreateModal({
             </div>
             <div>
               <h2 className="text-base font-bold text-[#253142]">Create Recruitment Room</h2>
-              <p className="text-xs text-[#7b8490]">US-18 • Define a hiring space for candidate evaluation</p>
+              <p className="text-xs text-[#7b8490]">Define a hiring space for candidate evaluation</p>
             </div>
           </div>
           <button

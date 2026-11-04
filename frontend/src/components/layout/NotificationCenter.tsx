@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bell,
   Check,
@@ -201,21 +202,29 @@ export function NotificationCenter({
       >
         <Bell size={18} />
         {unreadCount > 0 && (
-          <span
+          <motion.span
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
             data-testid="notification-bell-badge"
             className="absolute -top-0.5 -right-0.5 grid min-h-4 min-w-4 place-items-center rounded-full bg-[#ee7564] px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white"
           >
             {unreadCount > 9 ? '9+' : unreadCount}
-          </span>
+          </motion.span>
         )}
       </button>
 
-      {/* Dropdown Popover */}
-      {isOpen && (
-        <div
-          data-testid="notification-popover"
-          className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white p-0 shadow-2xl ring-1 ring-black/5 z-50 border border-[#d9dbd1] overflow-hidden"
-        >
+      {/* Dropdown Popover with 150ms fade/scale animation */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -4 }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            data-testid="notification-popover"
+            className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white p-0 shadow-2xl ring-1 ring-black/5 z-50 border border-[#d9dbd1] overflow-hidden"
+          >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-[#eef0e7] px-4 py-3 bg-[#faf7ef]">
             <div className="flex items-center gap-2">
@@ -318,8 +327,9 @@ export function NotificationCenter({
               Open Notifications Center &rarr;
             </button>
           </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

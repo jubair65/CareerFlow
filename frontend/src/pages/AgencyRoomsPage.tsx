@@ -24,6 +24,8 @@ import {
   Star,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
+import { PageTransition, AnimatedNumber } from '../motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { PageHeading, StatCard, type Notify } from '../components/dashboard/DashboardShared';
 import {
   apiGetAgencyRoomsGrouped,
@@ -42,6 +44,7 @@ import { WeightingConfigCard } from '../components/recruitment/WeightingConfigCa
 import { ShortlistConfigModal } from '../components/recruitment/ShortlistConfigModal';
 
 export function AgencyRoomsPage({ notify }: { notify: Notify }) {
+  const prefersReduced = useReducedMotion();
   // Data state
   const [groupedClients, setGroupedClients] = useState<AgencyClientGroupedRooms[]>([]);
   const [clients, setClients] = useState<ClientCompany[]>([]);
@@ -205,12 +208,12 @@ export function AgencyRoomsPage({ notify }: { notify: Notify }) {
   };
 
   return (
-    <AppShell role="agency" notify={notify}>
+    <AppShell role="agency" activeTab="Rooms" notify={notify}>
+      <PageTransition>
       <div data-testid="page-agency-rooms" className="space-y-6">
         {/* Page Heading */}
         <PageHeading
-          eyebrow="Recruitment Agency • US-30 Client Room Management"
-          title="Client Recruitment Rooms"
+title="Client Recruitment Rooms"
           description="Create, configure, and manage job openings and candidate application links on behalf of your client companies."
           action={
             <button
@@ -228,28 +231,28 @@ export function AgencyRoomsPage({ notify }: { notify: Notify }) {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             label="Total Rooms"
-            value={String(stats.total_rooms)}
+            value={<AnimatedNumber value={stats.total_rooms} />}
             detail="Configured across clients"
             icon={FolderOpen}
             accent="blue"
           />
           <StatCard
             label="Active Openings"
-            value={String(stats.active_rooms)}
+            value={<AnimatedNumber value={stats.active_rooms} />}
             detail="Accepting candidate applications"
             icon={Sparkles}
             accent="green"
           />
           <StatCard
             label="Managed Clients"
-            value={String(stats.clients_with_rooms)}
+            value={<AnimatedNumber value={stats.clients_with_rooms} />}
             detail="With active rooms"
             icon={Building2}
             accent="yellow"
           />
           <StatCard
             label="Total Candidates"
-            value={String(stats.total_applicants)}
+            value={<AnimatedNumber value={stats.total_applicants} />}
             detail="Applied via agency links"
             icon={Users}
             accent="coral"
@@ -443,8 +446,14 @@ export function AgencyRoomsPage({ notify }: { notify: Notify }) {
                             const isCopied = copiedRoomId === room.id;
 
                             return (
-                              <div
+                              <motion.div
                                 key={room.id}
+                                layout="position"
+                                initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.96 }}
+                                whileHover={prefersReduced ? undefined : { y: -2 }}
+                                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                                 data-testid={`card-room-${room.id}`}
                                 className="flex flex-col justify-between rounded-xl border border-[#d9dbd1] bg-white p-4 shadow-2xs hover:shadow-sm hover:border-[#277254]/50 transition duration-150"
                               >
@@ -579,7 +588,7 @@ export function AgencyRoomsPage({ notify }: { notify: Notify }) {
                                     <option value="CLOSED">Closed</option>
                                   </select>
                                 </div>
-                              </div>
+                              </motion.div>
                             );
                           })}
                         </div>
@@ -648,6 +657,7 @@ export function AgencyRoomsPage({ notify }: { notify: Notify }) {
           </div>
         )}
       </div>
+      </PageTransition>
     </AppShell>
   );
 }

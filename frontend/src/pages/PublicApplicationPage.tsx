@@ -21,6 +21,7 @@ import { apiGetPublicRoomByToken, apiSubmitApplication, type PublicRoomDetails }
 import { apiGetCandidateProfile, getStoredUser } from '../api/auth';
 import { getStoredAIConsentToken } from '../api/consent';
 import { AIConsentModal } from '../components/presentation/AIConsentModal';
+import { Logo } from '../components/brand/Logo';
 export function PublicApplicationPage({
   notify,
 }: {
@@ -188,12 +189,7 @@ export function PublicApplicationPage({
       <div className="min-h-screen bg-[#f5f1e6] flex flex-col justify-between p-4 sm:p-8" data-testid="page-link-error">
         {/* Top Header */}
         <header className="max-w-4xl mx-auto w-full flex items-center justify-between pb-6">
-          <div className="flex items-center gap-2.5">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-[#253142] text-[#f5c84b]">
-              <Briefcase size={18} />
-            </div>
-            <span className="text-lg font-black text-[#253142]">CareerFlow</span>
-          </div>
+          <Logo tone="color" />
         </header>
 
         {/* Error Card */}
@@ -252,15 +248,7 @@ export function PublicApplicationPage({
     <div className="min-h-screen bg-[#f5f1e6] flex flex-col justify-between p-4 sm:p-8" data-testid="page-public-application">
       {/* Top Navigation / Brand */}
       <header className="max-w-5xl mx-auto w-full flex items-center justify-between pb-6">
-        <div className="flex items-center gap-2.5">
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-[#253142] text-[#f5c84b]">
-            <Briefcase size={18} />
-          </div>
-          <div>
-            <span className="text-lg font-black text-[#253142]">CareerFlow</span>
-            <span className="text-[10px] text-[#7b8490] block leading-none">Applicant Portal</span>
-          </div>
-        </div>
+        <Logo tone="color" subtitle="Applicant Portal" />
 
         <div
           data-testid="public-room-status-badge"

@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { PageHeading, type Notify } from '../components/dashboard/DashboardShared';
+import { motion, useReducedMotion } from 'framer-motion';
+import { PageTransition, Reveal } from '../motion';
 import {
   apiGetCandidateProfile,
   apiUpdateCandidateProfile,
@@ -37,6 +39,8 @@ export function ProfilePage({ notify }: { notify: Notify }) {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const prefersReduced = useReducedMotion();
   const [profile, setProfile] = useState<any>(null);
 
   // Editable Form State
@@ -180,15 +184,28 @@ export function ProfilePage({ notify }: { notify: Notify }) {
       setProfile(updated);
       setErrors({});
 
-      // Sync local storage user full_name so navbar / header update
+      // Sync local storage user full_name and avatar_url so navbar / header update
       const curr = getStoredUser() || {};
-      storeUser({
+      const updatedUser = {
         ...curr,
         full_name: updated.full_name,
         target_role: updated.target_role,
-      });
+        avatar_url: updated.avatar_url,
+      };
+      storeUser(updatedUser);
+
+      try {
+        const sess = JSON.parse(localStorage.getItem('careerflow-session') || '{}');
+        sess.avatar_url = updated.avatar_url;
+        sess.user = updated.full_name;
+        localStorage.setItem('careerflow-session', JSON.stringify(sess));
+      } catch {}
+
+      window.dispatchEvent(new CustomEvent('careerflow_user_updated', { detail: updatedUser }));
 
       notify?.('Profile updated successfully!', 'success');
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2200);
     } catch (err: any) {
       const serverErrors = err?.response?.data?.errors;
       if (serverErrors && typeof serverErrors === 'object') {
@@ -235,8 +252,7 @@ export function ProfilePage({ notify }: { notify: Notify }) {
   return (
     <AppShell role={effectiveRole} notify={notify}>
       <PageHeading
-        eyebrow="Candidate Self-Service • US-42"
-        title="Candidate Profile & Career Objectives"
+title="Candidate Profile & Career Objectives"
         description="Maintain your professional contact information, target job specialization, and social links to automatically streamline all hiring room applications."
         action={
           <button
@@ -256,10 +272,11 @@ export function ProfilePage({ notify }: { notify: Notify }) {
           <span className="ml-3 text-sm font-semibold text-[#253142]">Loading your profile details...</span>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="mt-6 grid gap-6 lg:grid-cols-[1fr_2fr]" data-testid="profile-container">
-          {/* Left Column: Avatar & Identity Card */}
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-[#d9dbd1] bg-white p-6 shadow-xs text-center space-y-4">
+        <PageTransition>
+          <form onSubmit={handleSubmit} className="mt-6 grid gap-6 lg:grid-cols-[1fr_2fr]" data-testid="profile-container">
+            {/* Left Column: Avatar & Identity Card */}
+            <div className="space-y-6">
+              <div className="rounded-3xl border border-[#d9dbd1] bg-white p-6 shadow-xs text-center space-y-4">
               {/* Avatar Preview with Change Button */}
               <div className="relative mx-auto w-28 h-28">
                 {avatarPreview ? (
@@ -579,12 +596,19 @@ export function ProfilePage({ notify }: { notify: Notify }) {
                   type="submit"
                   disabled={saving}
                   data-testid="button-profile-save"
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#277254] px-6 py-2.5 text-xs font-bold text-white hover:bg-[#1f5b43] transition shadow-xs cursor-pointer disabled:opacity-50"
+                  className={`inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-xs font-bold text-white transition-all duration-150 shadow-xs cursor-pointer disabled:opacity-50 active:scale-[0.98] ${
+                    saveSuccess ? 'bg-[#166534]' : 'bg-[#277254] hover:bg-[#1f5b43]'
+                  }`}
                 >
                   {saving ? (
                     <>
                       <Loader2 size={14} className="animate-spin" />
                       <span>Saving Profile...</span>
+                    </>
+                  ) : saveSuccess ? (
+                    <>
+                      <CheckCircle2 size={14} />
+                      <span>Changes Saved!</span>
                     </>
                   ) : (
                     <>
@@ -597,6 +621,7 @@ export function ProfilePage({ notify }: { notify: Notify }) {
             </div>
           </div>
         </form>
+        </PageTransition>
       )}
     </AppShell>
   );

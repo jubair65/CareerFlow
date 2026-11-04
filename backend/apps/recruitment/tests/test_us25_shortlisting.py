@@ -381,3 +381,34 @@ class US25AutomaticShortlistingTests(APITestCase):
         url = f"/api/recruitment/rooms/{self.room.id}/shortlisted-applicants/"
         res = self.client.get(url)
         self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_human_confirmed_shortlist_reflected_even_when_strategy_disabled(self):
+        """
+        US-26 / US-25 Integration: Authoritative human HR decision 'CONFIRMED'
+        is properly reflected in shortlisted_applicants even when automated strategy is NONE (Disabled).
+        """
+        # Ensure room strategy is disabled
+        self.room.shortlist_strategy = RecruitmentRoom.ShortlistStrategy.NONE
+        self.room.save(update_fields=['shortlist_strategy'])
+
+        # Manually confirm app1
+        self.app1.hr_decision = CandidateApplication.HrDecision.CONFIRMED
+        self.app1.hr_decision_notes = "Strong interview performance and confirmed by HR."
+        self.app1.hr_decided_by = self.hr_owner
+        self.app1.hr_decided_at = timezone.now()
+        self.app1.is_shortlisted = True
+        self.app1.save()
+
+        self.client.force_authenticate(user=self.hr_owner)
+        url = f"/api/recruitment/rooms/{self.room.id}/shortlisted-applicants/"
+        res = self.client.get(url)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["shortlisted_count"], 1)
+        self.assertEqual(len(res.data["shortlisted_applicants"]), 1)
+        
+        item = res.data["shortlisted_applicants"][0]
+        self.assertEqual(item["application_id"], self.app1.id)
+        self.assertTrue(item["is_shortlisted"])
+        self.assertEqual(item["hr_decision"], "CONFIRMED")
+        self.assertIn("Strong interview performance", item["shortlist_reason"])

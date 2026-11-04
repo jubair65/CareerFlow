@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   FolderOpen,
   Plus,
@@ -57,6 +58,7 @@ export function RoomList({
   onRoomDeleted,
   notify,
 }: RoomListProps) {
+  const prefersReduced = useReducedMotion();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'OPEN' | 'PAUSED' | 'CLOSED' | 'DRAFT'>('ALL');
   const [copiedId, setCopiedId] = useState<number | null>(null);
@@ -348,12 +350,19 @@ export function RoomList({
 
       {/* Grid of Rooms */}
       <div className="room-grid" data-testid="grid-recruitment-rooms">
-        {filteredRooms.map((room) => (
-          <div
-            key={room.id}
-            data-testid={`card-room-${room.id}`}
-            className="room-card"
-          >
+        <AnimatePresence>
+          {filteredRooms.map((room, idx) => (
+            <motion.div
+              key={room.id}
+              layout="position"
+              initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              whileHover={prefersReduced ? undefined : { y: -2 }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1], delay: prefersReduced ? 0 : Math.min(idx * 0.04, 0.3) }}
+              data-testid={`card-room-${room.id}`}
+              className="room-card"
+            >
             <div className="flex-1 min-w-0">
               {/* 1. Card Header: Company, Title & Status */}
               <div className="flex items-start justify-between gap-2.5 min-w-0">
@@ -388,6 +397,12 @@ export function RoomList({
                       : 'bg-[#f1f3f5] text-[#687382]'
                   }`}
                 >
+                  {(room.status === 'ACTIVE' || room.status === 'OPEN') && (
+                    <span className="relative flex h-1.5 w-1.5 mr-1.5 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#277254] opacity-75" />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#277254]" />
+                    </span>
+                  )}
                   {room.status === 'ACTIVE' ? 'OPEN' : room.status}
                 </span>
               </div>
@@ -788,7 +803,7 @@ export function RoomList({
                 <button
                   type="button"
                   onClick={() => setShortlistRoom(room)}
-                  title="Configure & View Candidate Shortlist (US-25)"
+                  title="Configure & View Candidate Shortlist"
                   data-testid={`button-action-shortlist-${room.id}`}
                   className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#a7d7c1] bg-[#e2f0e9] px-2 py-2 text-xs font-bold text-[#1f5b43] hover:bg-[#d0e8dc] transition shadow-2xs min-w-0 w-full min-h-[36px]"
                 >
@@ -797,8 +812,9 @@ export function RoomList({
                 </button>
               </div>
             </div>
-          </div>
+          </motion.div>
         ))}
+        </AnimatePresence>
       </div>
 
       {/* Edit Room Modal */}
