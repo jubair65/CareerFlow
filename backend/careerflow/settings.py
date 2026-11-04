@@ -70,11 +70,18 @@ WSGI_APPLICATION = 'careerflow.wsgi.application'
 AUTH_USER_MODEL = 'authentication.User'
 
 # Database configuration (MySQL via PyMySQL)
-DB_NAME = os.getenv('DB_NAME', 'careerflow_db')
-DB_USER = os.getenv('DB_USER', 'root')
-DB_PASSWORD = os.getenv('DB_PASSWORD', '')
-DB_HOST = os.getenv('DB_HOST', '127.0.0.1')
-DB_PORT = os.getenv('DB_PORT', '3306')
+DB_NAME = (os.getenv('DB_NAME') or os.getenv('DB_DATABASE') or 'careerflow_db').strip("'\"")
+DB_USER = (os.getenv('DB_USER') or os.getenv('DB_USERNAME') or 'root').strip("'\"")
+DB_PASSWORD = (os.getenv('DB_PASSWORD') or '').strip("'\"")
+DB_HOST = (os.getenv('DB_HOST') or '127.0.0.1').strip("'\"")
+DB_PORT = (os.getenv('DB_PORT') or '3306').strip("'\"")
+
+db_options = {
+    'charset': 'utf8mb4',
+    'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+}
+if 'tidbcloud' in DB_HOST:
+    db_options['ssl'] = {'ssl_mode': 'REQUIRED'}
 
 DATABASES = {
     'default': {
@@ -84,10 +91,7 @@ DATABASES = {
         'PASSWORD': DB_PASSWORD,
         'HOST': DB_HOST,
         'PORT': DB_PORT,
-        'OPTIONS': {
-            'charset': 'utf8mb4',
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-        },
+        'OPTIONS': db_options,
     }
 }
 
